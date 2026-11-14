@@ -17,7 +17,7 @@ That repository holds all of Beat Key's own code (the Swift app in `app/`, the P
 
 | Component | Version | Licence | Upstream / source |
 |---|---|---|---|
-| Beat Key (Swift app, `downloader.py`, `bpm.py`, `app_run.py`, `tempocnn_np.py`) | 0.1.16 | AGPL-3.0 (`LICENSE`) | https://github.com/thuhmadhatter42/beat_dl |
+| Beat Key (Swift app, `downloader.py`, `bpm.py`, `app_run.py`, `tempocnn_np.py`) | current release (file `VERSION`) | AGPL-3.0 (`LICENSE`) | https://github.com/thuhmadhatter42/beat_dl |
 | Essentia (audio analysis library, Python extension) | 2.1b6.dev1110, commit 77a6a954f9497278ac214467e8040d40cbecdc30, built by `tools/build-old-mac/essentia.sh` (no TensorFlow, no ffmpeg) | AGPL-3.0 | https://github.com/MTG/essentia , https://essentia.upf.edu |
 | TempoCNN model `deeptemp-k16-3` (`.pb` and its numpy conversion `.npz`) | as published by Essentia | CC BY-NC-SA 4.0 | https://essentia.upf.edu/models.html#tempocnn , https://github.com/hendriks73/tempo-cnn |
 | FFTW (linked statically into Essentia) | 3.3.10 | GPL-2.0-or-later | https://www.fftw.org , https://fftw.org/pub/fftw/fftw-3.3.10.tar.gz |
