@@ -273,6 +273,7 @@ final class LiveTests: XCTestCase {
     final class FakeCapture: AudioCapture {
         var onSamples: (([Float]) -> Void)?
         var onError: ((String) -> Void)?
+        var onDrop: ((CaptureDrop) -> Void)?
         var stopped = false
         func start(onSamples: @escaping ([Float]) -> Void, onError: @escaping (String) -> Void) {
             self.onSamples = onSamples; self.onError = onError

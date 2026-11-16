@@ -252,6 +252,14 @@ enum LiveSourcePlan: Equatable {
     }
 
     static let fallbackNotice = "SAVED INPUT MISSING · USING MAC AUDIO"
+
+    /// Pure: the input being heard dropped out mid-listen and would not restart. Mac audio takes
+    /// over (the same fallback as at the start; the saved choice stays); `.use(lost)` = nothing
+    /// else can capture (no System Audio on macOS 12, or it was already Mac audio), so Listen fails.
+    static func afterLoss(of lost: LiveSource, systemAvailable: Bool) -> LiveSourcePlan {
+        guard case .input(let uid, let ch) = lost, systemAvailable else { return .use(lost) }
+        return .fallback(.system, missingUID: uid ?? "default input", channel: ch)
+    }
     /// How long the notice stands in for the lamp's caption.
     static let noticeSeconds: TimeInterval = 8
 
@@ -418,6 +426,13 @@ protocol AudioCapture: AnyObject {
     /// Errors are LCD sentences ("ALLOW ..."). Either callback may arrive on any queue.
     func start(onSamples: @escaping ([Float]) -> Void, onError: @escaping (String) -> Void)
     func stop()
+    /// Told when the source drops out mid-listen and the capture can't carry on (CaptureDrop).
+    /// Only an input device can drop; the others keep this no-op.
+    var onDrop: ((CaptureDrop) -> Void)? { get set }
+}
+
+extension AudioCapture {
+    var onDrop: ((CaptureDrop) -> Void)? { get { nil } set {} }
 }
 
 /// Listen's input level, 0...1, on its own so its 20 Hz ticks redraw only the meter segments.
@@ -463,6 +478,8 @@ final class LiveController: ObservableObject {
     private let now: () -> Date
     private let devices: () -> [InputDevice]
     private var noticeWork: DispatchWorkItem?
+    /// What this Listen really opened (the plan's source, or Mac audio after a drop).
+    private var activeSource = LiveSource.system
     private var pipe: LivePipe?
     private var capture: AudioCapture?
     private var filler: SilenceFiller?
@@ -530,6 +547,7 @@ final class LiveController: ObservableObject {
         let devs = devices()
         let plan = LiveSourcePlan.plan(saved: settings.source, connectedUIDs: Set(devs.map(\.uid)),
                                        systemAvailable: settings.systemAvailable)
+        activeSource = plan.source
         sourceName = LiveSettings.name(of: plan.source, devices: devs)
         AppLog.log("listen: start · source \(sourceName) (\(plan.source.stored)) · gap \(settings.gap) s")
         hearingLabel = LiveController.hearing(plan.source, name: sourceName)
@@ -563,6 +581,21 @@ final class LiveController: ObservableObject {
         songs.begin(signal: p as? SongSignal)
         fillLock.lock(); filler = SilenceFiller(now: now()); clip.clear()
         window = LevelWindow(); windowSince = now(); fillLock.unlock()
+        run(cap, into: p, gen: gen)
+        let t = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in self?.fillSilence() }
+        RunLoop.main.add(t, forMode: .common)
+        fillTimer = t
+        let lt = Timer(timeInterval: 1.0 / 20, repeats: true) { [weak self] _ in self?.tickLevel() }
+        RunLoop.main.add(lt, forMode: .common)
+        levelTimer = lt
+    }
+
+    /// Starts `cap` feeding the analyzer. Also used when Mac audio takes over from a dropped input
+    /// (the analyzer, the song and the timers carry on).
+    private func run(_ cap: AudioCapture, into p: LivePipe, gen: Int) {
+        cap.onDrop = { [weak self] drop in
+            DispatchQueue.main.async { self?.inputDropped(drop, gen: gen) }
+        }
         cap.start(onSamples: { [weak self, weak p] samples in
             guard let self = self else { return }
             let pk = samples.reduce(Float(0)) { max($0, abs($1)) }
@@ -573,12 +606,42 @@ final class LiveController: ObservableObject {
         }, onError: { [weak self] message in
             DispatchQueue.main.async { self?.fail(message, gen: gen) }
         })
-        let t = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in self?.fillSilence() }
-        RunLoop.main.add(t, forMode: .common)
-        fillTimer = t
-        let lt = Timer(timeInterval: 1.0 / 20, repeats: true) { [weak self] _ in self?.tickLevel() }
-        RunLoop.main.add(lt, forMode: .common)
-        levelTimer = lt
+    }
+
+    static let waitingNotice = "WAITING FOR MUSIC..."
+    /// Peak (0...1) that counts as music again after the input dropped (about -60 dBFS).
+    static let musicPeak: Float = 0.001
+
+    /// The input dropped out mid-listen (device unplugged, format changed): not an error. Listening
+    /// stays on with a calm notice, the capture restarts itself on the device (InputCapture), and
+    /// when it can't, Mac audio takes over (LiveSourcePlan, as at the start); Listen fails only
+    /// when nothing at all can capture. The analyzer and the song are untouched.
+    func inputDropped(_ drop: CaptureDrop, gen: Int) {
+        guard gen == generation, state.isActive else { return }
+        switch drop {
+        case .waiting:
+            AppLog.log("listen: input \(sourceName) dropped out; still listening, LCD says \"\(LiveController.waitingNotice)\"")
+            showNotice(LiveController.waitingNotice, gen: gen, seconds: nil)
+        case .gone(let why):
+            switch LiveSourcePlan.afterLoss(of: activeSource, systemAvailable: settings.systemAvailable) {
+            case .use:
+                AppLog.log("listen: input \(sourceName) is gone (\(why)) and Mac audio is not available; failing")
+                fail(InputCapture.lostText, gen: gen)
+            case .fallback(let src, let uid, let ch):
+                guard let cap = makeCapture(src), let p = pipe else {
+                    AppLog.log("listen: input \(sourceName) is gone (\(why)); no Mac audio capture to fall back to; failing")
+                    fail(InputCapture.lostText, gen: gen); return
+                }
+                AppLog.log("listen: input \(sourceName) is gone (uid \(uid), ch \(ch); \(why)); falling back to Mac audio (System Audio); saved choice kept; same song")
+                capture?.stop()
+                capture = cap
+                activeSource = src
+                sourceName = LiveSettings.name(of: src, devices: devices())
+                hearingLabel = LiveController.hearing(src, name: sourceName)
+                showNotice(LiveSourcePlan.fallbackNotice, gen: gen)
+                run(cap, into: p, gen: gen)
+            }
+        }
     }
 
     /// The meter (20 Hz): the loudest sample since the last tick, falling back at most 20 % per
@@ -592,6 +655,11 @@ final class LiveController: ObservableObject {
         fillLock.unlock()
         let next = max(LevelMeter.scale(pk), level * 0.8)
         if abs(next - level) > 0.004 { meter.value = next < 0.01 ? 0 : next }
+        // "Waiting for music" ends with the first real sound after the drop.
+        if pk > LiveController.musicPeak, notice == LiveController.waitingNotice, state.isActive {
+            AppLog.log("listen: sound is back after the input dropped; \"\(LiveController.waitingNotice)\" cleared")
+            noticeWork?.cancel(); noticeWork = nil; notice = nil
+        }
         if let s = second, state.isActive { AppLog.log("listen: " + s.text) }
     }
 

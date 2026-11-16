@@ -117,15 +117,56 @@ final class Resampler {
     }
 }
 
+/// What to do after an input's engine stopped or changed format while Listen was on (the device
+/// dropped out, or its format changed). Pure; InputCapture follows it. Event-driven and bounded:
+/// one restart right away, one more after `retryDelay`, then the capture reports the input gone
+/// (LiveController falls back to Mac audio). Never an open-ended loop, never a timer that polls.
+enum InputRecovery: Equatable {
+    case restarted
+    case retry(after: TimeInterval)
+    case giveUp
+
+    static let maxAttempts = 2
+    static let retryDelay: TimeInterval = 1
+
+    /// `attempt` = 1 for the restart made right away, 2 for the retry; `ok` = it came back.
+    static func next(attempt: Int, ok: Bool) -> InputRecovery {
+        if ok { return .restarted }
+        return attempt < maxAttempts ? .retry(after: retryDelay) : .giveUp
+    }
+
+    /// A config change needs a restart when the engine stopped, or kept running with another
+    /// format than the tap was made for (the resampler would be wrong). Not otherwise: our own
+    /// restart must never cause another one.
+    static func needsRestart(engineRunning: Bool, tapRate: Double, tapChannels: Int,
+                             nowRate: Double, nowChannels: Int) -> Bool {
+        !engineRunning || tapRate != nowRate || tapChannels != nowChannels
+    }
+}
+
+/// A mid-listen drop of the capture's source, reported to the controller. Not an error: the
+/// controller shows a calm notice, or falls back to Mac audio (LiveSourcePlan).
+enum CaptureDrop: Equatable {
+    /// The restart didn't take at once; one more try is coming. The LCD says it is waiting for music.
+    case waiting
+    /// Nothing more to try on this input (`why` = for the log).
+    case gone(why: String)
+}
+
 /// The mic or any input device (and one of its channels) through AVAudioEngine. Asks for
 /// microphone access first (NSMicrophoneUsageDescription). Nothing is recorded: each tap buffer is
-/// mixed to mono, resampled and handed on.
+/// mixed to mono, resampled and handed on. When the device drops out or changes format
+/// (AVAudioEngineConfigurationChange) it restarts itself on the same device (InputRecovery).
 final class InputCapture: AudioCapture {
     let deviceUID: String?
     let channel: Int
+    var onDrop: ((CaptureDrop) -> Void)?
     private let engine = AVAudioEngine()
     private var running = false
     private var configObserver: NSObjectProtocol?
+    private var sink: (([Float]) -> Void)?
+    private var tapRate = 0.0
+    private var tapChannels = 0
 
     static let deniedText = "ALLOW MICROPHONE ACCESS IN SYSTEM SETTINGS › PRIVACY & SECURITY › MICROPHONE"
 
@@ -155,47 +196,94 @@ final class InputCapture: AudioCapture {
     }
 
     private func begin(_ onSamples: @escaping ([Float]) -> Void, _ onError: @escaping (String) -> Void) {
+        sink = onSamples
+        if let why = openEngine() { onError(why); return }
+        running = true
+        // Unplugged, or its format changed: AVAudioEngine stops by itself. Not an error: restart
+        // on the same device; if it won't come back, the controller falls back to Mac audio.
+        configObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main) { [weak self] _ in
+            self?.configChanged()
+        }
+    }
+
+    /// Points the engine at the device, taps it and starts it. nil = running; else the LCD sentence
+    /// for why not (everything is logged). Used at the start and again to restart after a change.
+    private func openEngine() -> String? {
         let input = engine.inputNode
         if let uid = deviceUID {
             guard var id = InputDevice.deviceID(uid: uid), let unit = input.audioUnit else {
                 AppLog.log("input capture: device uid \(uid) not connected (or no audio unit)")
-                onError("THAT INPUT IS NOT CONNECTED · PICK ANOTHER IN SETTINGS"); return
+                return "THAT INPUT IS NOT CONNECTED · PICK ANOTHER IN SETTINGS"
             }
             let st = AudioUnitSetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0,
                                           &id, UInt32(MemoryLayout<AudioDeviceID>.size))
             guard st == noErr else {
                 AppLog.log("input capture: AudioUnitSetProperty(CurrentDevice) for uid \(uid) failed, OSStatus \(st)")
-                onError("COULDN'T OPEN THAT INPUT (\(st))"); return
+                return "COULDN'T OPEN THAT INPUT (\(st))"
             }
         }
         let fmt = input.inputFormat(forBus: 0)
         guard fmt.channelCount > 0, fmt.sampleRate > 0, let resampler = Resampler(from: fmt.sampleRate) else {
             AppLog.log("input capture: no usable input format (\(fmt.channelCount) ch, \(fmt.sampleRate) Hz)")
-            onError("NO AUDIO INPUT FOUND"); return
+            return "NO AUDIO INPUT FOUND"
         }
         let ch = channel
+        let out = sink
         input.installTap(onBus: 0, bufferSize: 4096, format: fmt) { buf, _ in
-            onSamples(resampler.process(PCM.mono(buf, channel: ch)))
+            out?(resampler.process(PCM.mono(buf, channel: ch)))
         }
         engine.prepare()
         do {
             try engine.start()
-            running = true
-            // Unplugged, or its format changed: AVAudioEngine stops by itself and the meter would
-            // just go dead. Say so, in the log and on the LCD (source lost).
-            configObserver = NotificationCenter.default.addObserver(
-                forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main) { [weak self] _ in
-                guard let self = self, self.running else { return }
-                AppLog.log("input capture: audio configuration changed (device unplugged or its format changed); engine running \(self.engine.isRunning)")
-                if !self.engine.isRunning { onError(InputCapture.lostText) }
-            }
+            tapRate = fmt.sampleRate; tapChannels = Int(fmt.channelCount)
+            return nil
         } catch {
             input.removeTap(onBus: 0)
             AppLog.log("input capture: engine start failed: \(error)")
-            onError("COULDN'T START THE INPUT: \(error.localizedDescription.uppercased())")
+            return "COULDN'T START THE INPUT: \(error.localizedDescription.uppercased())"
         }
     }
 
+    private var deviceLabel: String {
+        deviceUID.map { u in InputDevice.all().first { $0.uid == u }?.name ?? u } ?? "the default input"
+    }
+
+    private func configChanged() {
+        guard running else { return }
+        let fmt = engine.inputNode.inputFormat(forBus: 0)
+        AppLog.log("input capture: audio configuration changed (device dropped out or its format changed); engine running \(engine.isRunning); format \(fmt.channelCount) ch \(fmt.sampleRate) Hz (was \(tapChannels) ch \(tapRate) Hz)")
+        guard InputRecovery.needsRestart(engineRunning: engine.isRunning, tapRate: tapRate, tapChannels: tapChannels,
+                                         nowRate: fmt.sampleRate, nowChannels: Int(fmt.channelCount)) else {
+            AppLog.log("input capture: config change -> engine still running on the same format; left alone")
+            return
+        }
+        recover(attempt: 1)
+    }
+
+    /// Restart on the same device (the engine stopped, or needs the new format). A failure waits
+    /// `InputRecovery.retryDelay` and tries once more, then gives the input up (`onDrop(.gone)`).
+    private func recover(attempt: Int) {
+        guard running else { return }
+        engine.inputNode.removeTap(onBus: 0)
+        engine.stop()
+        let failure = openEngine()
+        switch InputRecovery.next(attempt: attempt, ok: failure == nil) {
+        case .restarted:
+            AppLog.log("input capture: config change -> restarted on \(deviceLabel) (attempt \(attempt))")
+        case .retry(let after):
+            AppLog.log("input capture: config change -> restart on \(deviceLabel) failed (\(failure ?? "?")); trying once more in \(after) s")
+            if attempt == 1 { onDrop?(.waiting) }
+            DispatchQueue.main.asyncAfter(deadline: .now() + after) { [weak self] in
+                self?.recover(attempt: attempt + 1)
+            }
+        case .giveUp:
+            AppLog.log("input capture: config change -> failed: \(failure ?? "?")")
+            onDrop?(.gone(why: failure ?? "restart failed"))
+        }
+    }
+
+    /// The error when nothing at all can capture after a drop (no Mac audio to fall back to).
     static let lostText = "THE INPUT WENT AWAY · CHECK IT AND START LISTENING AGAIN"
 
     func stop() {
