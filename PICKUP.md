@@ -1,6 +1,6 @@
 # PICKUP — beat_dl
 
-## CURRENT STATE — 2026-11-17 02:50
+## CURRENT STATE — 2026-11-17 14:45
 
 **0.1.73 PUBLIC (2026-11-17 02:03).** GitHub release Beat-Key-0.1.73 (pkg + DMG + appcast; Sparkle feed reads 0.1.73), Sofia `~/dev/fourletterrecords/beat-key-latest.json` = 0.1.73, pkg md5 on Sofia = local (55de20e2…), download page 303. Log app/build/publish-0.1.73.log.
 - 0.1.73 = b033b6c input drop / format change mid-listen is not an error (restart same device, 1 retry, then Mac-audio fallback; "WAITING FOR MUSIC..."); 89d3e2c LIVE legend in display colour; e12702a listening/analyzing lamps in display colour (FAILED stays red).
@@ -13,7 +13,7 @@
 
 **Sofia sharing (J + Alex) DONE by rig session 20c38d94 (06-ai/claude-code):** `/dev/console` shows last login, not screen owner; check is now `~/.claude/skills/sofia-screen/sofia-screen.sh session` (0 go · 3 virtual · 4 J locked · 5 no GUI). Reply handoff/FROM-RIG-2026-11-17-sofia-shared-access-done.md. Still shared: audio hardware (BlackHole rate change hits Alex's session), tailscaled TCC grants.
 
-**Help fix on main, NOT built (2de34dc, 2026-11-17 03:49):** all 8 findings in digs/help-audit-2026-11-17.md fixed (Help > Beat Key Help ⌘? opens HelpWindow.swift from the same HelpText table; Help Mode moved to Help menu; HELP chip accent outline; login/paging/readout/settings/permissions/doctor tips; AutoTuneSend.shortcutDisplay shared; HelpTipLogic.cardOrigin keeps cards off neighbours). 471 tests, 0 failures. Not seen on screen yet. **Next (agent, no J needed):** bump VERSION 0.1.74, `DMG_LAYOUT_FROM=<0.1.73 DMG copy> app/build.sh > app/build/build-0.1.74.log`, install on Sofia, check Help live (menu item opens window, chip, tips placement) with screenshots, then ask J to publish. Caveat: Auto-Tune tip now names only ⌃⌥⌘A; in-window ⇧⌘A still works.
+**0.1.74 (Help fix) BUILT, not published (2026-11-17 14:45).** VERSION 0.1.74 (c0b8fb0). First build 13:52 checked on Sofia (agent, app/build/help-check-0.1.74/ + log.txt): chip outline, Help menu items, Help window, login/readout/settings/doctor tips PASS; FAIL = Auto-Tune card covered its own button + EXPORT MIDI/HELP/ADVANCED, ‹ › cards covered "3 OF 3"/SHOW IN FINDER, no ⌘? glyph. Fix b982707 merged (93af7a4, pushed): cardOrigin searches whole surface, hovered control worst, `.helpBlocker()` on wordmark/BPM/page counter; HelpMenuItem.swift gives item showHelp: + ⌘? (macOS 27 draws no ⌘? even in TextEdit; system owns ⌘? for Help search). 477 tests, 0 failures. Rebuild log app/build/build-0.1.74b.log. **Next (agent, no J):** install rebuilt 0.1.74 on Sofia, recheck the 3 fails with screenshots (app/build/help-check-0.1.74b/), then ask J to publish (`! bash ~/dev/beat_dl/tools/publish.sh`). If ⌘? glyph absent on Sofia too, compare TextEdit there; match it.
 
 **Owed by J:**
 2. Optional: MBP hand test with Artemis (Listen, restart Artemis or change its rate; expect no red FAILED).
