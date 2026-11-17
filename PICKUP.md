@@ -1,6 +1,24 @@
 # PICKUP — beat_dl
 
-## CURRENT STATE — 2026-11-13 23:10
+## CURRENT STATE — 2026-11-16 22:15
+
+**0.1.73 on local main, NOT published.** Public release is still 0.1.72.
+- b033b6c 0.1.73: input drop / format change mid-listen is not an error. `InputCapture.configChanged/recover` (app/Sources/Orion/Live/AudioInput.swift) restarts on the same device (one retry after 1 s, no polling); 2nd failure → `LiveController.inputDropped` falls back to Mac audio via `LiveSourcePlan.afterLoss` (same song, saved choice kept, SOURCE shows System Audio); notice "WAITING FOR MUSIC..." when the first restart fails; red FAILED "THE INPUT WENT AWAY" only when nothing can capture (macOS 12 / no Mac audio). Cause found 2026-11-15 22:29 in beatkey.log: Artemis config change → old code went straight to FAILED.
+- 89d3e2c status legend "LIVE · <source>" uses the user's display colour (accent), FAILED stays red. 457 tests, 10 skipped, 0 failures.
+- Installed on MBP: notarized 0.1.73 build from b033b6c (no legend colour yet), launched OK 2026-11-16 19:11 (log: LAUNCH version 0.1.73). 0.1.72 in MBP Trash. Build log app/build/build-0.1.73.log; DMG + pkg notarized Accepted, stapled.
+
+**Running at 22:15 (background agents, worktrees under .claude/worktrees/):**
+1. Listening lamps → accent (J said yes 2026-11-16 22:13): Lamp.listening, LCD StateLamp LISTENING/ANALYZING, MenuBar lamp, LiveSession lamp, PocketView LISTEN button lamp + glow, pocket dial. FAILED/error reds stay. Commit lands on its worktree branch; then cherry-pick to main, full suite.
+2. Sofia hand test of the input drop: install 0.1.73 on Sofia, liveSource `input:0:BlackHole2ch_UID`, Listen, change BlackHole 2ch rate 44100→48000→44100, expect `config change -> restarted` and no red FAILED; close step restores rate 44100 and `defaults delete com.jshriver.orion liveSource`. Evidence + log: /private/tmp/claude-501/-Users-jshriver-dev-beat-dl/304faf5d-57c6-406e-9850-5395994b0b25/scratchpad/sofia-test/test.log. (First try 19:17 blocked: Sofia locked, alex on console; J fixed it 22:13.) macOS 12 has no Mac audio, so the fallback-to-Mac-audio path is untested by hand.
+
+**Next (agent):** after both agents: review, merge lamps commit, `app/build.sh > app/build/build-0.1.73.log` (rebuild 0.1.73 with legend + lamps), reinstall on MBP (quit Orion, Trash old, ditto app/build/Beat Key.app), report Sofia results.
+**Owed by J:**
+1. Go to publish 0.1.73 (`tools/publish.sh`) after the rebuild.
+2. Optional: hand test on MBP with Artemis: Listen on Artemis, restart Artemis or change its sample rate; expect no red FAILED.
+3. Older items below (Studio D Listen + Accessibility, D-143c883a4a checks, pkg refuse test) still open.
+**Leftover:** locked stale worktree `.claude/worktrees/agent-a721d561beed4c2a0` (branch merged as b033b6c); remove with `git worktree remove -f -f` once its agent pid is gone.
+
+## (previous) 2026-11-13 23:10
 
 **0.1.71 PUBLIC (21:0x, tools/publish.sh, PUBLISHED 0.1.71; appcast live = 0.1.71).** = permission walkthrough (`app/Sources/Orion/Permissions/`): one window, Screen & System Audio Recording → Microphone (skippable) → Accessibility, opens the exact Settings pane, polls 1 s while open, "Quit & Reopen" for Screen Recording; opens at launch if missing, on Listen/Send-to-DAW permission errors, menu "Set Up Permissions…", Doctor permission hint. [SUPERSEDED 2026-11-13 22:15: MBP has 0.1.72 installed, see next line] MBP had notarized 0.1.71 installed, not opened.
 **0.1.72 PUBLIC (tools/publish.sh: PUBLISHED 0.1.72; `gh release list` shows it Latest, created 2026-11-13 22:10 Pacific).** Verified: GitHub release Beat-Key-0.1.72 assets appcast.xml + Beat-Key-0.1.72.dmg + Beat-Key-0.1.72.pkg; latest appcast 0.1.72; DMG and pkg each notarized Accepted + stapled; Sofia beat-key-latest.json 0.1.72; main = origin/main. Installed on the MBP (notarized, not opened). Mac Pro still on 0.1.70 (it can take the update itself). 445 Swift tests 0 failures, publish tests OK. 0.1.72 = downloads switch to signed+notarized `Beat-Key-<V>.pkg` (app/pkg/distribution.xml: installation-check refuses with Fatal "Quit Beat Key… then open this installer again" when com.jshriver.orion or an Orion.app/Beat Key.app is running; postinstall opens Beat Key as console user); DMG + appcast kept for Sparkle; one Sparkle background check at every launch (`AppUpdater.checkInBackgroundAtLaunch`); `TwinCheck` at launch quits an older running copy. The 5-second InstallGuard poll was built then REMOVED on J's order ("don't do it every five seconds… overhead") — never add periodic checks.
