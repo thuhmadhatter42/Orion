@@ -13,6 +13,8 @@
 
 **Sofia sharing (J + Alex) DONE by rig session 20c38d94 (06-ai/claude-code):** `/dev/console` shows last login, not screen owner; check is now `~/.claude/skills/sofia-screen/sofia-screen.sh session` (0 go · 3 virtual · 4 J locked · 5 no GUI). Reply handoff/FROM-RIG-2026-11-17-sofia-shared-access-done.md. Still shared: audio hardware (BlackHole rate change hits Alex's session), tailscaled TCC grants.
 
+**Help fix on main, NOT built (2de34dc, 2026-11-17 03:49):** all 8 findings in digs/help-audit-2026-11-17.md fixed (Help > Beat Key Help ⌘? opens HelpWindow.swift from the same HelpText table; Help Mode moved to Help menu; HELP chip accent outline; login/paging/readout/settings/permissions/doctor tips; AutoTuneSend.shortcutDisplay shared; HelpTipLogic.cardOrigin keeps cards off neighbours). 471 tests, 0 failures. Not seen on screen yet. **Next (agent, no J needed):** bump VERSION 0.1.74, `DMG_LAYOUT_FROM=<0.1.73 DMG copy> app/build.sh > app/build/build-0.1.74.log`, install on Sofia, check Help live (menu item opens window, chip, tips placement) with screenshots, then ask J to publish. Caveat: Auto-Tune tip now names only ⌃⌥⌘A; in-window ⇧⌘A still works.
+
 **Owed by J:**
 2. Optional: MBP hand test with Artemis (Listen, restart Artemis or change its rate; expect no red FAILED).
 3. Optional: meter clip red segments (PocketView ~1523, top 2 of 12) stay red or take the display colour?
