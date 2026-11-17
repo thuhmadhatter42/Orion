@@ -252,6 +252,36 @@ final class HelpTests: XCTestCase {
         XCTAssertEqual(Brand.help, "Beat Key Help")
     }
 
+    /// The standard Help item (read from a probe app, 2026-11-17): showHelp:, "?", Command only.
+    func testHelpItemIsAppKitsStandardOne() {
+        let bar = NSMenu()
+        let helpMenu = NSMenu(title: "Help")
+        let item = NSMenuItem(title: Brand.help, action: Selector(("menuAction:")), keyEquivalent: "")
+        helpMenu.addItem(item)
+        helpMenu.addItem(NSMenuItem(title: "Help Mode", action: nil, keyEquivalent: ""))
+        let top = NSMenuItem(title: "Help", action: nil, keyEquivalent: "")
+        top.submenu = helpMenu
+        bar.addItem(top)
+        XCTAssertTrue(HelpMenuItem.shared.apply(to: bar))
+        XCTAssertEqual(item.action, NSSelectorFromString("showHelp:"))
+        XCTAssertTrue(item.target === HelpMenuItem.shared)
+        XCTAssertEqual(item.keyEquivalent, "?")
+        XCTAssertEqual(item.keyEquivalentModifierMask, .command)
+        XCTAssertTrue(HelpMenuItem.shared.responds(to: NSSelectorFromString("showHelp:")))
+        // a second pass changes nothing (the menu-change notifications must settle)
+        XCTAssertTrue(HelpMenuItem.shared.apply(to: bar))
+        XCTAssertEqual(item.keyEquivalentModifierMask, .command)
+    }
+
+    func testHelpItemMissingIsLogged() throws {
+        let src = try source("HelpMenuItem.swift")
+        XCTAssertTrue(src.contains("AppLog.log(\"FAILED to attach the Help shortcut"))
+        XCTAssertFalse(HelpMenuItem.shared.apply(to: NSMenu()))
+        XCTAssertFalse(HelpMenuItem.shared.apply(to: nil))
+        let app = try source("OrionApp.swift")
+        XCTAssertTrue(app.contains("HelpMenuItem.shared.install()"))
+    }
+
     func testHelpWindowErrorsGoToTheAppLog() throws {
         let w = try source("HelpWindow.swift")
         XCTAssertTrue(w.contains("AppLog.log(\"FAILED to show the help window"))
@@ -289,9 +319,13 @@ final class HelpTests: XCTestCase {
         let bounds = CGSize(width: 1000, height: 700)
         let card = CGSize(width: 212, height: 60)
         let control = CGRect(x: 100, y: 100, width: 80, height: 30)
-        let p = CGPoint(x: 120, y: 110)
+        let p = CGPoint(x: 178, y: 110)     // at the control's right edge: down-right of the pointer is clear
         XCTAssertEqual(HelpTipLogic.cardOrigin(cursor: p, card: card, in: bounds, control: control, avoiding: [control]),
                        HelpTipLogic.cardOrigin(cursor: p, card: card, in: bounds))
+        // deeper inside, the same card would sit on the control it explains: it moves off
+        let inside = CGPoint(x: 120, y: 110)
+        let o = HelpTipLogic.cardOrigin(cursor: inside, card: card, in: bounds, control: control, avoiding: [control])
+        XCTAssertFalse(CGRect(origin: o, size: card).intersects(control))
     }
 
     func testCardStaysInsideWhenControlsFillTheSurface() {
@@ -308,6 +342,147 @@ final class HelpTests: XCTestCase {
             XCTAssertLessThanOrEqual(c.maxX, bounds.width - HelpTipLogic.margin + 0.001)
             XCTAssertLessThanOrEqual(c.maxY, bounds.height - HelpTipLogic.margin + 0.001)
         }
+    }
+
+    // MARK: no card covers a control (J 2026-11-17, Sofia check of 0.1.74)
+
+    /// The explainable controls of the real window (default size, a reading with 3 files), as the layer reports them.
+    static let windowFrames: [CGRect] = [
+        CGRect(x: 419.5, y: 42.5, width: 58.5, height: 13.0),
+        CGRect(x: 48.0, y: 131.0, width: 186.0, height: 80.0),
+        CGRect(x: 48.0, y: 223.0, width: 264.0, height: 16.0),
+        CGRect(x: 48.0, y: 245.0, width: 104.5, height: 12.0),
+        CGRect(x: 390.5, y: 195.0, width: 27.5, height: 16.0),
+        CGRect(x: 375.0, y: 215.0, width: 58.5, height: 12.0),
+        CGRect(x: 328.0, y: 109.0, width: 152.0, height: 152.0),
+        CGRect(x: 402.0, y: 266.0, width: 78.0, height: 20.0),
+        CGRect(x: 48.0, y: 294.0, width: 432.0, height: 33.0),
+        CGRect(x: 48.0, y: 339.0, width: 432.0, height: 96.0),
+        CGRect(x: 48.0, y: 443.0, width: 432.0, height: 16.0),
+        CGRect(x: 48.0, y: 467.0, width: 432.0, height: 12.0),
+        CGRect(x: 28.0, y: 511.0, width: 308.0, height: 36.0),
+        CGRect(x: 348.0, y: 512.0, width: 152.0, height: 34.0),
+        CGRect(x: 28.0, y: 555.0, width: 308.0, height: 36.0),
+        CGRect(x: 348.0, y: 556.0, width: 152.0, height: 34.0),
+        CGRect(x: 28.0, y: 599.0, width: 182.0, height: 36.0),
+        CGRect(x: 222.0, y: 600.0, width: 72.0, height: 34.0),
+        CGRect(x: 302.0, y: 600.0, width: 34.0, height: 34.0),
+        CGRect(x: 348.0, y: 600.0, width: 152.0, height: 34.0),
+        CGRect(x: 28.0, y: 668.0, width: 148.0, height: 26.0),
+        CGRect(x: 188.0, y: 668.0, width: 148.0, height: 26.0),
+        CGRect(x: 348.0, y: 668.0, width: 152.0, height: 26.0),
+        CGRect(x: 48.0, y: 710.0, width: 73.5, height: 16.0),
+        CGRect(x: 137.5, y: 710.0, width: 73.0, height: 16.0),
+        CGRect(x: 226.5, y: 710.0, width: 67.5, height: 16.0),
+        CGRect(x: 310.0, y: 710.0, width: 46.0, height: 16.0),
+        CGRect(x: 403.5, y: 710.0, width: 76.5, height: 16.0),
+    ]
+
+    /// The send row of the real 528 x 756 window, as the layer measured it (card 212 x 84): hovering
+    /// SEND TO AUTO-TUNE put the card on the right half of the button, EXPORT MIDI, HELP and ADVANCED.
+    func testAutoTuneCardKeepsOffItsOwnButtonAndTheFooter() {
+        let bounds = CGSize(width: 528, height: 756)
+        let card = CGSize(width: 212, height: 84)
+        let autoTune = CGRect(x: 188, y: 668, width: 148, height: 26)
+        let others = Self.windowFrames
+        let cursor = CGPoint(x: 220, y: 680)
+        let o = HelpTipLogic.cardOrigin(cursor: cursor, card: card, in: bounds, control: autoTune, avoiding: others)
+        let r = CGRect(origin: o, size: card)
+        XCTAssertFalse(r.intersects(autoTune), "card \(r) covers the hovered button")
+        for n in others where n != autoTune { XCTAssertFalse(r.intersects(n), "card \(r) covers \(n)") }
+    }
+
+    /// A cramped row: the hovered arrow, a counter and a link right beside it, a group around all three.
+    func testCardIgnoresAGroupAroundTheControlButAvoidsItsNeighbours() {
+        let bounds = CGSize(width: 528, height: 400)
+        let card = CGSize(width: 212, height: 60)
+        let prev = CGRect(x: 48, y: 200, width: 16, height: 16)
+        let counter = CGRect(x: 68, y: 200, width: 40, height: 16)
+        let next = CGRect(x: 112, y: 200, width: 16, height: 16)
+        let finder = CGRect(x: 140, y: 200, width: 100, height: 16)
+        let group = CGRect(x: 48, y: 196, width: 200, height: 24)       // the row around the arrow
+        let above = CGRect(x: 48, y: 120, width: 432, height: 60)       // the filename and BPM, readable
+        let o = HelpTipLogic.cardOrigin(cursor: CGPoint(x: 56, y: 208), card: card, in: bounds, control: prev,
+                                        avoiding: [group, prev, counter, next, finder, above])
+        let r = CGRect(origin: o, size: card)
+        for n in [prev, counter, next, finder, above] { XCTAssertFalse(r.intersects(n), "card \(r) covers \(n)") }
+    }
+
+    /// No spot is fully clear: the card still never covers the hovered control and covers the least.
+    func testCrowdedSurfaceKeepsOffTheHoveredControlAndCoversLeast() {
+        let bounds = CGSize(width: 376, height: 300)
+        let card = CGSize(width: 212, height: 60)
+        var rects: [CGRect] = []
+        for y in stride(from: 8.0, to: 290.0, by: 34) { rects.append(CGRect(x: 8, y: y, width: 360, height: 30)) }
+        let hovered = rects[4]
+        let o = HelpTipLogic.cardOrigin(cursor: CGPoint(x: hovered.midX, y: hovered.midY), card: card, in: bounds,
+                                        control: hovered, avoiding: rects)
+        let r = CGRect(origin: o, size: card)
+        XCTAssertFalse(r.intersects(hovered), "card \(r) covers the hovered control")
+        let touched = rects.filter { r.intersects(HelpTipLogic.solid($0)) }.count
+        XCTAssertLessThanOrEqual(touched, 2, "a 60 pt card needs at most two 34 pt rows")
+    }
+
+    /// The real window, real frames, every tip: the card covers no control, and the hovered one never.
+    @MainActor
+    func testRealWindowCardsCoverNoControl() throws {
+        guard #available(macOS 13.0, *) else { throw XCTSkip("ImageRenderer is macOS 13+") }
+        Pocket.snapshot = true
+        var seen: [String: HelpTipLogic.Placement] = [:]
+        HelpTipLogic.onPlace = { seen[$0.tip] = $0 }
+        defer { Pocket.snapshot = false; HelpTipLogic.onPlace = nil }
+        let r = Result(file: URL(fileURLWithPath: "/x/Beats/Beat C.wav"), name: "Beat C.wav", bpm: "142.0",
+                       keys: [("Cm", 61), ("Eb", 18), ("Gm", 9)], bpmExact: 141.98, tuningCents: 12,
+                       chroma: [1.0, 0.08, 0.42, 0.81, 0.06, 0.37, 0.1, 0.93, 0.62, 0.05, 0.48, 0.12])
+        var s = PocketState()
+        s.source = "System Audio"
+        s.daw = "Pro Tools"
+        s.help = true
+        s.readout = .result(r, page: "3 OF 3", download: false, options: ResultOptions(
+            factor: .one, tuning: Tuning.meter(12, reference: 440), onCycleTempo: {}))
+        func face(_ st: PocketState) -> AnyView {
+            AnyView(FaceplateFace(state: st, picked: [], url: .constant(""), fieldFocused: .constant(false),
+                                  pickFocused: .constant(false)))
+        }
+        var advanced = s
+        advanced.advanced = true
+        advanced.harmony = HarmonyPrefs(quality: .seventh, voicing: .root, bars: 2, matchKey: "Am")
+        let surfaces: [(String, AnyView)] = [("window", face(s)), ("window+advanced", face(advanced)),
+                                             ("pocket", AnyView(PocketView(state: s, url: .constant(""))))]
+        var checked = 0
+        var crowded: [String] = []
+        for (name, view) in surfaces {
+            for tip in HelpText.all {
+                seen[tip.id] = nil
+                let v = view.environment(\.helpTipForced, tip.id).environment(\.colorScheme, .dark)
+                _ = ImageRenderer(content: v).cgImage
+                // a tip this surface doesn't draw has no placement
+                guard let p = seen[tip.id] else { continue }
+                checked += 1
+                let card = CGRect(origin: p.origin, size: p.card)
+                XCTAssertGreaterThan(p.card.height, 30, "\(name) \(tip.id): the card was never measured")
+                XCTAssertFalse(card.intersects(p.control), "\(name) \(tip.id): card \(card) covers its own control \(p.control)")
+                let blocked = HelpTipLogic.blockers(p.others, control: p.control)
+                let covers = HelpTipLogic.coverage(card, control: p.control, blockers: blocked)
+                // never worse than an exhaustive search of the surface (4 pt steps)
+                var least = CGFloat.infinity
+                for y in stride(from: HelpTipLogic.margin, through: max(HelpTipLogic.margin, p.bounds.height - p.card.height - HelpTipLogic.margin), by: 4) {
+                    for x in stride(from: HelpTipLogic.margin, through: max(HelpTipLogic.margin, p.bounds.width - p.card.width - HelpTipLogic.margin), by: 4) {
+                        let c = HelpTipLogic.coverage(CGRect(origin: CGPoint(x: x, y: y), size: p.card), control: p.control, blockers: blocked)
+                        least = min(least, c)
+                    }
+                }
+                XCTAssertLessThanOrEqual(covers, least + 0.15, "\(name) \(tip.id): card \(card) covers more than the best spot")
+                // the window (the Sofia check): no control is touched beyond a sliver of its edge
+                if name == "window" {
+                    for n in blocked where card.intersects(HelpTipLogic.solid(n)) {
+                        crowded.append("window \(tip.id): card \(card) covers \(n)")
+                    }
+                }
+            }
+        }
+        XCTAssertGreaterThan(checked, 25, "the real surfaces drew too few tips to prove anything")
+        XCTAssertEqual(crowded, [], "a card covers part of a control in the real window")
     }
 
     // MARK: offscreen renders (ORION_SNAPSHOT_DIR=<dir> swift test --filter HelpTests/testRender)
@@ -353,6 +528,12 @@ final class HelpTests: XCTestCase {
         try write(window(off), "window-advanced-help-off")
         try write(window(on), "window-advanced-help-on")
         try write(window(on, forced: HelpText.chords), "window-advanced-help-chords")
+        var paged = plainOn
+        paged.readout = .result(r, page: "3 OF 3", download: false, options: ResultOptions(
+            factor: .one, tuning: Tuning.meter(12, reference: 440), onCycleTempo: {}))
+        for tip in [HelpText.autoTune, HelpText.prevFile, HelpText.nextFile, HelpText.exportMidi, HelpText.advanced] {
+            try write(window(paged, forced: tip), "window-help-" + tip.id.lowercased().replacingOccurrences(of: " ", with: "-"))
+        }
         try write(window(plainOn, forced: HelpText.keyboard), "window-default-help-keyboard")
         try write(window(plainOn, forced: HelpText.help), "window-default-help-chip")
         // the forced tip with help off: nothing shows (inert)

@@ -514,6 +514,7 @@ private struct PocketHeader: View {
                 .overlay(Theme.vertical([(Theme.hex(0xf4f4f6), 0), (Theme.hex(0xababb0), 0.55), (Theme.hex(0xcbcbcf), 1)]).mask(t))
                 .fixedSize()
                 .accessibility(label: Text(Brand.name))
+                .helpBlocker()
             Spacer()
             StatusLegend(status: .of(state), metrics: .compact)
         }
@@ -1075,7 +1076,7 @@ private struct ResultSide: View {
         let bpm = Tempo.text(result, factor: options.factor)
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: Theme.S.s) {
-                Text.cap("BPM", palette)
+                Text.cap("BPM", palette).helpBlocker()
                 Spacer(minLength: Theme.S.xs)
                 FactorChips(factor: options.factor, enabled: bpm != nil, set: actions.setFactor)
             }
@@ -1114,7 +1115,7 @@ private struct ResultSide: View {
                 if let p = page {
                     Spacer(minLength: 2)
                     PageArrow(glyph: "‹", label: "Previous file") { actions.page(-1) }
-                    Text(p).captionStyle().foregroundColor(palette.a2).fixedSize()
+                    Text(p).captionStyle().foregroundColor(palette.a2).fixedSize().helpBlocker()
                     PageArrow(glyph: "›", label: "Next file") { actions.page(1) }
                 }
             }

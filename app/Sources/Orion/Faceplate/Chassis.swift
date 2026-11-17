@@ -108,6 +108,7 @@ struct Wordmark: View {
                     .mask(t))
             .lineBox(24, 1)
             .accessibility(label: Text(Brand.name))
+            .helpBlocker()    // readable: no help card sits on the name
     }
 }
 

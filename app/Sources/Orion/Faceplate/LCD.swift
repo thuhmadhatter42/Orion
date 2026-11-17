@@ -345,9 +345,9 @@ struct ResultReadout: View {
     private var bpmColumn: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: Theme.S.s) {
-                Text.cap("BPM", palette)
+                Text.cap("BPM", palette).helpBlocker()
                 if let period = Faceplate.tempoPeriod(bpmShown) {
-                    TempoLight(period: period)
+                    TempoLight(period: period).helpBlocker()
                 }
                 Spacer(minLength: Theme.S.xs)
                 // Advanced mode: the x0.5 / x1 / x2 chips. Default: a click on the BPM cycles them
@@ -388,7 +388,7 @@ struct ResultReadout: View {
                         if let p = page {
                             HStack(spacing: Theme.S.xs) {
                                 PageArrow(glyph: "‹", label: "Previous file") { actions.page(-1) }
-                                Text(p).captionStyle().foregroundColor(palette.a2).accessibility(label: Text(p.lowercased()))
+                                Text(p).captionStyle().foregroundColor(palette.a2).accessibility(label: Text(p.lowercased())).helpBlocker()
                                 PageArrow(glyph: "›", label: "Next file") { actions.page(1) }
                             }
                         }
