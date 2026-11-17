@@ -142,6 +142,7 @@ enum AppStatus: Equatable {
     var shape: Lamp { self == .ready ? .locked : .listening }
 
     /// The word's colour, the lamp's fill and its glow (High Contrast: no glow, as everywhere).
+    /// READY green, WORKING and LIVE the display colour in use, FAILED red.
     struct Look: Equatable {
         let text: Color
         let lamp: Color
@@ -152,8 +153,9 @@ enum AppStatus: Equatable {
         let l: Look = {
             switch self {
             case .ready: return Look(text: Theme.greenText, lamp: Theme.green, glow: Theme.greenGlow)
-            case .working: return Look(text: palette.amber, lamp: palette.amber, glow: palette.amberGlow)
-            case .failed, .live: return Look(text: Theme.redText, lamp: Theme.red, glow: Theme.red.opacity(0.7))
+            // WORKING and LIVE are the display colour J picked (COLOR); only FAILED is red
+            case .working, .live: return Look(text: palette.amber, lamp: palette.amber, glow: palette.amberGlow)
+            case .failed: return Look(text: Theme.redText, lamp: Theme.red, glow: Theme.red.opacity(0.7))
             }
         }()
         return palette.highContrast ? Look(text: l.text, lamp: l.lamp, glow: .clear) : l

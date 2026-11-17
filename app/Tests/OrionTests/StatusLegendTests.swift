@@ -27,10 +27,10 @@ final class StatusLegendTests: XCTestCase {
             ("doctor fixed", doctor(.fixed), false, .ready, "READY", .locked, ready),
             ("doctor failed", doctor(.failed), false, .failed, "FAILED", .listening, red),
             ("login", .login("A", "B", caption: nil), false, .ready, "READY", .locked, ready),
-            ("listening", .listening(status: "LISTENING"), true, .live("SYSTEM AUDIO"), "LIVE · SYSTEM AUDIO", .listening, red),
-            ("live reading", .result(r, page: nil, download: false), true, .live("SYSTEM AUDIO"), "LIVE · SYSTEM AUDIO", .listening, red),
+            ("listening", .listening(status: "LISTENING"), true, .live("SYSTEM AUDIO"), "LIVE · SYSTEM AUDIO", .listening, working),
+            ("live reading", .result(r, page: nil, download: false), true, .live("SYSTEM AUDIO"), "LIVE · SYSTEM AUDIO", .listening, working),
             // Listen wins over whatever the engine shows
-            ("live over doctor failed", doctor(.failed), true, .live("SYSTEM AUDIO"), "LIVE · SYSTEM AUDIO", .listening, red),
+            ("live over doctor failed", doctor(.failed), true, .live("SYSTEM AUDIO"), "LIVE · SYSTEM AUDIO", .listening, working),
         ]
         for (name, readout, listening, status, word, shape, look) in table {
             var s = PocketState()
@@ -43,6 +43,17 @@ final class StatusLegendTests: XCTestCase {
             XCTAssertEqual(got.shape, shape, name)
             XCTAssertEqual(got.look(p), look, name)
         }
+    }
+
+    /// LIVE wears the display colour J picked (not amber by default alone); FAILED stays red.
+    func testLiveUsesTheAccentAndFailedStaysRed() {
+        let p = Palette(accent: Accent(60, 160, 255), highContrast: false)
+        let live = AppStatus.live("SYSTEM AUDIO").look(p)
+        XCTAssertEqual(live, AppStatus.Look(text: p.amber, lamp: p.amber, glow: p.amberGlow))
+        XCTAssertNotEqual(live.text, Palette().amber)
+        XCTAssertNotEqual(live.lamp, Theme.red)
+        XCTAssertEqual(AppStatus.failed.look(p),
+                       AppStatus.Look(text: Theme.redText, lamp: Theme.red, glow: Theme.red.opacity(0.7)))
     }
 
     /// High Contrast: the same words and fills, no glow (the palette's rule: "glows go").
