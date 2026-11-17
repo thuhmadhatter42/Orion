@@ -9,12 +9,12 @@
 - Publish broke mid-run: FLR site moved `~/fourletterrecords` → `~/dev/fourletterrecords` and `~/beatkey` → `~/dev/beatkey` on Sofia 2026-11-14 (FLR session 5b76763c missed beat_dl). Fixed publish.sh paths (540f489), finished steps by hand. FLR reply: goat-mind/10-dev/fourletterrecords/handoff/FROM-FLR-2026-11-17-reply-to-beat_dl.md.
 - Friends page retired (J 02:33): publish.sh no longer copies it; `friends-page/` → `archive/friends-page/`.
 
-**Running elsewhere:** bg session `admin-jshriver` (ce51a762, 10-dev/fourletterrecords) builds admin.jshriver.com (J: one combined page + Artemis / Zeropoint / Beat Key sections; artemis/zeropoint/beatkey.jshriver.com redirect to it). Brief handoff/TO-FLR-2026-11-17-admin-jshriver-com.md; its reply handoff/FROM-FLR-2026-11-17-admin-jshriver-com.md. admin.py :8173 + tunnel + DNS live, 403 until Access covers it. **Blocked on J: sign in to Cloudflare (dash.cloudflare.com) in Sofia's Brave**, then tell that session to continue (Access hostnames, 301 the old hosts, retire old admin servers, Trash ~/fourletterrecords stub — written by artemis-admin.py/zeropoint-admin.py SCRATCH).
+**admin.jshriver.com LIVE 2026-11-17 02:55** (FLR bg session ce51a762; Sofia commits 29b2360 + b7a9eb7): overview + Artemis / Zeropoint / Beat Key sections; artemis/zeropoint/beatkey.jshriver.com 301 to their section; all 4 hosts 302 to Access (verified by curl 02:55). Artemis Access app covers admin + artemis + beatkey; Zeropoint keeps its own app (delete refused by safety check; J may fold it in). Method now in jshriver-subdomain SKILL.md "Cloudflare Access (sign-in gate)" (both Macs). Reply handoff/FROM-FLR-2026-11-17-admin-jshriver-com.md.
 
 **Sofia sharing (J + Alex) DONE by rig session 20c38d94 (06-ai/claude-code):** `/dev/console` shows last login, not screen owner; check is now `~/.claude/skills/sofia-screen/sofia-screen.sh session` (0 go · 3 virtual · 4 J locked · 5 no GUI). Reply handoff/FROM-RIG-2026-11-17-sofia-shared-access-done.md. Still shared: audio hardware (BlackHole rate change hits Alex's session), tailscaled TCC grants.
 
 **Owed by J:**
-1. Cloudflare sign-in in Sofia's Brave (unblocks admin.jshriver.com).
+1. Optional: fold Zeropoint's separate Access app into the Artemis one.
 2. Optional: MBP hand test with Artemis (Listen, restart Artemis or change its rate; expect no red FAILED).
 3. Optional: meter clip red segments (PocketView ~1523, top 2 of 12) stay red or take the display colour?
 4. Older items below (Studio D Listen + Accessibility, D-143c883a4a checks, pkg refuse test) still open.
