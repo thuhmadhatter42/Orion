@@ -18,8 +18,8 @@ P=app/build/Beat-Key-$V.pkg
 A=app/build/appcast.xml
 TAG=Beat-Key-$V
 REPO=thuhmadhatter42/beat_dl
-REMOTE_DMG='~/fourletterrecords/beat-key-releases'
-REMOTE_JSON='~/fourletterrecords/beat-key-latest.json'
+REMOTE_DMG='~/dev/fourletterrecords/beat-key-releases'
+REMOTE_JSON='~/dev/fourletterrecords/beat-key-latest.json'
 PAGE=https://fourletterrecords.com/account/download/beat-key
 
 mkdir -p app/build
@@ -69,10 +69,10 @@ echo "== phase 2, publish (irreversible)"
 pub "tag $TAG" git tag "$TAG"
 pub "push main" git push origin main
 pub "push tag" git push origin "$TAG"
-pub "DMG to $HOST" scp "$D" "$HOST:fourletterrecords/beat-key-releases/"
-pub "pkg to $HOST" scp "$P" "$HOST:fourletterrecords/beat-key-releases/"
+pub "DMG to $HOST" scp "$D" "$HOST:dev/fourletterrecords/beat-key-releases/"
+pub "pkg to $HOST" scp "$P" "$HOST:dev/fourletterrecords/beat-key-releases/"
 pub "beat-key-latest.json" "$SSH_RC" "$HOST" "printf '{\"version\": \"$V\"}\n' > $REMOTE_JSON && cat $REMOTE_JSON"
-pub "friends page" scp friends-page/index.html "$HOST:beatkey/"
+pub "friends page" scp friends-page/index.html "$HOST:dev/beatkey/"
 pub "GitHub release" gh release create "$TAG" -R "$REPO" --title "Beat Key $V" "$P" "$D" "$A"
 
 echo "== phase 3, final check"
