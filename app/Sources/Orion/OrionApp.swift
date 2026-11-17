@@ -265,6 +265,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         NSWindow.allowsAutomaticWindowTabbing = false
+        HelpMenuItem.shared.install()   // Help > Beat Key Help: AppKit's own item (showHelp:, key ?, Command)
     }
     /// Open With / `open -a "Beat Key" file`.
     func application(_ app: NSApplication, open urls: [URL]) { Intake.receive(urls, via: "open with") }
