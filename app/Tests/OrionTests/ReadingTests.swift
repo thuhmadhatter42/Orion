@@ -170,7 +170,7 @@ final class ReadingTests: XCTestCase {
     }
 
     func testAnalyzingLampIsTheAnalyzeStage() {
-        // the red lamp sits on the working readout only while the analyzer runs
+        // the display-colour lamp sits on the working readout only while the analyzer runs
         XCTAssertEqual(Faceplate.stageText("analyzing"), "FINDING BPM AND KEY")
     }
 

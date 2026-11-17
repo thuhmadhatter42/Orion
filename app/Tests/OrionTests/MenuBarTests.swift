@@ -50,6 +50,40 @@ final class MenuBarTests: XCTestCase {
         XCTAssertNil(Lamp.of([]))
     }
 
+    /// LISTENING / ANALYZING wear the display colour J picked, never red (only FAILED is red); the
+    /// shape (circle vs UNSURE's triangle) is what tells them apart.
+    func testListeningLampFollowsTheDisplayColour() {
+        let blue = Accent(60, 160, 255)
+        XCTAssertEqual(Lamp.listening.rgb(blue).0, 60)
+        XCTAssertEqual(Lamp.listening.rgb(blue).1, 160)
+        XCTAssertEqual(Lamp.listening.rgb(blue).2, 255)
+        XCTAssertEqual(Lamp.listening.color(blue), blue.color)
+        XCTAssertEqual(Lamp.listening.textColor(blue), blue.color)
+        XCTAssertEqual(Lamp.listening.nsColor(blue), blue.nsColor)
+        XCTAssertNotEqual(Lamp.listening.color(blue), Theme.red)
+        XCTAssertNotEqual(Lamp.listening.textColor(blue), Theme.redText)
+        XCTAssertEqual(Lamp.listening.color(.amber), Accent.amber.color, "amber by default")
+        // same colour as UNSURE, different shape: the colour-blind cue stays
+        XCTAssertEqual(Lamp.listening.color(blue), Lamp.unsure.color(blue))
+        XCTAssertNil(Lamp.listening.sides)
+        XCTAssertEqual(Lamp.unsure.sides, 3)
+        // the menu-bar key takes the picked colour while listening
+        let img = MenuBarImage.make(.listening, side: 40, palette: Palette(accent: blue, highContrast: false))!
+        let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(img.size.width), pixelsHigh: Int(img.size.height),
+                                   bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                                   colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+        img.draw(in: NSRect(origin: .zero, size: img.size))
+        NSGraphicsContext.restoreGraphicsState()
+        var hit: NSColor?
+        outer: for y in 0..<rep.pixelsHigh { for x in 0..<rep.pixelsWide {
+            if let c = rep.colorAt(x: x, y: y), c.alphaComponent > 0.95 { hit = c; break outer }
+        } }
+        let got = hit!.usingColorSpace(.deviceRGB)!
+        XCTAssertGreaterThan(got.blueComponent, got.redComponent + 0.3, "blue, not red")
+    }
+
     func testMenuBarImageExistsForEveryLamp() {
         for l in [Lamp.locked, .unsure, .listening] {
             XCTAssertNotNil(MenuBarImage.make(l, palette: Palette()))

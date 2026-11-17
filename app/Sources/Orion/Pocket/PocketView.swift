@@ -241,7 +241,7 @@ struct ModuleRule: View {
     }
 }
 
-/// LISTEN / STOP: the red lamp while on.
+/// LISTEN / STOP: the display-colour lamp while on.
 struct ListenCap: View {
     @Environment(\.palette) private var palette
     let state: PocketState
@@ -252,7 +252,7 @@ struct ListenCap: View {
             HStack(spacing: 6) {
                 if state.listening {
                     LampShape(lamp: .listening).fill(Lamp.listening.color(palette.accent)).frame(width: 7, height: 7)
-                        .shadow(color: palette.highContrast ? .clear : Theme.red.opacity(0.9), radius: 3)
+                        .shadow(color: palette.highContrast ? .clear : palette.amberGlow, radius: 3)
                 }
                 SSLCapStyle.label(state.listening ? "STOP" : "LISTEN")
             }

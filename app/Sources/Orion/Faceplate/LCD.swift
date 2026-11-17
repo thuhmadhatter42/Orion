@@ -12,7 +12,7 @@ enum Readout {
     case doctor(DoctorReport)
     /// Amber next step, not a failure: (first line, second line).
     case login(String, String, caption: String?)
-    /// Live listening with nothing to say yet: the red lamp and its caption.
+    /// Live listening with nothing to say yet: the display-colour lamp and its caption.
     case listening(status: String)
 }
 
@@ -206,7 +206,7 @@ struct WorkingReadout: View {
 }
 
 /// Live listening before the first reading (and again after a gap): the empty readout, the
-/// running bar, the red lamp.
+/// running bar, the display-colour lamp.
 struct ListeningReadout: View {
     @Environment(\.palette) private var palette
     let status: String
@@ -448,7 +448,7 @@ private struct FinderLink: View {
     }
 }
 
-/// A small lit lamp and a caption: green LOCKED, amber UNSURE, red ANALYZING / LISTENING.
+/// A small lit lamp and a caption: green LOCKED, display colour UNSURE / ANALYZING / LISTENING.
 struct StateLamp: View {
     @Environment(\.palette) private var palette
     let lamp: Lamp

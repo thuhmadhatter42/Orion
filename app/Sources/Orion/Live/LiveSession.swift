@@ -69,7 +69,7 @@ enum LiveState: Equatable {
         }
     }
 
-    /// The lamp: red while listening, then amber / green with the key's confidence.
+    /// The lamp: the display colour while listening, then display colour / green with the key's confidence.
     var lamp: Lamp? {
         switch self {
         case .listening: return .listening
@@ -531,7 +531,7 @@ final class LiveController: ObservableObject {
 
     /// New Song: drop everything heard and any lock, now, and keep listening to the same source.
     /// The analyzer's stdin carries only samples (no control channel), so the stream is started
-    /// over: a fresh analyzer and capture, the lamp back to red LISTENING. Off = nothing to do.
+    /// over: a fresh analyzer and capture, the lamp back to LISTENING (display colour). Off = nothing to do.
     func reset() {
         guard state.isActive else { return }
         start(why: "new song")

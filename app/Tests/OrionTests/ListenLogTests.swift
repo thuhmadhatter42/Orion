@@ -86,7 +86,7 @@ final class ListenLogTests: XCTestCase {
                        keys: [("Ebm", 85), ("F#", 8), ("Bbm", 4)])
         XCTAssertEqual(LiveController.summary(.reading(r)), "reading Ebm 85%, F# 8%, Bbm 4% · bpm 128.0 · lamp green")
         XCTAssertEqual(LiveController.summary(.locked(r)), "locked Ebm 85%, F# 8%, Bbm 4% · bpm 128.0 · lamp green")
-        XCTAssertEqual(LiveController.summary(.listening), "listening · lamp red")
+        XCTAssertEqual(LiveController.summary(.listening), "listening · lamp amber")
     }
 
     func testControllerLogsReadingsOnlyWhenTheyChangeAndWhyItStopped() {

@@ -67,7 +67,7 @@ extension Lamp {
         switch self {
         case .locked: return "green"
         case .unsure: return "amber"
-        case .listening: return "red"
+        case .listening: return "amber"   // the display colour, as UNSURE
         }
     }
 }

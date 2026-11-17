@@ -2,7 +2,8 @@ import AppKit
 import SwiftUI
 
 /// The one confidence lamp, wherever it shows (the LCD's status line, the working readout, the
-/// menu bar): green LOCKED, amber UNSURE, red LISTENING / ANALYZING.
+/// menu bar): green LOCKED, the display colour for UNSURE and LISTENING / ANALYZING (they differ by
+/// shape: triangle vs circle). Red is only ever FAILED.
 enum Lamp: Equatable {
     case locked, unsure, listening
 
@@ -15,13 +16,12 @@ enum Lamp: Equatable {
         }
     }
 
-    /// sRGB 0...255, shared by the SwiftUI and AppKit colours. UNSURE is the display colour in use
-    /// (`accent`: the view's `\.palette`, or the menu bar's own copy of it).
+    /// sRGB 0...255, shared by the SwiftUI and AppKit colours. UNSURE and LISTENING are the display
+    /// colour in use (`accent`: the view's `\.palette`, or the menu bar's own copy of it).
     func rgb(_ accent: Accent) -> (Double, Double, Double) {
         switch self {
         case .locked: return (61, 220, 122)       // Theme.green
-        case .unsure: return accent.rgb
-        case .listening: return (226, 55, 44)     // Theme.red
+        case .unsure, .listening: return accent.rgb
         }
     }
 
@@ -29,8 +29,7 @@ enum Lamp: Equatable {
     func textColor(_ accent: Accent) -> Color {
         switch self {
         case .locked: return Theme.greenText
-        case .unsure: return accent.color
-        case .listening: return Theme.redText
+        case .unsure, .listening: return accent.color
         }
     }
     func nsColor(_ accent: Accent) -> NSColor {
