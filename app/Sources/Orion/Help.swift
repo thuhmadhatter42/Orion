@@ -48,6 +48,12 @@ struct HelpTip: Equatable {
     static let maxBody = 140
 }
 
+/// One group of help lines in the help window.
+struct HelpSection: Equatable {
+    let title: String
+    let tips: [HelpTip]
+}
+
 /// Every help line, in one place to edit and test (≤ 140 characters, about 20 words each).
 enum HelpText {
     // the readout
@@ -65,7 +71,7 @@ enum HelpText {
     static let manualLocked = "Locked to this key because it was selected manually."
     /// What a click on that white section does, after the locked line.
     static let manualWheelReset = "Click it again to reset: Beat Key goes back to detecting the key."
-    static let keyboard = HelpTip(title: "KEYBOARD", body: "The key's scale, root dotted. Play notes on your Mac keys A W S E D F T G Y H U J K: the last note is the root. Space flips major/minor.")
+    static let keyboard = HelpTip(title: "KEYBOARD", body: "The key's scale, root dotted. Play it on Mac keys A W S E D F T G Y H U J K. Z / X move the octave down / up; Space flips major/minor.")
     static let scale = HelpTip(title: "SCALE", body: "The key's seven notes, spelled the way the key is written.")
     static let tuning = HelpTip(title: "TUNING", body: "How far the track sits from standard pitch, in cents; A4 is the concert pitch it implies. Green = in tune.")
     static let camelot = HelpTip(title: "CAMELOT", body: "The key's Camelot code for DJ mixing: neighbouring codes blend well.")
@@ -86,7 +92,7 @@ enum HelpText {
 
     // sending
     static let sendDAW = HelpTip(title: "SEND TO DAW", body: "Sends the BPM and key to the DAW that's open. What it can take depends on the DAW.")
-    static let autoTune = HelpTip(title: "SEND TO AUTO-TUNE", body: "Sets the key and reference pitch in Auto-Tune (and Waves Tune Real-Time). Also ⇧⌘A while Beat Key is in front.")
+    static let autoTune = HelpTip(title: "SEND TO AUTO-TUNE", body: "Sets the key and reference pitch in Auto-Tune (and Waves Tune Real-Time). Shortcut \(AutoTuneSend.shortcutDisplay) (Reading menu).")
     static let exportMidi = HelpTip(title: "EXPORT MIDI", body: "Saves a MIDI file with the tempo and key, to drag into any DAW.")
 
     // the footer
@@ -112,12 +118,68 @@ enum HelpText {
     static let miniPanel = HelpTip(title: "BEAT KEY MINI", body: "Hold a pad to play its chord into MIDI input \"Beat Key\". Keys 1-7 play the row, Q W E R the borrowed chords.")
     static let miniSound = HelpTip(title: "SOUND", body: "Also plays the chords on Beat Key's own piano. Leave it off when your DAW's instrument is playing them.")
 
-    static let all: [HelpTip] = [
-        bpm, pitchToFit, tempoFactor, keyDial, confidence, topKeys, manual, manualReset, keyboard, scale, tuning, camelot,
-        fileLine, showInFinder, status, linkField, download, openAudio, findKey, analyzeFile, source, listen,
-        hold, reset, sendDAW, autoTune, exportMidi, recent, settings, color, advanced, window, quit, help, keyWheel, notesHeard,
-        chords, quality, voicing, bars, borrowed, matchTo, matchShift, mini, miniPanel, miniSound,
+    // YouTube sign-in (its own button, not the DOWNLOAD cap's tip)
+    static let login = HelpTip(title: "LOG IN TO YOUTUBE", body: "Opens Beat Key's own YouTube sign-in window for a video that asks you to log in. Your login stays on this Mac.")
+    // paging and the empty readout
+    static let prevFile = HelpTip(title: "PREVIOUS FILE", body: "Shows the previous of the files you chose. The ← key does the same.")
+    static let nextFile = HelpTip(title: "NEXT FILE", body: "Shows the next of the files you chose. The → key does the same.")
+    static let readout = HelpTip(title: "READOUT", body: "The BPM and key show here once Beat Key has read a beat. Paste a link, open a file or press LISTEN to start.")
+
+    // Settings (the Settings window)
+    static let settingsHighContrast = HelpTip(title: "HIGH CONTRAST", body: "Brighter LCD text on pure black, no glow. The lamp shapes still tell locked, unsure and listening apart.")
+    static let settingsListenTo = HelpTip(title: "LISTEN TO", body: "What LISTEN hears: System Audio (everything the Mac plays) or one input. Nothing is recorded or saved.")
+    static let settingsChannel = HelpTip(title: "CHANNEL", body: "Which channel of an audio interface LISTEN reads, or all channels together.")
+    static let settingsStartOver = HelpTip(title: "START OVER AFTER", body: "How long a silence ends the song, so LISTEN starts a fresh reading for the next one.")
+    static let settingsOpenAtLogin = HelpTip(title: "OPEN AT LOGIN", body: "Starts Beat Key when you log in to your Mac.")
+    static let settingsShortcuts = HelpTip(title: "GLOBAL SHORTCUTS", body: "Work in any app (default ⌃⌥⌘ + K listen, F file, R new song, H hold). Click one, type new keys; Delete turns it off.")
+
+    // Permissions guide
+    static let permissionGuide = HelpTip(title: "SET UP PERMISSIONS", body: "Walks you through the macOS permissions one at a time and checks each for you. Beat Key menu › \(Brand.setUpPermissions)")
+    /// One line per permission, straight from PermissionKind (its own `why` and `instruction`).
+    static func permission(_ k: PermissionKind) -> HelpTip {
+        HelpTip(title: k.title.uppercased(), body: "\(k.why) \(k.instruction)")
+    }
+    static let permissionScreen = permission(.screen)
+    static let permissionMicrophone = permission(.microphone)
+    static let permissionAccessibility = permission(.accessibility)
+
+    // Doctor
+    static let runDoctor = HelpTip(title: "RUN DOCTOR", body: "Beat Key menu › \(Brand.runDoctor) re-checks the downloader, ffmpeg, the analyzer and Downloads, and repairs what it can.")
+    static let doctorResult = HelpTip(title: "DOCTOR RESULT", body: "OK = all good. FIXED IT = it repaired something. FOUND A PROBLEM = the line under it says the one thing to do.")
+
+    // Keys and shortcuts
+    static let keysOctave = HelpTip(title: "OCTAVE · Z X", body: "Z moves the Mac-key notes down an octave, X up. The link field must be empty.")
+    static let keysMode = HelpTip(title: "MAJOR / MINOR · SPACE", body: "Space flips the keyboard's scale between major and minor.")
+    static let keysPaging = HelpTip(title: "PAGE FILES · ← →", body: "With several files chosen, the left and right arrow keys page through them (not while the link field has text).")
+    static let keysAutoTune = HelpTip(title: "AUTO-TUNE SHORTCUT", body: "\(AutoTuneSend.shortcutDisplay) (Reading menu) sends the key to Auto-Tune, whichever Beat Key window is in front.")
+    static let keysAdvanced = HelpTip(title: "ADVANCED SHORTCUT", body: "⌥⌘A (View menu) turns Advanced Mode on or off.")
+    static let keysHelp = HelpTip(title: "HELP WINDOW · ⌘?", body: "Help › Beat Key Help opens this window. Help › Help Mode (or the HELP chip) shows a card when you hover a control.")
+
+    /// The help window's contents, in order. THE one list: the window draws it, the launch check
+    /// and the tests read it, and `all` is made from it, so a tip cannot be missing from the window.
+    static let sections: [HelpSection] = [
+        HelpSection(title: "Window and pocket: the readout",
+                    tips: [readout, bpm, tempoFactor, keyDial, confidence, topKeys, manual, manualReset, keyboard, scale,
+                           tuning, camelot, fileLine, showInFinder, prevFile, nextFile, status]),
+        HelpSection(title: "Window and pocket: getting audio in",
+                    tips: [linkField, download, login, openAudio, findKey, source, listen, hold, reset]),
+        HelpSection(title: "Window and pocket: sending", tips: [sendDAW, autoTune, exportMidi]),
+        HelpSection(title: "Menu bar pocket only", tips: [analyzeFile, window, quit]),
+        HelpSection(title: "Footer", tips: [recent, settings, color, advanced, help]),
+        HelpSection(title: "Advanced mode",
+                    tips: [pitchToFit, keyWheel, notesHeard, chords, quality, voicing, bars, borrowed, matchTo, matchShift, mini]),
+        HelpSection(title: "Beat Key Mini", tips: [miniPanel, miniSound]),
+        HelpSection(title: "Settings",
+                    tips: [settingsHighContrast, settingsListenTo, settingsChannel, settingsStartOver, settingsOpenAtLogin,
+                           settingsShortcuts]),
+        HelpSection(title: "Permissions guide",
+                    tips: [permissionGuide, permissionScreen, permissionMicrophone, permissionAccessibility]),
+        HelpSection(title: "Doctor", tips: [runDoctor, doctorResult]),
+        HelpSection(title: "Keys and shortcuts",
+                    tips: [keysOctave, keysMode, keysPaging, keysAutoTune, keysAdvanced, keysHelp]),
     ]
+
+    static let all: [HelpTip] = sections.flatMap { $0.tips }
 
     /// Lines that break the table's rules (empty, too long, a title used twice); logged at launch.
     static func problems(_ tips: [HelpTip] = all) -> [String] {
@@ -194,6 +256,51 @@ enum HelpTipLogic {
         }
         return CGPoint(x: x, y: y)
     }
+
+    /// The same, but the card never lands on the controls next to the one hovered (J 2026-11-17:
+    /// DOWNLOAD's card covered FIND KEY/BPM, LINK's covered LISTEN). `control` is the hovered
+    /// control's frame, `others` every explainable control on the surface. The card follows the
+    /// mouse as before when that covers none of them; otherwise it moves to the side of the
+    /// hovered control (above, below, left or right, tried flush to each edge) that covers the
+    /// least, never the pointer, always inside the surface. Those spots depend only on the control,
+    /// so the card holds still while the mouse moves inside it.
+    static func cardOrigin(cursor p: CGPoint, card: CGSize, in bounds: CGSize,
+                           control: CGRect, avoiding others: [CGRect]) -> CGPoint {
+        let base = cardOrigin(cursor: p, card: card, in: bounds)
+        // controls that share space with the hovered one (a group around it, a part of it) don't count
+        let blockers = others.filter { !$0.isEmpty && !$0.intersects(control) }
+        func covered(_ o: CGPoint) -> CGFloat {
+            let r = CGRect(origin: o, size: card)
+            return blockers.reduce(0) { $0 + $1.intersection(r).width * $1.intersection(r).height }
+        }
+        if covered(base) == 0 { return base }
+        let m = margin, w = card.width, h = card.height
+        func clamp(_ o: CGPoint) -> CGPoint {
+            CGPoint(x: min(max(o.x, m), max(m, bounds.width - w - m)), y: min(max(o.y, m), max(m, bounds.height - h - m)))
+        }
+        let xs = [control.midX - w / 2, control.minX, control.maxX - w]
+        let ys = [control.midY - h / 2, control.minY, control.maxY - h]
+        var spots: [CGPoint] = []
+        for x in xs {
+            spots.append(CGPoint(x: x, y: control.minY - gap - h))   // above
+            spots.append(CGPoint(x: x, y: control.maxY + gap))       // below
+        }
+        for y in ys {
+            spots.append(CGPoint(x: control.minX - gap - w, y: y))   // left
+            spots.append(CGPoint(x: control.maxX + gap, y: y))       // right
+        }
+        var best: (o: CGPoint, score: CGFloat)?
+        for s in spots {
+            let o = clamp(s)
+            let r = CGRect(origin: o, size: card)
+            if r.intersects(cursorRect(p)) { continue }
+            // least covered first; ties: closest to the hovered control's centre
+            let score = covered(o) * 1000 + hypot(r.midX - control.midX, r.midY - control.midY)
+            if best == nil || score < best!.score { best = (o, score) }
+        }
+        if let b = best, covered(b.o) < covered(base) { return b.o }
+        return base
+    }
 }
 
 // MARK: the card (the key wheel's hover card: one look for every hover card)
@@ -246,10 +353,19 @@ struct HelpTipAnchor {
     var width: CGFloat = HelpCard.width
 }
 
+/// What the surface's card layer collects: the hovered control's tip (if any) and, in help mode,
+/// where every explainable control sits, so the card can keep off the neighbours.
+struct HelpTipPrefs {
+    var tip: HelpTipAnchor?
+    var controls: [Anchor<CGRect>] = []
+}
+
 struct HelpTipKey: PreferenceKey {
-    static var defaultValue: HelpTipAnchor? = nil
-    static func reduce(value: inout HelpTipAnchor?, nextValue: () -> HelpTipAnchor?) {
-        if let n = nextValue() { value = n }
+    static var defaultValue = HelpTipPrefs()
+    static func reduce(value: inout HelpTipPrefs, nextValue: () -> HelpTipPrefs) {
+        let n = nextValue()
+        if n.tip != nil { value.tip = n.tip }
+        value.controls += n.controls
     }
 }
 
@@ -265,8 +381,9 @@ private struct HelpTipModifier: ViewModifier {
         return content
             .onHover { inside in if helpOn || !inside { hovering = inside } }
             .transformAnchorPreference(key: HelpTipKey.self, value: .bounds) { v, a in
+                if helpOn { v.controls.append(a) }
                 // an inner control's tip wins over the group around it
-                if active && v == nil { v = HelpTipAnchor(tip: tip, anchor: a) }
+                if active && v.tip == nil { v.tip = HelpTipAnchor(tip: tip, anchor: a) }
             }
     }
 }
@@ -293,19 +410,19 @@ private struct HelpTipLayer: ViewModifier {
     func body(content: Content) -> some View {
         content
             .overlay(tracker)
-            .overlayPreferenceValue(HelpTipKey.self) { v in
+            .overlayPreferenceValue(HelpTipKey.self) { prefs in
                 GeometryReader { g in
                     ZStack(alignment: .topLeading) {
                         Color.clear
-                        if let v = v {
+                        if let v = prefs.tip {
                             FloatingHelpCard(tip: v.tip, width: v.width, control: g[v.anchor], bounds: g.size,
-                                             cursor: cursor)
+                                             others: prefs.controls.map { g[$0] }, cursor: cursor)
                                 .id(v.tip.id).transition(.opacity)
                         }
                     }
                     .frame(width: g.size.width, height: g.size.height, alignment: .topLeading)
                 }
-                .animation(.easeOut(duration: 0.12), value: v?.tip.id)
+                .animation(.easeOut(duration: 0.12), value: prefs.tip?.tip.id)
                 .allowsHitTesting(false)
             }
     }
@@ -326,13 +443,15 @@ private struct FloatingHelpCard: View {
     let width: CGFloat
     let control: CGRect
     let bounds: CGSize
+    /// Every explainable control's frame: the card keeps off the neighbours.
+    var others: [CGRect] = []
     @ObservedObject var cursor: HelpCursor
     @State private var size: CGSize = .zero
 
     var body: some View {
         let p = cursor.point ?? CGPoint(x: control.midX, y: control.midY)
         let card = size == .zero ? CGSize(width: width, height: 52) : size
-        let o = HelpTipLogic.cardOrigin(cursor: p, card: card, in: bounds)
+        let o = HelpTipLogic.cardOrigin(cursor: p, card: card, in: bounds, control: control, avoiding: others)
         return HelpCard(title: tip.title, text: tip.body, width: width)
             .fixedSize()
             .background(GeometryReader { g in Color.clear.preference(key: HelpCardSizeKey.self, value: g.size) })
@@ -357,7 +476,7 @@ extension View {
     /// mode or not, on the surface's card layer.
     func hoverCard(_ tip: HelpTip?, width: CGFloat = HelpCard.width) -> some View {
         transformAnchorPreference(key: HelpTipKey.self, value: .bounds) { v, a in
-            if let t = tip, v == nil { v = HelpTipAnchor(tip: t, anchor: a, width: width) }
+            if let t = tip, v.tip == nil { v.tip = HelpTipAnchor(tip: t, anchor: a, width: width) }
         }
     }
 
@@ -370,14 +489,15 @@ extension View {
 
 // MARK: the HELP chip
 
-/// HELP in the footer: dim like its neighbours when off, lit amber (the ×1 chip's lit look) when on.
+/// HELP in the footer: an outlined chip in the display colour when off (so it reads as a button,
+/// not a disabled one; J 2026-11-17), filled amber (the ×1 chip's lit look) when on.
 struct HelpChip: View {
     let on: Bool
     let action: () -> Void
 
     var body: some View {
         // the footer's one chip (FooterChip), lit while help mode is on
-        FooterChip(title: "HELP", label: "Help mode", on: on, action: action)
+        FooterChip(title: "HELP", label: "Help mode", on: on, accent: true, action: action)
             .nativeHelp("Help mode: hover anything to see what it does")
             .helpTip(HelpText.help)
             .accessibility(hint: Text(on ? "Turns help mode off" : "Turns help mode on: hover anything to see what it does"))

@@ -130,6 +130,186 @@ final class HelpTests: XCTestCase {
         XCTAssertTrue(HelpText.keyboard.body.contains("Space"))
     }
 
+    // MARK: the help audit of 2026-11-17
+
+    private var sourceDir: URL {
+        URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../../Sources/Orion").standardized
+    }
+
+    private func source(_ name: String) throws -> String {
+        try String(contentsOf: sourceDir.appendingPathComponent(name), encoding: .utf8)
+    }
+
+    /// Every control has a tip, and no two controls share a legend (title).
+    func testEveryTipIsFilledAndUnique() {
+        let ids = HelpText.all.map { $0.id }
+        XCTAssertEqual(ids.count, Set(ids).count, "a tip title is used twice")
+        for t in HelpText.all {
+            XCTAssertFalse(t.title.trimmingCharacters(in: .whitespaces).isEmpty)
+            XCTAssertFalse(t.body.trimmingCharacters(in: .whitespaces).isEmpty, t.title)
+        }
+        XCTAssertEqual(HelpText.problems(), [])
+        for s in HelpText.sections { XCTAssertFalse(s.tips.isEmpty, s.title) }
+    }
+
+    /// The help window draws the same table the hover cards read: every entry, nothing extra.
+    func testHelpWindowListsEveryEntry() {
+        let rows = HelpWindowContent.rows()
+        XCTAssertEqual(rows.count, HelpText.all.count)
+        for t in HelpText.all {
+            XCTAssertTrue(rows.contains { $0.title == t.title && $0.body == t.body }, "\(t.title) is missing from the help window")
+        }
+        let areas = Set(rows.map { $0.section })
+        for a in ["Window and pocket: the readout", "Menu bar pocket only", "Beat Key Mini", "Settings", "Permissions guide",
+                  "Doctor", "Keys and shortcuts"] {
+            XCTAssertTrue(areas.contains(a), a)
+        }
+    }
+
+    /// A tip a view uses must be in the table the window draws (no tip that only hovers).
+    func testEveryTipUsedByAViewIsInTheSections() throws {
+        let help = try source("Help.swift")
+        let start = try XCTUnwrap(help.range(of: "static let sections"))
+        let end = try XCTUnwrap(help.range(of: "static let all"))
+        let block = String(help[start.lowerBound..<end.lowerBound])
+        let skip: Set<String> = ["all", "sections", "problems", "checkAtLaunch", "permission", "manualLocked", "manualWheelReset", "maxBody"]
+        let re = try NSRegularExpression(pattern: "HelpText\\.([A-Za-z]+)")
+        let fm = FileManager.default
+        var checked = 0
+        for case let f as String in fm.enumerator(atPath: sourceDir.path) ?? NSEnumerator() where f.hasSuffix(".swift") {
+            let text = try source(f)
+            for m in re.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
+                let name = (text as NSString).substring(with: m.range(at: 1))
+                if skip.contains(name) { continue }
+                XCTAssertTrue(block.range(of: "\\b\(name)\\b", options: .regularExpression) != nil, "\(f): HelpText.\(name) is not in HelpText.sections")
+                checked += 1
+            }
+        }
+        XCTAssertGreaterThan(checked, 40)
+    }
+
+    func testKeyboardTipMentionsTheOctaveKeys() {
+        XCTAssertEqual(MusicalTyping.action(keyCode: MusicalTyping.zKey, modifiers: []), .octaveDown)
+        XCTAssertEqual(MusicalTyping.action(keyCode: MusicalTyping.xKey, modifiers: []), .octaveUp)
+        let b = HelpText.keyboard.body
+        XCTAssertTrue(b.contains("Z"), b)
+        XCTAssertTrue(b.contains("X"), b)
+        XCTAssertTrue(HelpText.keysOctave.body.contains("Z") && HelpText.keysOctave.body.contains("X"))
+    }
+
+    /// The tip and the Reading-menu item read one constant, so they cannot drift.
+    func testAutoTuneTipShortcutIsTheMenuShortcut() throws {
+        XCTAssertEqual(AutoTuneSend.shortcutDisplay, "⌃⌥⌘A")
+        XCTAssertTrue(HelpText.autoTune.body.contains(AutoTuneSend.shortcutDisplay), HelpText.autoTune.body)
+        XCTAssertTrue(HelpText.keysAutoTune.body.contains(AutoTuneSend.shortcutDisplay))
+        XCTAssertFalse(HelpText.autoTune.body.contains("⇧⌘A"))
+        let menu = try source("AutoTuneSend.swift")
+        XCTAssertTrue(menu.contains(".keyboardShortcut(KeyEquivalent(AutoTuneSend.shortcutKey), modifiers: AutoTuneSend.shortcutModifiers)"),
+                      "the menu item must take its shortcut from the same constants as the tip")
+    }
+
+    func testLoginHasItsOwnTip() throws {
+        XCTAssertNotEqual(HelpText.login, HelpText.download)
+        XCTAssertEqual(HelpText.login.title, Faceplate.loginCapLabel)
+        XCTAssertTrue(HelpText.login.body.lowercased().contains("sign-in"))
+        XCTAssertFalse(HelpText.login.body.lowercased().contains("mp3"))
+        // both surfaces pick it for the login cap
+        XCTAssertTrue(try source("Faceplate/FaceplateView.swift").contains(".helpTip(HelpText.login)"))
+        XCTAssertTrue(try source("Pocket/PocketView.swift").contains("login ? HelpText.login : HelpText.download"))
+    }
+
+    func testPagingArrowsAndReadoutHaveTips() throws {
+        XCTAssertTrue(HelpText.all.contains(HelpText.prevFile))
+        XCTAssertTrue(HelpText.all.contains(HelpText.nextFile))
+        XCTAssertTrue(HelpText.all.contains(HelpText.readout))
+        XCTAssertTrue(try source("Pocket/PocketView.swift").contains(".helpTip(glyph == \"‹\" ? HelpText.prevFile : HelpText.nextFile)"))
+        XCTAssertTrue(try source("Faceplate/LCD.swift").contains(".helpTip(HelpText.readout)"))
+        XCTAssertTrue(try source("Pocket/PocketView.swift").contains(".helpTip(HelpText.readout)"))
+    }
+
+    func testSettingsPermissionsAndDoctorHaveEntries() throws {
+        let titles = Set(HelpText.all.map { $0.title })
+        for k in PermissionKind.allCases { XCTAssertTrue(titles.contains(k.title.uppercased()), k.title) }
+        for t in [HelpText.settingsListenTo, HelpText.settingsStartOver, HelpText.settingsOpenAtLogin, HelpText.settingsShortcuts,
+                  HelpText.settingsHighContrast, HelpText.permissionGuide, HelpText.runDoctor, HelpText.doctorResult] {
+            XCTAssertTrue(HelpText.all.contains(t), t.title)
+        }
+        XCTAssertTrue(try source("Settings.swift").contains(".helpTipLayer()"))
+        XCTAssertTrue(try source("Permissions/PermissionGuideWindow.swift").contains(".helpTipLayer()"))
+    }
+
+    /// Help › Beat Key Help opens the in-app window (⌘?), Help Mode lives in the Help menu, not View.
+    func testHelpMenuHasTheWindowAndTheToggle() throws {
+        let app = try source("OrionApp.swift")
+        let help = try XCTUnwrap(app.range(of: "CommandGroup(replacing: .help)"))
+        let rest = String(app[help.upperBound...])
+        let body = String(rest[..<(rest.range(of: "// The app menu says")!.lowerBound)])
+        XCTAssertTrue(body.contains("HelpWindow.shared.open"))
+        XCTAssertTrue(body.contains(".keyboardShortcut(\"?\", modifiers: .command)"))
+        XCTAssertTrue(body.contains("Toggle(\"Help Mode\""))
+        let before = String(app[..<help.lowerBound])
+        XCTAssertFalse(before.contains("Toggle(\"Help Mode\""), "Help Mode must not stay in the View menu")
+        XCTAssertEqual(Brand.help, "Beat Key Help")
+    }
+
+    func testHelpWindowErrorsGoToTheAppLog() throws {
+        let w = try source("HelpWindow.swift")
+        XCTAssertTrue(w.contains("AppLog.log(\"FAILED to show the help window"))
+        XCTAssertTrue(w.contains("AppLog.log(\"FAILED to build the help window"))
+        // under test nothing opens, so a test run never pops a window
+        HelpWindow.shared.open(why: "test")
+    }
+
+    // MARK: the card keeps off the neighbours
+
+    func testCardAvoidsTheNeighbouringButton() {
+        let bounds = CGSize(width: 552, height: 700)
+        let card = CGSize(width: 212, height: 60)
+        let download = CGRect(x: 400, y: 200, width: 140, height: 36)
+        let findKey = CGRect(x: 400, y: 244, width: 140, height: 36)     // right under it
+        let link = CGRect(x: 20, y: 200, width: 372, height: 36)         // right beside it
+        let listen = CGRect(x: 20, y: 288, width: 200, height: 36)
+        let cursor = CGPoint(x: 470, y: 215)
+        let o = HelpTipLogic.cardOrigin(cursor: cursor, card: card, in: bounds, control: download,
+                                        avoiding: [download, findKey, link, listen])
+        let r = CGRect(origin: o, size: card)
+        for n in [findKey, link, listen] { XCTAssertFalse(r.intersects(n), "card \(r) covers \(n)") }
+        XCTAssertFalse(r.intersects(HelpTipLogic.cursorRect(cursor)))
+        XCTAssertGreaterThanOrEqual(o.x, HelpTipLogic.margin)
+        XCTAssertGreaterThanOrEqual(o.y, HelpTipLogic.margin)
+        XCTAssertLessThanOrEqual(r.maxX, bounds.width - HelpTipLogic.margin)
+        XCTAssertLessThanOrEqual(r.maxY, bounds.height - HelpTipLogic.margin)
+        // and it holds still while the mouse moves inside the control
+        let o2 = HelpTipLogic.cardOrigin(cursor: CGPoint(x: 430, y: 220), card: card, in: bounds, control: download,
+                                         avoiding: [download, findKey, link, listen])
+        XCTAssertEqual(o, o2)
+    }
+
+    func testCardFollowsTheMouseWhenNothingIsInTheWay() {
+        let bounds = CGSize(width: 1000, height: 700)
+        let card = CGSize(width: 212, height: 60)
+        let control = CGRect(x: 100, y: 100, width: 80, height: 30)
+        let p = CGPoint(x: 120, y: 110)
+        XCTAssertEqual(HelpTipLogic.cardOrigin(cursor: p, card: card, in: bounds, control: control, avoiding: [control]),
+                       HelpTipLogic.cardOrigin(cursor: p, card: card, in: bounds))
+    }
+
+    func testCardStaysInsideWhenControlsFillTheSurface() {
+        let bounds = CGSize(width: 376, height: 620)
+        let card = CGSize(width: 212, height: 60)
+        var rects: [CGRect] = []
+        for y in stride(from: 0.0, to: 620.0, by: 40) { rects.append(CGRect(x: 0, y: y, width: 376, height: 36)) }
+        for r in rects {
+            let p = CGPoint(x: r.midX, y: r.midY)
+            let o = HelpTipLogic.cardOrigin(cursor: p, card: card, in: bounds, control: r, avoiding: rects)
+            let c = CGRect(origin: o, size: card)
+            XCTAssertGreaterThanOrEqual(o.x, HelpTipLogic.margin - 0.001)
+            XCTAssertGreaterThanOrEqual(o.y, HelpTipLogic.margin - 0.001)
+            XCTAssertLessThanOrEqual(c.maxX, bounds.width - HelpTipLogic.margin + 0.001)
+            XCTAssertLessThanOrEqual(c.maxY, bounds.height - HelpTipLogic.margin + 0.001)
+        }
+    }
+
     // MARK: offscreen renders (ORION_SNAPSHOT_DIR=<dir> swift test --filter HelpTests/testRender)
 
     @MainActor

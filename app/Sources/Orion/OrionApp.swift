@@ -88,7 +88,13 @@ struct OrionApp: App {
                 Toggle("Advanced Mode", isOn: $display.advanced)
                     .keyboardShortcut("a", modifiers: [.option, .command])
                 Toggle("High Contrast Readout", isOn: $display.highContrast)
-                // the HELP chip's switch (no shortcut: ⌥⌘H is Hide Others, ⌘? is the Help menu's search)
+            }
+            // Help menu: the in-app Help window (⌘?) and the HELP chip's switch (no shortcut:
+            // ⌥⌘H is Hide Others). Replaces the system's "Beat Key Help" item, which had no help book.
+            CommandGroup(replacing: .help) {
+                Button(Brand.help) { HelpWindow.shared.open(why: "menu") }
+                    .keyboardShortcut("?", modifiers: .command)
+                Divider()
                 Toggle("Help Mode", isOn: $help.isOn)
             }
             // The app menu says Beat Key whatever the process is called (swift run = "Orion").

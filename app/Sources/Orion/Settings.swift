@@ -7,15 +7,16 @@ struct SettingsView: View {
     @ObservedObject var loginItem: LoginItemSettings
     @ObservedObject var live: LiveSettings
     @ObservedObject var display: DisplaySettings
+    @ObservedObject private var help = HelpSettings.shared
     @State private var devices: [InputDevice] = []
 
     var body: some View {
         Form {
             Section(header: Text("Display").font(.headline)) {
-                Toggle("Advanced Mode", isOn: $display.advanced)
+                Toggle("Advanced Mode", isOn: $display.advanced).helpTip(HelpText.advanced)
                 Text("Adds the Camelot code, chords to hear and drag into your DAW, Match To, the key wheel and the notes heard. Also View › Advanced Mode (⌥⌘A) and the window's ADVANCED box. The menu bar has its own box; the first switch each launch sets both.")
                     .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
-                Toggle("High Contrast Readout", isOn: $display.highContrast)
+                Toggle("High Contrast Readout", isOn: $display.highContrast).helpTip(HelpText.settingsHighContrast)
                 Text("Brighter LCD text on pure black, no glow. The lamps always carry a shape too: octagon = locked, triangle = unsure, circle = listening.")
                     .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
             }
@@ -26,6 +27,7 @@ struct SettingsView: View {
                     Text("Default Input").tag("default")
                     ForEach(devices) { d in Text(d.name).tag("uid:\(d.uid)") }
                 }
+                .helpTip(HelpText.settingsListenTo)
                 if case .input(let uid, _) = live.source {
                     let count = uid.flatMap { u in devices.first { $0.uid == u }?.channels } ?? 2
                     if count > 1 {
@@ -33,11 +35,13 @@ struct SettingsView: View {
                             Text("All channels").tag(0)
                             ForEach(1...count, id: \.self) { Text("Channel \($0)").tag($0) }
                         }
+                        .helpTip(HelpText.settingsChannel)
                     }
                 }
                 Picker("Start over after", selection: $live.gap) {
                     ForEach(LiveSettings.gaps, id: \.self) { Text("\(Int($0)) s of silence").tag($0) }
                 }
+                .helpTip(HelpText.settingsStartOver)
                 Text(LiveSource.systemAvailable
                      ? "Nothing is recorded or saved. System Audio needs Screen & System Audio Recording permission; inputs need Microphone permission."
                      : "Nothing is recorded or saved. Inputs need Microphone permission. System Audio needs macOS 13 or newer.")
@@ -47,6 +51,7 @@ struct SettingsView: View {
             Divider().padding(.vertical, 6)
             Section(header: Text("General").font(.headline)) {
                 Toggle("Open at Login", isOn: Binding(get: { loginItem.enabled }, set: { loginItem.set($0) }))
+                    .helpTip(HelpText.settingsOpenAtLogin)
                 if let m = loginItem.message {
                     HStack {
                         Text(m).font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
@@ -64,6 +69,7 @@ struct SettingsView: View {
                         Text(a.title).frame(width: 170, alignment: .leading)
                         ShortcutRecorder(action: a, store: shortcuts)
                     }
+                    .helpTip(HelpText.settingsShortcuts)
                 }
                 Text("Work in any app. Click a shortcut, then type the new keys (with ⌘, ⌃ or ⌥). Delete turns it off, Esc cancels.")
                     .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
@@ -71,6 +77,10 @@ struct SettingsView: View {
         }
         .padding(20)
         .frame(width: 460)
+        // Help Mode explains these controls too (the amber card, drawn above the form)
+        .environment(\.palette, Palette(accent: AccentSettings.shared.effective, highContrast: display.highContrast))
+        .environment(\.helpMode, help.isOn)
+        .helpTipLayer()
     }
 
     /// "system" | "default" | "uid:<device uid>"; a new device starts on all channels.

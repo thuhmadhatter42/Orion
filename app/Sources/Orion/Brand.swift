@@ -9,6 +9,7 @@ enum Brand {
     static let wordmark = name.uppercased()           // "BEAT KEY" on the rail
 
     static let about = "About \(name)"
+    static let help = "\(name) Help"
     static let hide = "Hide \(name)"
     static let quit = "Quit \(name)"
     static let runDoctor = "Run Doctor"

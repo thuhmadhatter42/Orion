@@ -7,6 +7,20 @@ import SwiftUI
 /// KeyClass = tonic pitch class 0...11 from C (the order of Auto-Key's own key list);
 /// KeyType 0 = major, 1 = minor (from the one sample on disk, 11/1 = B minor; not yet confirmed live).
 enum AutoTuneSend {
+    /// The Reading menu's shortcut for Send Key to Auto-Tune: the one place the menu item AND the
+    /// help tip read it from, so they cannot drift apart.
+    static let shortcutKey: Character = "a"
+    static let shortcutModifiers: EventModifiers = [.control, .option, .command]
+    /// "⌃⌥⌘A": modifiers in the order macOS menus print them.
+    static var shortcutDisplay: String {
+        var s = ""
+        if shortcutModifiers.contains(.control) { s += "⌃" }
+        if shortcutModifiers.contains(.option) { s += "⌥" }
+        if shortcutModifiers.contains(.shift) { s += "⇧" }
+        if shortcutModifiers.contains(.command) { s += "⌘" }
+        return s + String(shortcutKey).uppercased()
+    }
+
     static var handoffURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Music/Audio Music Apps/Temp/Auto-Key.handoff")
@@ -87,7 +101,7 @@ struct SendToAutoTuneMenuItem: View {
                 NSSound.beep()
             }
         }
-        .keyboardShortcut("a", modifiers: [.control, .option, .command])
+        .keyboardShortcut(KeyEquivalent(AutoTuneSend.shortcutKey), modifiers: AutoTuneSend.shortcutModifiers)
         .disabled(key.flatMap(AutoTuneSend.keyClass) == nil)
     }
 }

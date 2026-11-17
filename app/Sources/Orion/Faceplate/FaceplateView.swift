@@ -284,7 +284,7 @@ struct FaceplateFace: View {
                     }
                     .buttonStyle(SSLCapStyle(lit: cap.lit, height: Theme.H.lg))
                     .accessibility(label: Text(cap.label.capitalized))
-                    .helpTip(HelpText.download)
+                    .helpTip(HelpText.login)
                 } else {
                     DownloadCap(state: state, action: { actions.downloadPressed(state) }).frame(width: capWidth)
                 }

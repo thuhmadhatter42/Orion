@@ -214,7 +214,7 @@ struct DownloadCap: View {
         .nativeHelp(help)
         .accessibility(label: Text(login ? "Log in to YouTube" : state.fieldEmpty ? "Paste and download" : "Download"))
         .accessibility(hint: Text(hint))
-        .helpTip(HelpText.download)
+        .helpTip(login ? HelpText.login : HelpText.download)
     }
 
     private var help: String {
@@ -418,6 +418,8 @@ struct FooterChip: View {
     var on = false
     /// COLOR's square of the colour in use, before the legend.
     var swatch = false
+    /// HELP: outlined and lettered in the display colour while off, so it reads as a live button.
+    var accent = false
     let action: () -> Void
     @State private var hover = false
 
@@ -449,7 +451,7 @@ struct FooterChip: View {
             .frame(height: Theme.H.xs)
             .contentShape(shape)
         }
-        .buttonStyle(FooterChipStyle(on: on, enabled: enabled, hover: hover))
+        .buttonStyle(FooterChipStyle(on: on, enabled: enabled, hover: hover, accent: accent))
         .onHover { hover = $0 }
         .animation(Theme.Motion.hover, value: hover)
         .pointingHand()
@@ -464,12 +466,18 @@ struct FooterChipStyle: ButtonStyle {
     let on: Bool
     let enabled: Bool
     let hover: Bool
+    var accent = false
 
     func makeBody(configuration: Configuration) -> some View {
         let shape = RoundedRectangle(cornerRadius: Theme.R.cap, style: .continuous)
         let pressed = configuration.isPressed && enabled
-        let text: Color = on ? palette.ink : !enabled ? Theme.textFaint : (hover || pressed) ? Theme.textHi : Theme.textLo
-        let stroke: Color = on ? .clear : !enabled ? Theme.textFaint.opacity(0.5) : (hover || pressed) ? Theme.textLo : Theme.textFaint
+        let hot = hover || pressed
+        var text: Color = on ? palette.ink : !enabled ? Theme.textFaint : hot ? Theme.textHi : Theme.textLo
+        var stroke: Color = on ? .clear : !enabled ? Theme.textFaint.opacity(0.5) : hot ? Theme.textLo : Theme.textFaint
+        if accent && !on && enabled {
+            text = hot ? palette.a1 : palette.a2
+            stroke = hot ? palette.a2 : palette.a3
+        }
         let fill: Color = on ? (pressed ? palette.a2 : palette.amber) : pressed ? Theme.textFaint.opacity(0.4) : .clear
         return configuration.label
             .foregroundColor(text)
@@ -619,7 +627,7 @@ private struct PocketLCD: View {
         case .login(let a, let b, _):
             message(a, b)
         case .doctor(let r):
-            message(r.title, r.line, red: r.outcome == .failed)
+            message(r.title, r.line, red: r.outcome == .failed).helpTip(HelpText.doctorResult)
         case .idle, .drop:
             // the empty state: an invitation, not a skeleton of missing numbers (F11)
             VStack(alignment: .leading, spacing: Theme.S.s) {
@@ -629,6 +637,9 @@ private struct PocketLCD: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibility(label: Text("No reading yet. Paste a link, analyze a file or listen."))
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .helpTip(HelpText.readout)
         }
     }
 
@@ -1248,6 +1259,7 @@ struct PageArrow: View {
         .buttonStyle(PlainButtonStyle())
         .pointingHand()
         .accessibility(label: Text(label))
+        .helpTip(glyph == "‹" ? HelpText.prevFile : HelpText.nextFile)
     }
 }
 

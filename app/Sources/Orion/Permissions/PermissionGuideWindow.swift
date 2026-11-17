@@ -85,6 +85,7 @@ final class PermissionGuide: NSObject, NSWindowDelegate {
 
 private struct PermissionGuideView: View {
     @ObservedObject var model: PermissionGuideModel
+    @ObservedObject private var help = HelpSettings.shared
     let close: () -> Void
     private var palette: Palette { Palette(accent: AccentSettings.shared.effective) }
 
@@ -92,6 +93,7 @@ private struct PermissionGuideView: View {
         VStack(alignment: .leading, spacing: Theme.S.l) {
             Text("Set up Beat Key")
                 .font(Theme.T.title).foregroundColor(palette.a1)
+                .helpTip(HelpText.permissionGuide)
             Text(model.current == nil && model.confirming == nil
                  ? "Everything Beat Key needs is set."
                  : "A few macOS permissions. One at a time; this window checks each for you.")
@@ -107,6 +109,8 @@ private struct PermissionGuideView: View {
         .padding(Theme.S.xl)
         .frame(width: 460, height: 440, alignment: .topLeading)
         .environment(\.palette, palette)
+        .environment(\.helpMode, help.isOn)
+        .helpTipLayer()
     }
 
     @ViewBuilder private func row(_ k: PermissionKind) -> some View {
@@ -150,6 +154,7 @@ private struct PermissionGuideView: View {
             .fill(isCurrent ? palette.a5 : Color.clear))
         .overlay(RoundedRectangle(cornerRadius: Theme.R.well, style: .continuous)
             .stroke(isCurrent ? palette.a4 : Theme.textFaint.opacity(0.4), lineWidth: 1))
+        .helpTip(HelpText.permission(k))
     }
 
     private func icon(_ k: PermissionKind) -> String {

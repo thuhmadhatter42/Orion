@@ -138,6 +138,8 @@ struct IdleReadout: View {
                 .foregroundColor(palette.a3).padding(.top, Theme.S.s)
         }
         .accessibilityElement(children: .combine)
+        .contentShape(Rectangle())
+        .helpTip(HelpText.readout)
     }
 }
 
@@ -245,6 +247,7 @@ struct DoctorReadout: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibility(label: Text("\(report.title.capitalized). \(report.line.lowercased())"))
+        .helpTip(HelpText.doctorResult)
     }
 }
 
