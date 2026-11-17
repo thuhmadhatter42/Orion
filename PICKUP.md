@@ -1,22 +1,25 @@
 # PICKUP — beat_dl
 
-## CURRENT STATE — 2026-11-16 22:15
+## CURRENT STATE — 2026-11-17 02:50
 
-**0.1.73 on local main, NOT published.** Public release is still 0.1.72.
-- b033b6c 0.1.73: input drop / format change mid-listen is not an error. `InputCapture.configChanged/recover` (app/Sources/Orion/Live/AudioInput.swift) restarts on the same device (one retry after 1 s, no polling); 2nd failure → `LiveController.inputDropped` falls back to Mac audio via `LiveSourcePlan.afterLoss` (same song, saved choice kept, SOURCE shows System Audio); notice "WAITING FOR MUSIC..." when the first restart fails; red FAILED "THE INPUT WENT AWAY" only when nothing can capture (macOS 12 / no Mac audio). Cause found 2026-11-15 22:29 in beatkey.log: Artemis config change → old code went straight to FAILED.
-- 89d3e2c status legend "LIVE · <source>" uses the user's display colour (accent), FAILED stays red. 457 tests, 10 skipped, 0 failures.
-- Installed on MBP: notarized 0.1.73 build from b033b6c (no legend colour yet), launched OK 2026-11-16 19:11 (log: LAUNCH version 0.1.73). 0.1.72 in MBP Trash. Build log app/build/build-0.1.73.log; DMG + pkg notarized Accepted, stapled.
+**0.1.73 PUBLIC (2026-11-17 02:03).** GitHub release Beat-Key-0.1.73 (pkg + DMG + appcast; Sparkle feed reads 0.1.73), Sofia `~/dev/fourletterrecords/beat-key-latest.json` = 0.1.73, pkg md5 on Sofia = local (55de20e2…), download page 303. Log app/build/publish-0.1.73.log.
+- 0.1.73 = b033b6c input drop / format change mid-listen is not an error (restart same device, 1 retry, then Mac-audio fallback; "WAITING FOR MUSIC..."); 89d3e2c LIVE legend in display colour; e12702a listening/analyzing lamps in display colour (FAILED stays red).
+- Installed: MBP (notarized, launched 2026-11-16 22:31), Sofia (0.1.73 in /Applications; 0.1.70 in Sofia Trash).
+- **Sofia hand test PASS 2026-11-17 01:58** (BlackHole 2ch 44100→48000→44100): log `config change -> restarted on BlackHole 2ch (attempt 1)` twice, no failed lines; screenshot LISTENING, no red FAILED. Close step verified (rate 44100, liveSource deleted, Orion quit). Evidence: scratchpad sofia-test/ (beatkey-rerun.log, 16-after-48000.png, 17-after-44100.png). J granted Sofia Microphone for Beat Key 01:56. Sofia TCC: Screen Recording + Accessibility were Denied by the test agent (not needed for the test).
+- Publish broke mid-run: FLR site moved `~/fourletterrecords` → `~/dev/fourletterrecords` and `~/beatkey` → `~/dev/beatkey` on Sofia 2026-11-14 (FLR session 5b76763c missed beat_dl). Fixed publish.sh paths (540f489), finished steps by hand. FLR reply: goat-mind/10-dev/fourletterrecords/handoff/FROM-FLR-2026-11-17-reply-to-beat_dl.md.
+- Friends page retired (J 02:33): publish.sh no longer copies it; `friends-page/` → `archive/friends-page/`.
 
-**Running at 22:15 (background agents, worktrees under .claude/worktrees/):**
-1. Listening lamps → accent (J said yes 2026-11-16 22:13): Lamp.listening, LCD StateLamp LISTENING/ANALYZING, MenuBar lamp, LiveSession lamp, PocketView LISTEN button lamp + glow, pocket dial. FAILED/error reds stay. Commit lands on its worktree branch; then cherry-pick to main, full suite.
-2. Sofia hand test of the input drop: install 0.1.73 on Sofia, liveSource `input:0:BlackHole2ch_UID`, Listen, change BlackHole 2ch rate 44100→48000→44100, expect `config change -> restarted` and no red FAILED; close step restores rate 44100 and `defaults delete com.jshriver.orion liveSource`. Evidence + log: /private/tmp/claude-501/-Users-jshriver-dev-beat-dl/304faf5d-57c6-406e-9850-5395994b0b25/scratchpad/sofia-test/test.log. (First try 19:17 blocked: Sofia locked, alex on console; J fixed it 22:13.) macOS 12 has no Mac audio, so the fallback-to-Mac-audio path is untested by hand.
+**Running elsewhere:** bg session `admin-jshriver` (ce51a762, 10-dev/fourletterrecords) builds admin.jshriver.com (J: one combined page + Artemis / Zeropoint / Beat Key sections; artemis/zeropoint/beatkey.jshriver.com redirect to it). Brief handoff/TO-FLR-2026-11-17-admin-jshriver-com.md; its reply handoff/FROM-FLR-2026-11-17-admin-jshriver-com.md. admin.py :8173 + tunnel + DNS live, 403 until Access covers it. **Blocked on J: sign in to Cloudflare (dash.cloudflare.com) in Sofia's Brave**, then tell that session to continue (Access hostnames, 301 the old hosts, retire old admin servers, Trash ~/fourletterrecords stub — written by artemis-admin.py/zeropoint-admin.py SCRATCH).
 
-**Next (agent):** after both agents: review, merge lamps commit, `app/build.sh > app/build/build-0.1.73.log` (rebuild 0.1.73 with legend + lamps), reinstall on MBP (quit Orion, Trash old, ditto app/build/Beat Key.app), report Sofia results.
+**Sofia sharing (J + Alex) DONE by rig session 20c38d94 (06-ai/claude-code):** `/dev/console` shows last login, not screen owner; check is now `~/.claude/skills/sofia-screen/sofia-screen.sh session` (0 go · 3 virtual · 4 J locked · 5 no GUI). Reply handoff/FROM-RIG-2026-11-17-sofia-shared-access-done.md. Still shared: audio hardware (BlackHole rate change hits Alex's session), tailscaled TCC grants.
+
 **Owed by J:**
-1. Go to publish 0.1.73 (`tools/publish.sh`) after the rebuild.
-2. Optional: hand test on MBP with Artemis: Listen on Artemis, restart Artemis or change its sample rate; expect no red FAILED.
-3. Older items below (Studio D Listen + Accessibility, D-143c883a4a checks, pkg refuse test) still open.
-**Leftover:** locked stale worktree `.claude/worktrees/agent-a721d561beed4c2a0` (branch merged as b033b6c); remove with `git worktree remove -f -f` once its agent pid is gone.
+1. Cloudflare sign-in in Sofia's Brave (unblocks admin.jshriver.com).
+2. Optional: MBP hand test with Artemis (Listen, restart Artemis or change its rate; expect no red FAILED).
+3. Optional: meter clip red segments (PocketView ~1523, top 2 of 12) stay red or take the display colour?
+4. Older items below (Studio D Listen + Accessibility, D-143c883a4a checks, pkg refuse test) still open.
+**Findings:** Sofia `/Volumes/VOLUME/*/Beat Key.app` (0.1.8) wins `open -a "Beat Key"`; tests use `open "/Applications/Beat Key.app"`. Same class as the Studio D ~/Applications copy finding below.
+**Leftover:** locked stale worktree `.claude/worktrees/agent-a721d561beed4c2a0`; remove with `git worktree remove -f -f` once its pid is gone. Finder-busy DMG workaround: `DMG_LAYOUT_FROM=<earlier DMG> app/build.sh`.
 
 ## (previous) 2026-11-13 23:10
 
