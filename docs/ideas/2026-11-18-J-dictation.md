@@ -26,3 +26,12 @@ Source: J's voice dictation in the beat_dl session. Nothing built yet. Artemis p
 ## 5. Beat Key side of the Artemis button
 - Beat Key must broadcast what it is hearing (key, BPM, song change) so Artemis can "auto get key" / "auto get BPM", and answer a one-shot "what is the key/BPM now?".
 - Proposal in the Artemis handoff §Protocol; Beat Key builds its side once Artemis agrees.
+
+## Score: where each idea plugs in (code-symphony create mode)
+One owner per behavior; each idea extends the module that already owns it. Read 2026-11-18 03:0x from the code.
+
+1. **Multi-file drop** — owner: `FaceplateView.drop` (FaceplateView.swift:177) → `Engine.analyze(files)` (Engine.swift:195). It already takes many files at once ("3 OF 3" pages). So something ate J's drop (rule 3). Lines that refuse: `guard !engine.state.isBusy … return false` (FaceplateView.swift:178, Engine.swift:202); the window is the ONLY drop target (no pocket, Mini or Dock-icon drop). Fix in the one path: one drop entry (window + pocket + Dock icon all call it), Engine queues instead of refusing while busy. Needs J: where he dropped.
+2. **Key+BPM in name** — owner: `renamed_name` (app_run.py:61), today used only after a YouTube download (app_run.py:312). Extend the same step to `analyze` behind the setting (Settings.swift → helper arg). The same function that writes the tag also recognizes it ("already tagged by Beat Key"); no second renamer in Swift.
+3. **Tap one app** — owner: `SystemAudio` capture, filter at SystemAudio.swift:66 (every app). App choice = change that filter to the chosen app; same capture path, same Input setting as devices. "Playing now" ordering needs an OS source for which app is outputting audio; check the documented API and its macOS floor live before building (Beat Key supports macOS 12, Sofia runs 12.7.6).
+4. **Short Help** — owner: `HelpText` (Help.swift:58), cap `HelpTip.maxBody = 140` (Help.swift:48) enforced by HelpTests.swift:98. Lower the cap in that one place; the test then fails every long tip until rewritten.
+5. **Broadcast to Artemis** — new chair `Broadcast`, fed only from the one reading source (live `LiveEvent.reading` and file results), never posted from views. Contract in the Artemis handoff §Protocol.
