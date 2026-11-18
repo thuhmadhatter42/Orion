@@ -2,6 +2,8 @@
 
 ## CURRENT STATE — 2026-11-17 14:45
 
+**J's ideas 2026-11-18 02:51 (notated, not built):** docs/ideas/2026-11-18-J-dictation.md (multi-file drop, key+BPM-in-name toggle, Listen "Add App" submenu, much shorter Help text) + handoff/TO-ARTEMIS-2026-11-18-beat-key-button.md (Artemis session BPM, Beat Key button by latency monitor, Beat Key↔Artemis broadcast). Open questions on decide D-ed342f5288.
+
 **0.1.73 PUBLIC (2026-11-17 02:03).** GitHub release Beat-Key-0.1.73 (pkg + DMG + appcast; Sparkle feed reads 0.1.73), Sofia `~/dev/fourletterrecords/beat-key-latest.json` = 0.1.73, pkg md5 on Sofia = local (55de20e2…), download page 303. Log app/build/publish-0.1.73.log.
 - 0.1.73 = b033b6c input drop / format change mid-listen is not an error (restart same device, 1 retry, then Mac-audio fallback; "WAITING FOR MUSIC..."); 89d3e2c LIVE legend in display colour; e12702a listening/analyzing lamps in display colour (FAILED stays red).
 - Installed: MBP (notarized, launched 2026-11-16 22:31), Sofia (0.1.73 in /Applications; 0.1.70 in Sofia Trash).
