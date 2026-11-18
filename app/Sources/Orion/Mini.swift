@@ -410,6 +410,7 @@ private struct MiniHost: View {
                  release: { controller.release($0) },
                  toggleSound: { controller.toggleSound() })
             .paletteRoot(display: display)   // the display colour and High Contrast: a held pad stays held
+            .acceptsFileDrops(via: "mini")   // a beat dropped on the Mini is read like one dropped on the window
     }
 }
 

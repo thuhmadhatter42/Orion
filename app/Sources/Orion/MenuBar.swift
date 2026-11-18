@@ -119,6 +119,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             b.target = self
             b.action = #selector(clicked(_:))
             b.sendAction(on: [.leftMouseUp, .rightMouseUp])
+            b.addSubview(StatusDropView(frame: b.bounds))   // files dragged onto the icon
         }
         self.engine = engine
         self.live = live
@@ -510,6 +511,7 @@ struct PocketContainer: View {
         PocketView(state: state, url: $model.url, actions: actions)
             .paletteRoot(display: display)   // the display colour and High Contrast for every view below
             .environment(\.liveLevel, live.meter)   // the meter ticks on its own (LiveLevel)
+            .acceptsFileDrops(via: "pocket")   // files dropped on the open popover
             .fixedSize()
             .background(GeometryReader { g in Color.clear.preference(key: PocketSizeKey.self, value: g.size) })
             .onPreferenceChange(PocketSizeKey.self, perform: onSize)

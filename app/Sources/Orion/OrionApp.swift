@@ -269,8 +269,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSWindow.allowsAutomaticWindowTabbing = false
         HelpMenuItem.shared.install()   // Help > Beat Key Help: AppKit's own item (showHelp:, key ?, Command)
     }
-    /// Open With / `open -a "Beat Key" file`.
-    func application(_ app: NSApplication, open urls: [URL]) { Intake.receive(urls, via: "open with") }
+    /// Files dropped on the Dock icon, Open With, `open -a "Beat Key" file` (the Info.plist's
+    /// CFBundleDocumentTypes make the Dock icon accept them).
+    func application(_ app: NSApplication, open urls: [URL]) { Intake.receive(urls, via: "dock") }
     func applicationShouldTerminateAfterLastWindowClosed(_ app: NSApplication) -> Bool { true }
     func applicationWillTerminate(_ n: Notification) {
         MiniController.shared.shutdown()   // every Mini note-on gets its note-off before the port goes

@@ -72,6 +72,7 @@ final class Engine: ObservableObject {
         didSet {
             AppLog.log("engine: " + String(String(describing: state).prefix(400)))
             if let why = Engine.failureNote(state) { AppLog.log(why) }
+            if oldValue.isBusy, !state.isBusy { queueAfterJob() }
         }
     }
     /// Caption under a partial analysis ("2 FILES COULDN'T BE READ · ..."); nil otherwise.
@@ -80,6 +81,15 @@ final class Engine: ObservableObject {
     private let launcher: ProcessLauncher
     private var results: [Result] = []
     private var expected = 0
+    /// Files that arrived while a job was running (Intake.receive, every surface): FIFO, no
+    /// duplicate paths. They start, as one analysis, when the running job ends.
+    private var queue: [URL] = []
+    /// How many files wait (the drop queue).
+    @Published private(set) var queued = 0
+    /// The files of the analysis that is running now (empty for a download or Run Doctor).
+    private var activeFiles: [URL] = []
+    /// Readings of the earlier jobs of one queued run: the last job's state pages through all of them.
+    private var carried: [Result] = []
     private var sawTerminal = false
     private var pendingURL = ""
     private var generation = 0
@@ -192,9 +202,51 @@ final class Engine: ObservableObject {
         }
     }
 
+    /// Starts an analysis now; ignored while busy. Files that arrive from outside (drop, open,
+    /// Dock, pocket, Mini) never come here: they go through `submit`.
     func analyze(_ files: [URL]) {
         guard !files.isEmpty else { return }
         start(["analyze"] + files.map { $0.path }, stage: "analyzing", expected: files.count)
+    }
+
+    /// The one place files wait their turn. Idle: they start at once. Busy: they join the queue
+    /// (duplicates of a queued or running path are left out) and start when the job ends.
+    func submit(_ files: [URL]) {
+        runOnMain {
+            var seen = Set(self.queue.map(Engine.pathKey))
+            if self.state.isBusy { seen.formUnion(self.activeFiles.map(Engine.pathKey)) }
+            var added = 0, duplicates = 0
+            for f in files {
+                if seen.insert(Engine.pathKey(f)).inserted { self.queue.append(f); added += 1 } else { duplicates += 1 }
+            }
+            self.queued = self.queue.count
+            AppLog.log("queue: added \(added), \(duplicates) duplicate skipped, size \(self.queue.count)"
+                       + (self.state.isBusy ? ", waiting for the running job" : ""))
+            self.startQueued(keepBatch: false)
+        }
+    }
+
+    private static func pathKey(_ u: URL) -> String { u.standardizedFileURL.path }
+
+    /// Idle and files waiting: all of them become one analysis. keepBatch = the readings so far stay
+    /// on the pager (the next job of one queued run).
+    private func startQueued(keepBatch: Bool) {
+        guard !queue.isEmpty, keepBatch || !state.isBusy else { return }
+        let files = queue
+        queue = []; queued = 0
+        AppLog.log("queue: start \(files.count) file(s)" + (keepBatch ? " (next job of the run)" : ""))
+        begin(["analyze"] + files.map { $0.path }, stage: "analyzing", expected: files.count, keepBatch: keepBatch)
+    }
+
+    /// A job ended and files are waiting. A failure or login prompt stays on the LCD until the next job.
+    private func queueAfterJob() {
+        guard !queue.isEmpty else { return }
+        switch state {
+        case .failed, .needsLogin:
+            AppLog.log("queue: \(queue.count) file(s) held behind a message that needs you; they start after the next job")
+        default:
+            DispatchQueue.main.async { self.startQueued(keepBatch: false) }
+        }
     }
 
     private func start(_ args: [String], stage: String, expected: Int = 0, probe: (() -> Bool)? = nil) {
@@ -206,8 +258,11 @@ final class Engine: ObservableObject {
     }
 
     /// start without the busy check: also the automatic re-run with the saved login.
-    private func begin(_ args: [String], stage: String, expected: Int = 0, probe: (() -> Bool)? = nil) {
+    private func begin(_ args: [String], stage: String, expected: Int = 0, probe: (() -> Bool)? = nil,
+                       keepBatch: Bool = false) {
         runOnMain {
+            if !keepBatch { self.carried = [] }
+            self.activeFiles = args.first == "analyze" ? args.dropFirst().map { URL(fileURLWithPath: $0) } : []
             self.generation += 1
             let gen = self.generation
             self.state = .working(stage: probe == nil ? stage : "allow-downloads")
@@ -296,7 +351,13 @@ final class Engine: ObservableObject {
         case .stage(let s): if !sawTerminal { state = .working(stage: s) }
         case .done(let r): sawTerminal = true; state = .done(r); recents?.record(r)
         case .analyzed(let r): results.append(r)
-        case .error(let m): sawTerminal = true; state = .failed(m)
+        case .error(let m):
+            sawTerminal = true
+            if !activeFiles.isEmpty, !queue.isEmpty || !carried.isEmpty {
+                // a failed job inside a queued run: its files become failed rows, the run goes on
+                AppLog.log("queue: a job failed (\(m.prefix(120))); its files are shown as unread")
+                endAnalysis(results + unread(), code: -1)
+            } else { state = .failed(m) }
         case .needsLogin(let reason, _, let stale):
             sawTerminal = true
             if stale || usedLogin {
@@ -316,19 +377,44 @@ final class Engine: ObservableObject {
 
     private func finish(_ code: Int32) {
         guard !sawTerminal else { return }
+        let inRun = !queue.isEmpty || !carried.isEmpty
         if !results.isEmpty {
             // Nothing readable and macOS refused it: say where to allow it, not a blank readout.
-            if results.allSatisfy({ $0.bpm == nil && $0.readError == "permission" }) {
+            if !inRun, results.allSatisfy({ $0.bpm == nil && $0.readError == "permission" }) {
                 state = .failed("Operation not permitted: \(results[0].name)")
                 return
             }
-            if code != 0 {
-                note = Faceplate.partialNote(max(expected - results.count, 1))
-            }
-            state = .analyzed(results)
-            results.forEach { recents?.record($0) }
+            // a job inside a queued run that lost files: they show as unread rows, the run goes on
+            endAnalysis(code != 0 && !queue.isEmpty ? results + unread() : results, code: code)
         } else if state.isBusy {
-            state = .failed("The helper stopped unexpectedly (exit \(code)).")
+            if inRun, !activeFiles.isEmpty {
+                AppLog.log("queue: a job ended with no readings (exit \(code)); its files are shown as unread")
+                endAnalysis(unread(), code: code)
+            } else {
+                state = .failed("The helper stopped unexpectedly (exit \(code)).")
+            }
         }
+    }
+
+    /// The running analysis' files the helper gave no row for, as failed rows (the existing
+    /// "no reading" path: failureNote names them in the log, the LCD shows them unread).
+    private func unread() -> [Result] {
+        let got = Set(results.map { Engine.pathKey($0.file) })
+        return activeFiles.filter { !got.contains(Engine.pathKey($0)) }.map {
+            Result(file: $0, name: $0.lastPathComponent, bpm: nil, keys: [], readError: "helper stopped")
+        }
+    }
+
+    /// An analysis job ended with these rows. Files are waiting: keep the rows and start the next
+    /// job (the LCD never goes idle in between). Otherwise every row of the run goes on the pager.
+    private func endAnalysis(_ rows: [Result], code: Int32) {
+        results.forEach { recents?.record($0) }
+        if !queue.isEmpty {
+            carried += rows
+            startQueued(keepBatch: true)
+            return
+        }
+        if code != 0 { note = Faceplate.partialNote(max(expected - results.count, 1)) }
+        state = .analyzed(carried + rows)
     }
 }
