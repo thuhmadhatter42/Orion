@@ -38,14 +38,14 @@ final class HelpSettings: ObservableObject {
     }
 }
 
-/// One explanation: a short title (the control's legend) and one or two plain sentences.
+/// One explanation: a short title (the control's legend) and a Board Talk body (docs/BOARD-TALK.md).
 struct HelpTip: Equatable {
     let title: String
     let body: String
     var id: String { title }
 
-    /// The longest line a card holds comfortably (1-2 sentences).
-    static let maxBody = 140
+    /// The longest body Board Talk allows (docs/BOARD-TALK.md): a phrase, not a sentence.
+    static let maxBody = 60
 }
 
 /// One group of help lines in the help window.
@@ -54,107 +54,114 @@ struct HelpSection: Equatable {
     let tips: [HelpTip]
 }
 
-/// Every help line, in one place to edit and test (≤ 140 characters, about 20 words each).
+/// Every help line, in one place to edit and test. Board Talk (docs/BOARD-TALK.md): a short title,
+/// a body of about 3-8 words, 60 characters at most, the shortcut last in parentheses.
 enum HelpText {
     // the readout
-    static let bpm = HelpTip(title: "BPM", body: "The tempo in beats per minute: the whole number to type into your DAW, decimals smaller. Click to switch normal, double and half time.")
-    static let pitchToFit = HelpTip(title: "PITCH TO FIT", body: "How far to pitch this beat, in semitones, so it lands in your project's key.")
-    static let tempoFactor = HelpTip(title: "×0.5 · ×1 · ×2", body: "Halve or double the BPM when the beat feels twice as fast or slow as the number shown.")
-    static let keyDial = HelpTip(title: "KEY", body: "The key Beat Key hears; the ring and the % under it show how sure it is.")
-    static let confidence = HelpTip(title: "LOCKED · UNSURE", body: "How sure the key is, as a %. LOCKED = confident. UNSURE = a close call, so check the runner-up keys.")
-    static let topKeys = HelpTip(title: "TOP KEYS", body: "The three likeliest keys and how sure Beat Key is of each. Click 2 or 3 to use that key: it turns white, marked MANUAL.")
-    static let manual = HelpTip(title: "MANUAL", body: "Pick the key by hand from all 24. Your pick becomes the key and helps teach Beat Key.")
-    /// Manual Key Selection: the dial's hover card while a key is selected manually (shown help
-    /// mode or not, like the wheel's cards; J 2026-11-09 15:19, his words).
-    static let manualReset = HelpTip(title: "MANUAL KEY", body: "Click to reset manual selection.")
-    /// The line the wheel's hover card adds on the manually selected key (J's words).
-    static let manualLocked = "Locked to this key because it was selected manually."
-    /// What a click on that white section does, after the locked line.
-    static let manualWheelReset = "Click it again to reset: Beat Key goes back to detecting the key."
-    static let keyboard = HelpTip(title: "KEYBOARD", body: "The key's scale, root dotted. Play it on Mac keys A W S E D F T G Y H U J K. Z / X move the octave down / up; Space flips major/minor.")
-    static let scale = HelpTip(title: "SCALE", body: "The key's seven notes, spelled the way the key is written.")
-    static let tuning = HelpTip(title: "TUNING", body: "How far the track sits from standard pitch, in cents; A4 is the concert pitch it implies. Green = in tune.")
-    static let camelot = HelpTip(title: "CAMELOT", body: "The key's Camelot code for DJ mixing: neighbouring codes blend well.")
-    static let fileLine = HelpTip(title: "FILE", body: "The file that was read and its folder. While listening, the source being heard.")
-    static let showInFinder = HelpTip(title: "SHOW IN FINDER", body: "Opens the file's folder in Finder with the file selected.")
-    static let status = HelpTip(title: "STATUS", body: "READY = waiting. WORKING = downloading or reading. FAILED = see the readout. LIVE = listening.")
+    static let bpm = HelpTip(title: "BPM", body: "Click: normal, double or half time.")
+    static let pitchToFit = HelpTip(title: "PITCH TO FIT", body: "Semitones to pitch the beat into your key.")
+    static let tempoFactor = HelpTip(title: "×0.5 · ×1 · ×2", body: "Halve or double the BPM.")
+    static let keyDial = HelpTip(title: "KEY", body: "Key heard. Ring and % show how sure.")
+    static let confidence = HelpTip(title: "LOCKED · UNSURE", body: "LOCKED = sure. UNSURE = close call.")
+    static let topKeys = HelpTip(title: "TOP KEYS", body: "Three likeliest keys. Click to pin, again to unpin.")
+    static let manual = HelpTip(title: "MANUAL", body: "Pin any of the 24 keys.")
+    /// Pinned key: the dial's hover card while a key is pinned (shown help mode or not, like the
+    /// wheel's cards; J 2026-11-09 15:19, pin model 2026-11-18).
+    static let manualReset = HelpTip(title: "PINNED KEY", body: "Click to unpin.")
+    /// The wheel's hover card on the pinned key: this line, then `manualWheelReset`.
+    static let manualLocked = "Pinned."
+    /// What a click on that white section does, after the pinned line.
+    static let manualWheelReset = "Click to unpin."
+    static let keyboard = HelpTip(title: "KEYBOARD", body: "Play A W S E D F T G Y H U J K. Z X: octave.")
+    static let scale = HelpTip(title: "SCALE", body: "The key's seven notes.")
+    static let tuning = HelpTip(title: "TUNING", body: "Cents off standard pitch. Green = in tune.")
+    static let camelot = HelpTip(title: "CAMELOT", body: "Camelot code for DJ mixing.")
+    static let fileLine = HelpTip(title: "FILE", body: "File read, and its folder.")
+    static let showInFinder = HelpTip(title: "SHOW IN FINDER", body: "Reveal the file in Finder.")
+    static let status = HelpTip(title: "STATUS", body: "READY, WORKING, FAILED or LIVE.")
 
     // getting audio in
-    static let linkField = HelpTip(title: "LINK", body: "Paste a YouTube link. Beat Key downloads it as an MP3 into Downloads and reads its BPM and key.")
-    static let download = HelpTip(title: "DOWNLOAD", body: "Downloads the link as an MP3 and reads it. With the field empty, it takes the link on your clipboard.")
-    static let openAudio = HelpTip(title: "OPEN AUDIO", body: "Choose audio files on your Mac, then press FIND KEY/BPM. You can also drop files on the window.")
-    static let findKey = HelpTip(title: "FIND KEY/BPM", body: "Reads the BPM and key of the audio you chose. Several files? Page through them with the arrows.")
-    static let analyzeFile = HelpTip(title: "ANALYZE FILE", body: "Pick an audio file on your Mac; the window opens and reads its BPM and key.")
-    static let source = HelpTip(title: "SOURCE", body: "What LISTEN hears: System Audio or an input. The meter shows the level coming in.")
-    static let listen = HelpTip(title: "LISTEN", body: "Reads BPM and key live from whatever is playing. Nothing is recorded or saved.")
-    static let hold = HelpTip(title: "HOLD", body: "Freezes the reading on screen while listening carries on. Press again to follow the music.")
-    static let reset = HelpTip(title: "NEW SONG", body: "Clears what Listen heard and starts fresh. Use it when the song changes.")
+    static let linkField = HelpTip(title: "LINK", body: "Paste a YouTube link.")
+    static let download = HelpTip(title: "DOWNLOAD", body: "Get MP3, BPM and key. Empty field: clipboard link.")
+    static let openAudio = HelpTip(title: "OPEN AUDIO", body: "Choose or drop audio files, any number.")
+    static let findKey = HelpTip(title: "FIND KEY/BPM", body: "Get BPM and key. Arrows page files.")
+    static let analyzeFile = HelpTip(title: "ANALYZE FILE", body: "Pick audio files, get BPM and key.")
+    static let source = HelpTip(title: "SOURCE", body: "System audio or an input. Meter shows level.")
+    static let listen = HelpTip(title: "LISTEN", body: "Live BPM and key. Nothing recorded or saved.")
+    static let hold = HelpTip(title: "HOLD", body: "Freeze the reading. Click again to follow.")
+    static let reset = HelpTip(title: "NEW SONG", body: "Clear the listen reading, start fresh.")
 
     // sending
-    static let sendDAW = HelpTip(title: "SEND TO DAW", body: "Sends the BPM and key to the DAW that's open. What it can take depends on the DAW.")
-    static let autoTune = HelpTip(title: "SEND TO AUTO-TUNE", body: "Sets the key and reference pitch in Auto-Tune (and Waves Tune Real-Time). Shortcut \(AutoTuneSend.shortcutDisplay) (Reading menu).")
-    static let exportMidi = HelpTip(title: "EXPORT MIDI", body: "Saves a MIDI file with the tempo and key, to drag into any DAW.")
+    static let sendDAW = HelpTip(title: "SEND TO DAW", body: "Send BPM and key to the open DAW.")
+    static let autoTune = HelpTip(title: "SEND TO AUTO-TUNE", body: "Set key in Auto-Tune, Tune Real-Time (\(AutoTuneSend.shortcutDisplay))")
+    static let exportMidi = HelpTip(title: "EXPORT MIDI", body: "MIDI file with tempo and key.")
 
     // the footer
-    static let recent = HelpTip(title: "RECENT", body: "Your recent readings. Pick one to put it back on the readout.")
-    static let settings = HelpTip(title: "SETTINGS", body: "Display, listening source, global shortcuts and Open at Login.")
-    static let color = HelpTip(title: "COLOR", body: "Pick the display colour on the colour wheel. Reset to Amber puts it back.")
-    static let advanced = HelpTip(title: "ADVANCED", body: "Adds the key wheel, chords to hear and drag, and MATCH TO. First switch each launch sets the window and menu bar; then each on its own.")
-    static let window = HelpTip(title: "WINDOW", body: "Opens the full Beat Key window.")
-    static let quit = HelpTip(title: "QUIT", body: "Quits Beat Key.")
-    static let help = HelpTip(title: "HELP", body: "Help is on: hover anything to see what it does. Click again to turn it off.")
+    static let recent = HelpTip(title: "RECENT", body: "Past readings. Pick one to bring it back.")
+    static let settings = HelpTip(title: "SETTINGS", body: "Display, listen source, shortcuts, login.")
+    static let color = HelpTip(title: "COLOR", body: "Pick the display colour. Reset to Amber.")
+    static let advanced = HelpTip(title: "ADVANCED", body: "Add key wheel, chords, MATCH TO.")
+    static let window = HelpTip(title: "WINDOW", body: "Open the full window.")
+    static let quit = HelpTip(title: "QUIT", body: "Quit Beat Key.")
+    static let help = HelpTip(title: "HELP", body: "Help on. Hover for tips. Click to turn off.")
 
     // Advanced mode
-    static let keyWheel = HelpTip(title: "KEY WHEEL", body: "Circle of fifths, majors outside. The key is lit, runner-ups dim, fits outlined. Click a key to use it (white); again to reset.")
-    static let notesHeard = HelpTip(title: "NOTES HEARD", body: "How strongly each note was heard. Bright, dotted notes belong to the key's scale.")
-    static let chords = HelpTip(title: "CHORDS", body: "The key's chords. Click one to hear it; drag it into your DAW or Finder for a MIDI clip.")
-    static let quality = HelpTip(title: "TRIAD · 7TH · 9TH", body: "Chord size: three notes, add the 7th, or add the 7th and 9th.")
-    static let voicing = HelpTip(title: "ROOT · 1ST · 2ND · OPEN", body: "Which chord note sits at the bottom. OPEN spreads the chord wider.")
-    static let bars = HelpTip(title: "BAR", body: "How long each chord lasts when you drag it out as MIDI, in bars at the beat's BPM.")
-    static let borrowed = HelpTip(title: "BORROWED", body: "Chords from the parallel major or minor key: outside the scale, but they add colour.")
-    static let matchTo = HelpTip(title: "MATCH TO", body: "Pick your project's key. Beat Key shows how far to pitch this beat so it fits.")
-    static let matchShift = HelpTip(title: "−6 … +6", body: "Semitones to pitch the beat up or down to land in your project's key. The lit one fits.")
-    static let mini = HelpTip(title: "MINI", body: "Opens Beat Key Mini: a small always-on-top pad of these chords that plays your DAW's instrument over MIDI.")
-    static let miniPanel = HelpTip(title: "BEAT KEY MINI", body: "Hold a pad to play its chord into MIDI input \"Beat Key\". Keys 1-7 play the row, Q W E R the borrowed chords.")
-    static let miniSound = HelpTip(title: "SOUND", body: "Also plays the chords on Beat Key's own piano. Leave it off when your DAW's instrument is playing them.")
+    static let keyWheel = HelpTip(title: "KEY WHEEL", body: "Circle of fifths. Click a key to pin it.")
+    static let notesHeard = HelpTip(title: "NOTES HEARD", body: "Note strength. Dotted = in the scale.")
+    static let chords = HelpTip(title: "CHORDS", body: "Click to hear. Drag to a DAW as MIDI.")
+    static let quality = HelpTip(title: "TRIAD · 7TH · 9TH", body: "Chord size: 3 notes, add 7th, add 7th and 9th.")
+    static let voicing = HelpTip(title: "ROOT · 1ST · 2ND · OPEN", body: "Bottom note of the chord. OPEN spreads it.")
+    static let bars = HelpTip(title: "BAR", body: "Bars per chord when dragged out as MIDI.")
+    static let borrowed = HelpTip(title: "BORROWED", body: "Chords from the parallel major or minor.")
+    static let matchTo = HelpTip(title: "MATCH TO", body: "Pick your project's key. See the pitch to fit.")
+    static let matchShift = HelpTip(title: "−6 … +6", body: "Semitones to pitch. The lit one fits.")
+    static let mini = HelpTip(title: "MINI", body: "Small always-on-top chord pad. Plays over MIDI.")
+    static let miniPanel = HelpTip(title: "BEAT KEY MINI", body: "Pads play MIDI in \"Beat Key\". Keys 1-7, Q W E R.")
+    static let miniSound = HelpTip(title: "SOUND", body: "Also play chords on Beat Key's piano.")
 
     // YouTube sign-in (its own button, not the DOWNLOAD cap's tip)
-    static let login = HelpTip(title: "LOG IN TO YOUTUBE", body: "Opens Beat Key's own YouTube sign-in window for a video that asks you to log in. Your login stays on this Mac.")
+    static let login = HelpTip(title: "LOG IN TO YOUTUBE", body: "Open YouTube sign-in. Login stays on this Mac.")
     // paging and the empty readout
-    static let prevFile = HelpTip(title: "PREVIOUS FILE", body: "Shows the previous of the files you chose. The ← key does the same.")
-    static let nextFile = HelpTip(title: "NEXT FILE", body: "Shows the next of the files you chose. The → key does the same.")
-    static let readout = HelpTip(title: "READOUT", body: "The BPM and key show here once Beat Key has read a beat. Paste a link, open a file or press LISTEN to start.")
+    static let prevFile = HelpTip(title: "PREVIOUS FILE", body: "Previous file (←)")
+    static let nextFile = HelpTip(title: "NEXT FILE", body: "Next file (→)")
+    static let readout = HelpTip(title: "READOUT", body: "Paste, open or listen to read a beat.")
 
     // Settings (the Settings window)
-    static let settingsHighContrast = HelpTip(title: "HIGH CONTRAST", body: "Brighter LCD text on pure black, no glow. The lamp shapes still tell locked, unsure and listening apart.")
-    static let settingsListenTo = HelpTip(title: "LISTEN TO", body: "What LISTEN hears: System Audio (everything the Mac plays) or one input. Nothing is recorded or saved.")
-    static let settingsChannel = HelpTip(title: "CHANNEL", body: "Which channel of an audio interface LISTEN reads, or all channels together.")
-    static let settingsStartOver = HelpTip(title: "START OVER AFTER", body: "How long a silence ends the song, so LISTEN starts a fresh reading for the next one.")
-    static let settingsRename = HelpTip(title: "FILE NAMES", body: "Add the key and BPM to a file's name after it is read. Ask each time, always, or never. Pro Tools session files always ask.")
-    static let settingsOpenAtLogin = HelpTip(title: "OPEN AT LOGIN", body: "Starts Beat Key when you log in to your Mac.")
-    static let settingsShortcuts = HelpTip(title: "GLOBAL SHORTCUTS", body: "Work in any app (default ⌃⌥⌘ + K listen, F file, R new song, H hold). Click one, type new keys; Delete turns it off.")
+    static let settingsHighContrast = HelpTip(title: "HIGH CONTRAST", body: "Brighter text, no glow. Lamp shapes stay.")
+    static let settingsListenTo = HelpTip(title: "LISTEN TO", body: "System audio or one input. Nothing saved.")
+    static let settingsChannel = HelpTip(title: "CHANNEL", body: "Interface channel to read, or all.")
+    static let settingsStartOver = HelpTip(title: "START OVER AFTER", body: "Silence length that ends a song.")
+    static let settingsRename = HelpTip(title: "FILE NAMES", body: "Add key + BPM to names. Pro Tools files always ask.")
+    static let settingsOpenAtLogin = HelpTip(title: "OPEN AT LOGIN", body: "Start Beat Key at login.")
+    static let settingsShortcuts = HelpTip(title: "GLOBAL SHORTCUTS", body: "Work in any app. Click, type keys. Delete clears.")
 
     // Permissions guide
-    static let permissionGuide = HelpTip(title: "SET UP PERMISSIONS", body: "Walks you through the macOS permissions one at a time and checks each for you. Beat Key menu › \(Brand.setUpPermissions)")
-    /// One line per permission, straight from PermissionKind (its own `why` and `instruction`).
+    static let permissionGuide = HelpTip(title: "SET UP PERMISSIONS", body: "Checks each permission. Menu: \(Brand.setUpPermissions)")
+    /// One line per permission (the guide window's own longer text is PermissionKind.why).
     static func permission(_ k: PermissionKind) -> HelpTip {
-        HelpTip(title: k.title.uppercased(), body: "\(k.why) \(k.instruction)")
+        let body: String
+        switch k {
+        case .screen: body = "Hear Mac audio. Turn on Beat Key."
+        case .microphone: body = "Hear a mic or interface. Turn on Beat Key."
+        case .accessibility: body = "Type BPM and key into your DAW. Turn on Beat Key."
+        }
+        return HelpTip(title: k.title.uppercased(), body: body)
     }
     static let permissionScreen = permission(.screen)
     static let permissionMicrophone = permission(.microphone)
     static let permissionAccessibility = permission(.accessibility)
 
     // Doctor
-    static let runDoctor = HelpTip(title: "RUN DOCTOR", body: "Beat Key menu › \(Brand.runDoctor) re-checks the downloader, ffmpeg, the analyzer and Downloads, and repairs what it can.")
-    static let doctorResult = HelpTip(title: "DOCTOR RESULT", body: "OK = all good. FIXED IT = it repaired something. FOUND A PROBLEM = the line under it says the one thing to do.")
+    static let runDoctor = HelpTip(title: "RUN DOCTOR", body: "Check and repair downloader, ffmpeg, analyzer.")
+    static let doctorResult = HelpTip(title: "DOCTOR RESULT", body: "OK · FIXED IT · FOUND A PROBLEM (see line below)")
 
     // Keys and shortcuts
-    static let keysOctave = HelpTip(title: "OCTAVE · Z X", body: "Z moves the Mac-key notes down an octave, X up. The link field must be empty.")
-    static let keysMode = HelpTip(title: "MAJOR / MINOR · SPACE", body: "Space flips the keyboard's scale between major and minor.")
-    static let keysPaging = HelpTip(title: "PAGE FILES · ← →", body: "With several files chosen, the left and right arrow keys page through them (not while the link field has text).")
-    static let keysAutoTune = HelpTip(title: "AUTO-TUNE SHORTCUT", body: "\(AutoTuneSend.shortcutDisplay) (Reading menu) sends the key to Auto-Tune, whichever Beat Key window is in front.")
-    static let keysAdvanced = HelpTip(title: "ADVANCED SHORTCUT", body: "⌥⌘A (View menu) turns Advanced Mode on or off.")
-    static let keysHelp = HelpTip(title: "HELP WINDOW · ⌘?", body: "Help › Beat Key Help opens this window. Help › Help Mode (or the HELP chip) shows a card when you hover a control.")
+    static let keysOctave = HelpTip(title: "OCTAVE · Z X", body: "Z octave down, X up. Link field empty.")
+    static let keysMode = HelpTip(title: "MAJOR / MINOR · SPACE", body: "Space flips the keyboard major/minor.")
+    static let keysPaging = HelpTip(title: "PAGE FILES · ← →", body: "Arrows page files. Link field empty.")
+    static let keysAutoTune = HelpTip(title: "AUTO-TUNE SHORTCUT", body: "Send key to Auto-Tune (\(AutoTuneSend.shortcutDisplay))")
+    static let keysAdvanced = HelpTip(title: "ADVANCED SHORTCUT", body: "Advanced on/off (⌥⌘A)")
+    static let keysHelp = HelpTip(title: "HELP WINDOW · ⌘?", body: "Help › Beat Key Help. Help Mode: hover tips.")
 
     /// The help window's contents, in order. THE one list: the window draws it, the launch check
     /// and the tests read it, and `all` is made from it, so a tip cannot be missing from the window.
@@ -637,8 +644,8 @@ struct HelpChip: View {
     var body: some View {
         // the footer's one chip (FooterChip), lit while help mode is on
         FooterChip(title: "HELP", label: "Help mode", on: on, accent: true, action: action)
-            .nativeHelp("Help mode: hover anything to see what it does")
+            .nativeHelp("Help mode: hover for tips")
             .helpTip(HelpText.help)
-            .accessibility(hint: Text(on ? "Turns help mode off" : "Turns help mode on: hover anything to see what it does"))
+            .accessibility(hint: Text(on ? "Turns help mode off" : "Turns help mode on: hover for tips"))
     }
 }

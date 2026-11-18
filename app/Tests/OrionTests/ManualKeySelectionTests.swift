@@ -175,8 +175,8 @@ final class ManualKeySelectionTests: XCTestCase {
         let id = try! XCTUnwrap(w.manualSection)
         let tip = w.tip(for: id)
         XCTAssertTrue(tip.title.hasSuffix("12% SURE"), tip.title)        // still says how sure, the real %
-        XCTAssertTrue(tip.body.contains("Locked to this key because it was selected manually."))
-        XCTAssertTrue(tip.body.contains("again to reset"))
+        XCTAssertTrue(tip.body.contains("Pinned."))
+        XCTAssertTrue(tip.body.contains("Click to unpin."))
         // a key that was never detected: its name, no made-up %
         s.setManualKey("Am", of: raw, from: .wheel)
         let w2 = HarmonyPanel.wheel(state(s), settings: s)
@@ -184,11 +184,11 @@ final class ManualKeySelectionTests: XCTestCase {
         XCTAssertFalse(t2.title.contains("%"), t2.title)
         XCTAssertTrue(t2.body.hasPrefix(HelpText.manualLocked))
         // other keys keep their cards
-        XCTAssertFalse(w2.tip(for: 0).body.contains("Locked"))
+        XCTAssertFalse(w2.tip(for: 0).body.contains("Pinned"))
     }
 
     func testDialHoverCardText() {
-        XCTAssertEqual(HelpText.manualReset.body, "Click to reset manual selection.")
+        XCTAssertEqual(HelpText.manualReset.body, "Click to unpin.")
         XCTAssertTrue(HelpText.all.contains(HelpText.manualReset))
         XCTAssertEqual(HelpText.problems(), [])
     }

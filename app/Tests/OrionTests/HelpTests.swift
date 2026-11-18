@@ -96,20 +96,34 @@ final class HelpTests: XCTestCase {
             XCTAssertFalse(t.title.isEmpty)
             XCTAssertFalse(t.body.trimmingCharacters(in: .whitespaces).isEmpty, t.title)
             XCTAssertLessThanOrEqual(t.body.count, HelpTip.maxBody, t.title)
-            XCTAssertLessThanOrEqual(t.body.count, 140, t.title)
+            XCTAssertLessThanOrEqual(t.body.count, 60, t.title)   // Board Talk (docs/BOARD-TALK.md)
         }
         XCTAssertEqual(HelpText.problems(), [])
     }
 
+    /// Board Talk (docs/BOARD-TALK.md): no filler words, and the pin tips say pin / unpin.
+    func testBoardTalkBansFillerAndSaysPin() {
+        for t in HelpText.all {
+            let b = t.body.lowercased()
+            for w in ["please", "simply", "easily", "you can", "allows you", "lets you", "in order to"] {
+                XCTAssertFalse(b.contains(w), "\(t.title): \"\(w)\"")
+            }
+            XCTAssertFalse(b.contains("manual"), "\(t.title): J says pin")
+        }
+        XCTAssertTrue(HelpText.topKeys.body.contains("pin") && HelpText.topKeys.body.contains("unpin"))
+        XCTAssertTrue(HelpText.keyWheel.body.contains("pin"))
+        XCTAssertEqual(HelpText.manualReset.body, "Click to unpin.")
+    }
+
     func testProblemsAreCaught() {
-        let bad = [HelpTip(title: "A", body: ""), HelpTip(title: "B", body: String(repeating: "x", count: 141)),
+        let bad = [HelpTip(title: "A", body: ""), HelpTip(title: "B", body: String(repeating: "x", count: 61)),
                    HelpTip(title: "C", body: "ok"), HelpTip(title: "C", body: "ok")]
         XCTAssertEqual(HelpText.problems(bad).count, 3)
     }
 
     /// Click-to-respell is gone (2026-11-10): the KEY tip promises no click on the key.
     func testKeyTipDoesNotOfferRespelling() {
-        XCTAssertEqual(HelpText.keyDial.body, "The key Beat Key hears; the ring and the % under it show how sure it is.")
+        XCTAssertEqual(HelpText.keyDial.body, "Key heard. Ring and % show how sure.")
         for t in HelpText.all {
             XCTAssertFalse(t.body.lowercased().contains("respell"), t.title)
             XCTAssertFalse(t.body.lowercased().contains("sharp or flat"), t.title)
@@ -118,7 +132,7 @@ final class HelpTests: XCTestCase {
 
     func testChordsTipCarriesTheClickDragLine() {
         // the always-on "CLICK = HEAR · DRAG = MIDI" moved into the tip
-        XCTAssertTrue(HelpText.chords.body.contains("Click one to hear it"))
+        XCTAssertTrue(HelpText.chords.body.contains("Click to hear"))
         XCTAssertTrue(HelpText.chords.body.contains("MIDI"))
     }
 
@@ -127,7 +141,7 @@ final class HelpTests: XCTestCase {
         XCTAssertEqual(MusicalTyping.action(keyCode: MusicalTyping.aKey, modifiers: []), .note(0))
         XCTAssertEqual(MusicalTyping.action(keyCode: MusicalTyping.space, modifiers: []), .toggleMode)
         XCTAssertTrue(HelpText.keyboard.body.contains("A W S E D F T G Y H U J K"))
-        XCTAssertTrue(HelpText.keyboard.body.contains("Space"))
+        XCTAssertTrue(HelpText.keysMode.body.contains("Space"))
     }
 
     // MARK: the help audit of 2026-11-17
