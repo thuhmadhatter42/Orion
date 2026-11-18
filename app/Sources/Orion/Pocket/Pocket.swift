@@ -169,15 +169,26 @@ struct PocketState {
     }
 }
 
+/// Where the reading on show came from (Broadcast.swift sends it as `source`).
+enum ShownSource: Equatable { case listen, file }
+
 extension PocketState {
-    /// The reading the popover acts on (send, export, Auto-Tune): Listen's while it is on, else
-    /// the finished download or the file paged to (what the readout shows).
-    static func shown(_ state: ViewState, live: LiveState, page: Pager) -> Result? {
-        if live.isActive, let r = live.result { return r.respelled() }
+    /// The reading the popover acts on (send, export, Auto-Tune, Broadcast): Listen's while it is
+    /// on, else the finished download or the file paged to (what the readout shows), with where it
+    /// came from. THE one place the app's current reading is chosen. `choice` = the picked key,
+    /// passed in by a caller that holds the new value before the property has changed.
+    static func shownReading(_ state: ViewState, live: LiveState, page: Pager,
+                             choice: KeyChoice? = SpellingSettings.shared.manualKey) -> (result: Result, source: ShownSource)? {
+        if live.isActive, let r = live.result { return (r.respelled(choice: choice), .listen) }
         switch state {
-        case .done(let r): return r.respelled()
-        case .analyzed(let rs) where !rs.isEmpty: return rs[min(max(page.index, 0), rs.count - 1)].respelled()
+        case .done(let r): return (r.respelled(choice: choice), .file)
+        case .analyzed(let rs) where !rs.isEmpty:
+            return (rs[min(max(page.index, 0), rs.count - 1)].respelled(choice: choice), .file)
         default: return nil
         }
+    }
+
+    static func shown(_ state: ViewState, live: LiveState, page: Pager) -> Result? {
+        shownReading(state, live: live, page: page)?.result
     }
 }

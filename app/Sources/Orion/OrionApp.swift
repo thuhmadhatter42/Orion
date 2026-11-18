@@ -239,6 +239,8 @@ struct OrionApp: App {
         let l = live
         PlayToFind.shared.install(shown: { PocketState.shown(e.state, live: l.state, page: m.pager) },
                                   sendAutoTune: windowActions.sendAutoTune)
+        // Tell Artemis (and answer its "what is the key now?") what the app shows: Broadcast.swift.
+        Broadcast.shared.install(engine: engine, model: model, live: live)
         // Is this the latest version? One Sparkle background check per launch (the same updater as
         // Check for Updates…); it only shows a window when a newer Beat Key exists.
         updater.checkInBackgroundAtLaunch()
