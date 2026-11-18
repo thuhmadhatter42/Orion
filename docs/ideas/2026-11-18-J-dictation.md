@@ -26,6 +26,9 @@ Source: J's voice dictation in the beat_dl session. Nothing built yet. Artemis p
 ## 4. Help text far shorter
 - J: current descriptions read "psychotic, very verbose". Model them on Pro Tools hover tooltips: a few words, not ten-word pop-ups.
 - J offered: open Pro Tools on Studio D and hover controls to see their length. (Studio D window = his offer this session only.)
+- J 03:00 picked "Look on Studio D": Sonnet agent capturing Pro Tools tooltips word for word (evidence → docs/research/pt-tooltips-2026-11-18/ on its worktree branch, stops by 04:45).
+- J 03:02: first write a UI voice guide named **Board Talk** (like a scribble strip on a console). Built from (a) Pro Tools tooltip lengths and shape from Studio D, (b) J's own words: how he names things out loud in his dictation (e.g. "receive key", "get BPM from DAW", "auto get key"). Then every Help tip is rewritten in Board Talk, and HelpTip.maxBody drops to Board Talk's limit so the tests hold it.
+- Board Talk lives at docs/BOARD-TALK.md; Artemis can use the same guide.
 
 ## 5. Beat Key side of the Artemis button
 - Beat Key must broadcast what it is hearing (key, BPM, song change) so Artemis can "auto get key" / "auto get BPM", and answer a one-shot "what is the key/BPM now?".
