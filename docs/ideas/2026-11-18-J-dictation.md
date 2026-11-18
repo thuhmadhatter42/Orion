@@ -12,6 +12,10 @@ Source: J's voice dictation in the beat_dl session. Nothing built yet. Artemis p
 - A producer's own key/BPM in the name does NOT stop it: dropping a file in Beat Key = the person wants Beat Key's reading.
 - This was one of the original app's five features. Old format (app_run.py:9): `<stem> (<bpm> BPM <k1> <k2> <k3>).<ext>`.
 - Open: same format or top key only; rename in place or a copy (decide list).
+- J 03:00: rename the file itself, but ASK first. Once the key is found, a non-invasive prompt: "Rename the file?" + "Remember my choice" checkbox.
+- Pro Tools guard: a file inside a Pro Tools session's `Audio Files` folder (parent folder holds a .ptx session) ALWAYS gets a forced, blocking confirm, whatever was remembered: renaming makes Pro Tools lose the file.
+- History (read 03:01): the original run.sh:83-84 renamed the DOWNLOADED file in place with all three keys (`<stem> (<bpm> BPM k1 k2 k3).<ext>`); dropped files (dropped.py) were never renamed.
+- Owner: the prompt is one chair (rename policy: ask / remember / Pro Tools guard), calling the one renamer `renamed_name`.
 
 ## 3. Listen: tap one running app
 - Input options stay exactly as they are now.
