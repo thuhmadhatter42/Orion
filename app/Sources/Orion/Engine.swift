@@ -98,6 +98,13 @@ final class Engine: ObservableObject {
     private var usedLogin = false
     /// Every reading that comes out is remembered here (Recent Readings). nil = not kept (tests).
     private let recents: RecentStore?
+    /// Called with the results of every analysis once they are on the LCD (never for a download).
+    /// The app wires the rename policy here (Rename.swift).
+    var afterAnalysis: (([Result]) -> Void)?
+    /// The pin that follows a renamed file. Tests inject their own.
+    var spelling: SpellingSettings = .shared
+    private var renameQueue: [RenameItem] = []
+    private var renaming = false
 
     /// The app's probe: create and remove a hidden file in ~/Downloads. None when ORION_DOWNLOADS
     /// is set (a test/debug run that never touches the real folder).
@@ -297,6 +304,8 @@ final class Engine: ObservableObject {
         case .done(let r): sawTerminal = true; state = .done(r); recents?.record(r)
         case .analyzed(let r): results.append(r)
         case .error(let m): sawTerminal = true; state = .failed(m)
+        case .renamed, .renameSkipped, .renameFailed:
+            handleRename(e)
         case .needsLogin(let reason, _, let stale):
             sawTerminal = true
             if stale || usedLogin {
@@ -314,6 +323,76 @@ final class Engine: ObservableObject {
         }
     }
 
+    // MARK: rename (the helper's `rename`, one file at a time, quietly: the LCD is never busy)
+
+    /// Tags each file's name through the helper's one renamer, then refreshes every place the old
+    /// path lived (the reading on show, Recent Readings, the pinned key).
+    func rename(_ items: [RenameItem]) {
+        runOnMain {
+            self.renameQueue += items
+            self.renameNext()
+        }
+    }
+
+    private func renameNext() {
+        guard !renaming, !renameQueue.isEmpty else { return }
+        renaming = true
+        let item = renameQueue.removeFirst()
+        var sawEvent = false   // main thread only
+        launcher.launch(
+            executable: runtime.python,
+            arguments: [runtime.script.path, "rename", item.file.path, item.bpm] + item.keys,
+            environment: runtime.environment(),
+            onLine: { line in
+                guard let e = Event.parse(line: line) else {
+                    if !line.trimmingCharacters(in: .whitespaces).isEmpty {
+                        AppLog.log("rename: helper printed a non-event line: \(line.prefix(200))")
+                    }
+                    return
+                }
+                DispatchQueue.main.async { sawEvent = true; self.handleRename(e) }
+            },
+            onExit: { code in
+                DispatchQueue.main.async {
+                    if !sawEvent {
+                        AppLog.log("rename: FAILED, the helper stopped without an answer (exit \(code); analyzer.log)")
+                        self.note = Faceplate.renameFailedNote("The helper stopped unexpectedly.")
+                    }
+                    self.renaming = false
+                    self.renameNext()
+                }
+            })
+    }
+
+    private func handleRename(_ e: Event) {
+        switch e {
+        case .renamed(let from, let to):
+            applyRenamed(from: URL(fileURLWithPath: from), to: URL(fileURLWithPath: to))
+        case .renameSkipped:
+            AppLog.log("rename: skipped (already tagged) by the helper")
+        case .renameFailed(_, let errno, let message):
+            AppLog.log("rename: FAILED errno \(errno): \(message)")
+            note = Faceplate.renameFailedNote(message)
+        default:
+            break
+        }
+    }
+
+    /// The one place a renamed file's new path is taken over: the LCD's reading, Recent Readings,
+    /// the pinned key. Nothing keeps the old path.
+    private func applyRenamed(from old: URL, to new: URL) {
+        switch state {
+        case .analyzed(let rs) where rs.contains(where: { $0.file == old }):
+            state = .analyzed(rs.map { $0.file == old ? $0.moved(to: new) : $0 })
+        case .done(let r) where r.file == old:
+            state = .done(r.moved(to: new))
+        default: break
+        }
+        recents?.moved(from: old.path, to: new)
+        spelling.moved(from: old, to: new)
+        AppLog.log("rename: done")
+    }
+
     private func finish(_ code: Int32) {
         guard !sawTerminal else { return }
         if !results.isEmpty {
@@ -327,6 +406,7 @@ final class Engine: ObservableObject {
             }
             state = .analyzed(results)
             results.forEach { recents?.record($0) }
+            afterAnalysis?(results)
         } else if state.isBusy {
             state = .failed("The helper stopped unexpectedly (exit \(code)).")
         }

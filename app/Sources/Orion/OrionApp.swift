@@ -13,6 +13,7 @@ struct OrionApp: App {
     @StateObject private var shortcuts = ShortcutStore()
     @StateObject private var loginItem = LoginItemSettings()
     @StateObject private var display = DisplaySettings()
+    @StateObject private var rename = RenameSettings()
     @StateObject private var spelling = SpellingSettings.shared
     @StateObject private var help = HelpSettings.shared
     /// The clipboard link and the source name, shared by the window and the popover.
@@ -122,7 +123,7 @@ struct OrionApp: App {
             }
         }
         Settings {
-            SettingsView(shortcuts: shortcuts, loginItem: loginItem, live: live.settings, display: display)
+            SettingsView(shortcuts: shortcuts, loginItem: loginItem, live: live.settings, display: display, rename: rename)
         }
     }
 
@@ -167,6 +168,23 @@ struct OrionApp: App {
                                    showAgain: { OrionApp.showAgain($0, engine: e, model: m) })
     }
 
+    /// After a file is read: ask (or follow the remembered choice) about adding key + BPM to its name.
+    /// The tag carries the BPM as shown, so a half / double tempo on the page on show counts.
+    private func wireRename() {
+        let (e, m) = (engine, model)
+        let coordinator = RenameCoordinator(
+            settings: rename, asker: RenamePrompt(),
+            item: { r in
+                var factor = TempoFactor.one
+                if case .analyzed(let rs) = e.state, !rs.isEmpty, rs[min(max(m.pager.index, 0), rs.count - 1)].file == r.file {
+                    factor = m.tempoFactor
+                }
+                return RenameItem.make(r, choice: SpellingSettings.shared.manualKey, factor: factor)
+            },
+            perform: { [weak e] in e?.rename($0) })
+        engine.afterAnalysis = { coordinator.offer($0) }
+    }
+
     /// A checkmark row that sets the reference pitch to `hz`.
     private func referenceBinding(_ hz: Double) -> Binding<Bool> {
         Binding(get: { tuning.reference == hz }, set: { _ in tuning.reference = hz })
@@ -183,6 +201,7 @@ struct OrionApp: App {
     }
 
     private func launch() {
+        wireRename()
         live.songs.recents = recents   // each live song its own Recent Readings entry
         model.follow(live)             // each live song reads at x1
         HelpText.checkAtLaunch()

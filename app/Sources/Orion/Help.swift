@@ -130,6 +130,7 @@ enum HelpText {
     static let settingsListenTo = HelpTip(title: "LISTEN TO", body: "What LISTEN hears: System Audio (everything the Mac plays) or one input. Nothing is recorded or saved.")
     static let settingsChannel = HelpTip(title: "CHANNEL", body: "Which channel of an audio interface LISTEN reads, or all channels together.")
     static let settingsStartOver = HelpTip(title: "START OVER AFTER", body: "How long a silence ends the song, so LISTEN starts a fresh reading for the next one.")
+    static let settingsRename = HelpTip(title: "FILE NAMES", body: "Add the key and BPM to a file's name after it is read. Ask each time, always, or never. Pro Tools session files always ask.")
     static let settingsOpenAtLogin = HelpTip(title: "OPEN AT LOGIN", body: "Starts Beat Key when you log in to your Mac.")
     static let settingsShortcuts = HelpTip(title: "GLOBAL SHORTCUTS", body: "Work in any app (default ⌃⌥⌘ + K listen, F file, R new song, H hold). Click one, type new keys; Delete turns it off.")
 
@@ -170,7 +171,7 @@ enum HelpText {
                     tips: [pitchToFit, keyWheel, notesHeard, chords, quality, voicing, bars, borrowed, matchTo, matchShift, mini]),
         HelpSection(title: "Beat Key Mini", tips: [miniPanel, miniSound]),
         HelpSection(title: "Settings",
-                    tips: [settingsHighContrast, settingsListenTo, settingsChannel, settingsStartOver, settingsOpenAtLogin,
+                    tips: [settingsHighContrast, settingsListenTo, settingsChannel, settingsStartOver, settingsRename, settingsOpenAtLogin,
                            settingsShortcuts]),
         HelpSection(title: "Permissions guide",
                     tips: [permissionGuide, permissionScreen, permissionMicrophone, permissionAccessibility]),

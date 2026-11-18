@@ -4,6 +4,7 @@ Orchestrator for the Orion app. The Swift app spawns this and renders its JSON-l
 
   app_run.py download <url> [--cookies-file <path>]
   app_run.py analyze <file>...
+  app_run.py rename <file> <bpm> <key>...    (the app calls it after the user says yes; see rename_file)
 
 One JSON object per stdout line, flushed. Exit code 0 unless the process itself crashed.
 Output matches run.sh: rename "<stem> (<bpm> BPM <k1> <k2> <k3>).<ext>", log entry
@@ -18,6 +19,7 @@ overrides the folder), overwritten each run.
 """
 
 import contextlib
+import errno
 import io
 import json
 import os
@@ -34,6 +36,13 @@ import bpm as analyzer  # noqa: E402  (only its two constants: the refusal sente
 import downloader  # noqa: E402
 
 _KEY_RE = re.compile(r"^(.*?)\s*\((\d+(?:\.\d+)?)%\)\s*$")
+
+# The tag Beat Key writes into a file name: "<stem> (<bpm> BPM <k1> <k2> <k3>).<ext>". The ONE place
+# its shape lives: renamed_name writes it, is_tagged reads it. KEY_COUNT = how many keys it holds
+# (J may say "top key only": change this one number).
+KEY_COUNT = 3
+# Recognised with up to 3 keys whatever KEY_COUNT is now: files tagged before a change stay recognised.
+_TAG_RE = re.compile(r"(?:^|\s)\(\d+(?:\.\d+)? BPM(?: [A-G][#b]?m?){1,3}\)$")
 
 
 def log(msg):
@@ -59,8 +68,30 @@ def log_path():
 
 
 def renamed_name(stem, ext, bpm, keys):
-    ks = " ".join(k for k, _ in keys)
-    return f"{stem} ({bpm} BPM {ks}).{ext}"
+    ks = " ".join(k for k, _ in keys[:KEY_COUNT])
+    return f"{stem} ({bpm} BPM {ks})" + (f".{ext}" if ext else "")
+
+
+def is_tagged(name):
+    """True when `name` (a file name or path) already carries Beat Key's own tag, written by
+    renamed_name. A producer's own "140 BPM" or "Cm" in a name is not the tag."""
+    return bool(_TAG_RE.search(Path(name).stem))
+
+
+def rename_file(path, bpm, keys, overwrite=False):
+    """The one renamer: `path` becomes renamed_name(...) in its own folder; returns the new Path.
+    Never replaces another file unless overwrite (a re-download does; the app's rename never)."""
+    path = Path(path)
+    new = path.with_name(renamed_name(path.stem, path.suffix.lstrip("."), bpm, keys))
+    if overwrite:
+        os.replace(path, new)
+    else:
+        if not path.exists():
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(path))
+        if new.exists():
+            raise FileExistsError(errno.EEXIST, "a file with that name already exists", str(new))
+        os.rename(path, new)
+    return new
 
 
 def log_line(url, name):
@@ -309,9 +340,7 @@ def _cmd_download(url, cookies_file, outcome):
     if bpm:
         try:
             emit(stage="renaming")
-            new = path.with_name(renamed_name(path.stem, path.suffix.lstrip("."), bpm, keys))
-            os.replace(path, new)
-            final = new
+            final = rename_file(path, bpm, keys, overwrite=True)
         except Exception as exc:
             # Rename failed: keep the original file and its analysis.
             log(f"rename failed for {path.name}: {exc}")
@@ -361,8 +390,26 @@ def cmd_analyze(files):
         if not bpm and read_error(path):
             extra["error"] = "permission"
             log(f"macOS refused to let the helper read {path.name} (permission)")
-        emit(stage="analyzed", file=full, name=path.name,
+        emit(stage="analyzed", file=full, name=path.name, tagged=is_tagged(path.name),
              bpm=bpm or None, keys=[[k, p] for k, p in keys], **extra)
+
+
+def cmd_rename(raw, bpm, key_names):
+    """The app's yes: add the tag to one file's name, in place. One event: `renamed` (file, to,
+    name), `rename_skipped` (already tagged by Beat Key) or `rename_failed` (errno, message): the
+    file is never left half-done, and a failure is reported, never swallowed."""
+    path = Path(raw).expanduser()
+    if is_tagged(path.name):
+        log(f"rename skipped: {path.name} already carries Beat Key's tag")
+        emit(stage="rename_skipped", file=str(path), reason="tagged")
+        return
+    try:
+        new = rename_file(path, bpm, [(k, 0) for k in key_names])
+    except OSError as exc:
+        log(f"rename failed for {path.name}: {exc!r}")
+        emit(stage="rename_failed", file=str(path), errno=exc.errno or 0, message=exc.strerror or str(exc))
+        return
+    emit(stage="renamed", file=str(path), to=str(new), name=new.name)
 
 
 def main(argv):
@@ -390,8 +437,11 @@ def _main(argv):
         cmd_download(argv[2].strip(), cookies_file)
     elif len(argv) >= 3 and argv[1] == "analyze":
         cmd_analyze(argv[2:])
+    elif len(argv) >= 5 and argv[1] == "rename":
+        cmd_rename(argv[2], argv[3], argv[4:])
     else:
-        emit(stage="error", message="usage: app_run.py download <url> [--cookies-file <path>] | analyze <file>...")
+        emit(stage="error", message="usage: app_run.py download <url> [--cookies-file <path>] | analyze <file>... "
+                                    "| rename <file> <bpm> <key>...")
     return 0
 
 
