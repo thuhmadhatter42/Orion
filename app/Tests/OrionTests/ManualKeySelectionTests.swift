@@ -18,7 +18,6 @@ final class ManualKeySelectionTests: XCTestCase {
         let shown = raw.respelled(choice: s.manualKey)
         p.readout = .result(shown, page: nil, download: true, options: ResultOptions(
             factor: .one, tuning: Tuning.meter(12, reference: 440), onCycleTempo: {}))
-        p.manualKey = ManualKey.of(s.manualKey, raw: raw)
         p.advanced = advanced
         return p
     }
@@ -138,7 +137,7 @@ final class ManualKeySelectionTests: XCTestCase {
         let s = settings()
         XCTAssertNil(ManualKey.of(nil, raw: raw))
         s.setManualKey("F#", of: raw, from: .topKeys)
-        XCTAssertEqual(ManualKey.of(s.manualKey, raw: raw), ManualKey(pitchClass: 6, minor: false, detected: 12))
+        XCTAssertEqual(ManualKey.of(s.manualKey, raw: raw), ManualKey(pitchClass: 6, minor: false, detected: 12, slot: 1))
         s.setManualKey("Am", of: raw, from: .wheel)                      // not detected: no %
         XCTAssertEqual(ManualKey.of(s.manualKey, raw: raw), ManualKey(pitchClass: 9, minor: true, detected: nil))
         let other = Result(file: URL(fileURLWithPath: "/x/other.wav"), name: "other.wav", bpm: "90", keys: [("C", 70)])
@@ -147,20 +146,22 @@ final class ManualKeySelectionTests: XCTestCase {
 
     func testTopThreeInManualKeepsTheDetectedPercents() {
         let s = settings()
-        // a key the analyzer never listed: first, MANUAL, then the detected keys in order, real %
+        // a key the analyzer never listed takes no slot: the three slots stay the detector's, real %
         s.setManualKey("Am", of: raw, from: .wheel)
         let p = state(s)
         let keys = p.result?.keys ?? []
-        XCTAssertEqual(keys.map { $0.0 }, ["Am", "Ebm", "F#"])
-        XCTAssertEqual((0..<3).map { TopKeys.label($0, keys: keys, manual: p.manualKey) }, ["MANUAL", "80%", "12%"])
+        XCTAssertEqual(keys.map { $0.0 }, ["Ebm", "F#", "Bbm"])
+        XCTAssertEqual((0..<3).map { TopKeys.label($0, keys: keys, manual: p.manualKey) }, ["80%", "12%", "8%"])
         XCTAssertEqual(TopKeys.spoken(keys: keys, manual: p.manualKey),
-                       "Top keys: Am, selected manually, Ebm 80 percent, F# 12 percent")
-        // a detected key picked: it moves first as MANUAL, the 80 % key sits second with its %
+                       "Top keys: Ebm 80 percent, F# 12 percent, Bbm 8 percent")
+        // a detected key picked: it stays in its slot as MANUAL, the others keep their real %
         s.setManualKey("F#", of: raw, from: .topKeys)
         let q = state(s)
         let k2 = q.result?.keys ?? []
-        XCTAssertEqual(k2.map { $0.0 }, ["F#", "Ebm", "Bbm"])
-        XCTAssertEqual((0..<3).map { TopKeys.label($0, keys: k2, manual: q.manualKey) }, ["MANUAL", "80%", "8%"])
+        XCTAssertEqual(k2.map { $0.0 }, ["Ebm", "F#", "Bbm"])
+        XCTAssertEqual((0..<3).map { TopKeys.label($0, keys: k2, manual: q.manualKey) }, ["80%", "MANUAL", "8%"])
+        XCTAssertEqual(TopKeys.spoken(keys: k2, manual: q.manualKey),
+                       "Top keys: Ebm 80 percent, F#, selected manually, Bbm 8 percent")
         // not manual: the % as always
         let n = state(settings())
         XCTAssertEqual((0..<3).map { TopKeys.label($0, keys: n.result?.keys ?? [], manual: nil) }, ["80%", "12%", "8%"])

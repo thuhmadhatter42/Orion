@@ -192,17 +192,15 @@ final class PlayToFind {
             AppLog.log("play-to-find: octave \(act == .octaveUp ? "up" : "down"), C = \(PlayToFind.noteName(state.octaveC))")
         case .note(let n):
             if e.isARepeat { return nil }
-            // the analyzer's own scores decide major / minor (the raw order: a choice moved to the
-            // front at 0 % must not count)
-            let keys = (r?.keys ?? []).filter { $0.1 > 0 }
-            let midi = state.press(n, keys: keys)
+            // the analyzer's own scores decide major / minor (a pin never changes them)
+            let midi = state.press(n, keys: r?.keys ?? [])
             AppLog.log("play-to-find: note \(PlayToFind.noteName(midi))")
             NoteSynth.shared.play(midi: midi)
             apply(r)
         case .toggleMode:
             guard r != nil else { AppLog.log("play-to-find: space ignored: no reading"); return e }   // let SPACE do what it did
             if e.isARepeat { return nil }
-            guard state.toggle(shownKey: r?.keys.first?.0) else { NSSound.beep(); return nil }
+            guard state.toggle(shownKey: r?.keyInUse?.name) else { NSSound.beep(); return nil }
             apply(r)
         }
         return nil

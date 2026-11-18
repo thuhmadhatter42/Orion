@@ -5,23 +5,25 @@ final class KeyChoiceTests: XCTestCase {
     let r = Result(file: URL(fileURLWithPath: "/tmp/beat.mp3"), name: "beat", bpm: "140",
                    keys: [("Fm", 60), ("Ab", 25), ("Cm", 10)])
 
-    func testChosenKeyMovesToFront() {
-        let c = KeyChoice(file: r.file, name: r.name, pitchClass: 8, minor: false)
+    func testChosenKeyPinsAndNeverMovesOrWeighs() {
+        let c = KeyChoice(file: r.file, name: r.name, pitchClass: 8, minor: false, slot: 1)
         let s = r.respelled(choice: c)
-        XCTAssertEqual(s.keys.map { $0.0 }, ["Ab", "Fm", "Cm"])
-        XCTAssertEqual(s.keys.map { $0.1 }, [25, 60, 10])            // percentages travel with the key
+        XCTAssertEqual(s.keys.map { $0.0 }, ["Fm", "Ab", "Cm"])      // the detector's order
+        XCTAssertEqual(s.keys.map { $0.1 }, [60, 25, 10])            // and its percentages
+        XCTAssertEqual(s.keyInUse?.name, "Ab")                       // the pick is the key in use
     }
 
     func testChoiceForAnotherReadingIsIgnored() {
         let c = KeyChoice(file: URL(fileURLWithPath: "/tmp/other.mp3"), name: "other", pitchClass: 8, minor: false)
-        XCTAssertEqual(r.respelled(choice: c).keys.first?.0, "Fm")
+        XCTAssertEqual(r.respelled(choice: c).keyInUse?.name, "Fm")
     }
 
-    func testChoiceOutsideTopThreeGoesFirstAtZero() {
+    func testChoiceOutsideTopThreeTakesNoSlotAndIsStillTheKeyInUse() {
         let c = KeyChoice(file: r.file, name: r.name, pitchClass: 2, minor: false)
         let s = r.respelled(choice: c)
-        XCTAssertEqual(s.keys.map { $0.0 }, ["D", "Fm", "Ab"])
-        XCTAssertEqual(s.keys.first?.1, 0)
+        XCTAssertEqual(s.keys.map { $0.0 }, ["Fm", "Ab", "Cm"])      // slots keep showing the detector
+        XCTAssertEqual(s.keyInUse?.name, "D")
+        XCTAssertEqual(s.keyInUse?.percent, 0)
     }
 
     func testAllKeysAreSpelledLikeAutoTune() {
@@ -73,6 +75,6 @@ final class KeyChoiceTests: XCTestCase {
     func testChooseRecordsTheReading() {
         let s = SpellingSettings()
         s.setManualKey("G#", of: r, from: .topKeys)
-        XCTAssertEqual(s.manualKey, KeyChoice(file: r.file, name: r.name, pitchClass: 8, minor: false))
+        XCTAssertEqual(s.manualKey, KeyChoice(file: r.file, name: r.name, pitchClass: 8, minor: false, slot: 1))
     }
 }

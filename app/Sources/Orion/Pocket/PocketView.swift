@@ -692,10 +692,11 @@ struct KeyStrip: View {
         }
     }
 
-    /// TOP KEYS: a click on 2 or 3 sets Manual Key Selection.
+    /// TOP KEYS: a click on a slot pins its key; a click on the pinned slot unpins it.
     static func topKeys(_ state: PocketState, settings: SpellingSettings = .shared) -> TopKeys {
         TopKeys(keys: state.result?.keys ?? [], manual: state.manualKey,
-                onChoose: state.result.map { r in { k in _ = settings.setManualKey(k, of: r, from: .topKeys) } })
+                onChoose: state.result.map { r in { k in _ = settings.setManualKey(k, of: r, from: .topKeys) } },
+                onClear: state.result.map { r in { _ = settings.clearManualKey(of: r, from: .topKeysReset) } })
     }
 
     /// "C minor  C D E♭ F G A♭ B♭": the key's name and its notes (nothing until there is a key).
@@ -878,7 +879,7 @@ struct Dial: View {
 
     /// Manual Key Selection on show (J 2026-11-09 15:19): key, ring and status line go white, the
     /// status says MANUAL (no lamp, no %: the % is Beat Key's confidence, not the user's).
-    var manual: Bool { state.manualKey != nil && state.result?.keys.first != nil }
+    var manual: Bool { state.manualKey != nil && state.result?.keyInUse != nil }
     /// Manual and hovered: the key name gives way to the reset arrow, a click clears it.
     var resetting: Bool { manual && (hovering || forcedHover == "dial") }
 
@@ -886,7 +887,7 @@ struct Dial: View {
         let lamp = state.lamp
         let manual = self.manual
         let color = manual ? palette.manualWhite : isWorking ? palette.amber : (lamp.map { $0.color(palette.accent) } ?? palette.amber)
-        let key = state.result?.keys.first?.0
+        let key = state.result?.keyInUse?.name
         ZStack {
             // ticks
             ForEach(0..<12, id: \.self) { i in
@@ -1019,9 +1020,9 @@ struct Dial: View {
 
     /// VoiceOver's label for the dial (the tests read it).
     var dialLabel: String {
-        guard let k = state.result?.keys.first else { return state.lamp == .listening ? "Listening" : "No key yet" }
-        if manual { return "Key \(k.0), selected manually. Click to reset manual selection" }
-        return "Key \(k.0), \(k.1) percent" + (state.lamp.map { ", \($0.spoken)" } ?? "")
+        guard let k = state.result?.keyInUse else { return state.lamp == .listening ? "Listening" : "No key yet" }
+        if manual { return "Key \(k.name), selected manually. Click to reset manual selection" }
+        return "Key \(k.name), \(k.percent) percent" + (state.lamp.map { ", \($0.spoken)" } ?? "")
             + (state.held ? ", held" : "")
     }
 }
@@ -1264,8 +1265,10 @@ struct PageArrow: View {
     }
 }
 
-/// Beat Key's headline: the three likeliest keys with their percentages and a bar each. A click
-/// on key 2 or 3 makes it THE key: it moves to the front, the dial and the sends use it.
+/// Beat Key's headline: the three likeliest keys with their percentages and a bar each, always the
+/// detector's own list. A click on a slot PINS that key (J 2026-11-18): the dial, wheel, chords and
+/// sends use it, and it stays in its slot while the other slots keep updating; a click on the
+/// pinned slot unpins it.
 /// No reading = the row keeps its height but draws nothing (an empty state, not a skeleton).
 ///
 /// J 2026-11-09 03:42 ("the certainty percent is so far away from its key; it's closer to the next
@@ -1274,30 +1277,53 @@ struct PageArrow: View {
 /// the group. Groups sit `groupGap` apart, far more than anything inside a group (proximity).
 struct TopKeys: View {
     @Environment(\.palette) private var palette
+    /// The detector's list, in its own order.
     let keys: [(String, Int)]
-    /// Manual Key Selection (J 2026-11-09 15:19): it sits first, its name white and MANUAL where
-    /// the % would be (no made-up number, an empty bar); the detected keys after it keep the
-    /// analyzer's order and real %, so an 80 % key in slot 2 reads as "detected, but overruled".
+    /// The pinned key (J 2026-11-09 15:19; pinned in place since 2026-11-18): its name white and
+    /// MANUAL where the % would be (no made-up number, an empty bar); the other slots keep the
+    /// detector's keys and real %, so an 80 % key in slot 2 beside a pin in slot 1 reads as
+    /// "detected, but overruled".
     var manual: ManualKey? = nil
     var onChoose: ((String) -> Void)? = nil
+    /// A click on the pinned slot.
+    var onClear: (() -> Void)? = nil
 
-    /// Slot `i` is the Manual Key Selection.
-    static func isManual(_ i: Int, keys: [(String, Int)], manual: ManualKey?) -> Bool {
-        i == 0 && !keys.isEmpty && (manual?.isKey(keys[0].0) ?? false)
+    /// The three slots as drawn: the detector's top 3 in its order, except that a pinned key holds
+    /// the slot it was pinned in (ManualKey.slot) and the detector's other keys fill the rest, live.
+    /// A pin with no slot (it was not in the top 3) takes none: the slots are the detector's, and
+    /// the dial and wheel show the pin. A slot beyond the detector's list goes last, logged.
+    static func arranged(keys: [(String, Int)], manual: ManualKey?) -> [(name: String, percent: Int, pinned: Bool)] {
+        let detector = keys.prefix(3).map { (name: $0.0, percent: $0.1, pinned: false) }
+        guard let m = manual, let want = m.slot else { return detector }
+        let others = keys.filter { !m.isKey($0.0) }.prefix(2).map { (name: $0.0, percent: $0.1, pinned: false) }
+        var out = Array(others)
+        let at = min(want, out.count)
+        if at != want {
+            ManualKey.logOnce("ERROR manual key selection: pin slot \(want + 1) but the detector lists only \(keys.count) key(s); the pin is shown last")
+        }
+        out.insert((name: KeyChoice.keyName(m.pitchClass, minor: m.minor), percent: m.detected ?? 0, pinned: true), at: at)
+        return out
     }
 
-    /// What slot `i` shows after its name: MANUAL for the manual key, else its %.
+    /// Slot `i` is the pinned key.
+    static func isManual(_ i: Int, keys: [(String, Int)], manual: ManualKey?) -> Bool {
+        let s = arranged(keys: keys, manual: manual)
+        return i < s.count && s[i].pinned
+    }
+
+    /// What slot `i` shows after its name: MANUAL for the pinned key, else its %.
     static func label(_ i: Int, keys: [(String, Int)], manual: ManualKey?) -> String? {
-        guard i < keys.count else { return nil }
-        return isManual(i, keys: keys, manual: manual) ? ManualLook.word : "\(keys[i].1)%"
+        let s = arranged(keys: keys, manual: manual)
+        guard i < s.count else { return nil }
+        return s[i].pinned ? ManualLook.word : "\(s[i].percent)%"
     }
 
     /// VoiceOver: "Top keys: Am, selected manually, Ebm 80 percent, Gb 9 percent".
     static func spoken(keys: [(String, Int)], manual: ManualKey?) -> String {
-        guard !keys.isEmpty else { return "No keys yet" }
-        return "Top keys: " + keys.prefix(3).enumerated().map { i, k in
-            isManual(i, keys: keys, manual: manual) ? "\(k.0), selected manually" : "\(k.0) \(k.1) percent"
-        }.joined(separator: ", ")
+        let s = arranged(keys: keys, manual: manual)
+        guard !s.isEmpty else { return "No keys yet" }
+        return "Top keys: " + s.map { $0.pinned ? "\($0.name), selected manually" : "\($0.name) \($0.percent) percent" }
+            .joined(separator: ", ")
     }
 
     /// Between the three groups.
@@ -1308,33 +1334,37 @@ struct TopKeys: View {
     static let percentGap: CGFloat = Theme.S.s
 
     var body: some View {
+        let slots = TopKeys.arranged(keys: keys, manual: manual)
         HStack(alignment: .top, spacing: TopKeys.groupGap) {
             ForEach(0..<3, id: \.self) { i in
-                if i > 0, i < keys.count, let choose = onChoose {
-                    let name = keys[i].0
-                    Button(action: { choose(name) }) { cell(i, keys[i]).contentShape(Rectangle()) }
-                        .buttonStyle(PlainButtonStyle())
-                        .pointingHand()
-                        .nativeHelp("Use \(name) as the key")
+                if i < slots.count, let choose = onChoose {
+                    let slot = slots[i]
+                    let unpin = slot.pinned ? onClear : nil
+                    Button(action: { if let unpin { unpin() } else { choose(slot.name) } }) {
+                        cell(i, slot).contentShape(Rectangle())
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .pointingHand()
+                    .nativeHelp(slot.pinned ? "Unpin \(slot.name): the detector decides again" : "Pin \(slot.name) as the key")
                 } else {
-                    cell(i, i < keys.count ? keys[i] : nil)
+                    cell(i, i < slots.count ? slots[i] : nil)
                 }
             }
         }
         // percentages count and bars ease between readings; the first reading lands at once
-        .liveAnimation(Theme.Motion.value, value: keys.prefix(3).map { $0.1 }, live: !keys.isEmpty)
+        .liveAnimation(Theme.Motion.value, value: slots.map { $0.percent }, live: !slots.isEmpty)
         .accessibilityElement(children: .ignore)
         .accessibility(label: Text(TopKeys.spoken(keys: keys, manual: manual)))
     }
 
-    private func cell(_ i: Int, _ k: (String, Int)?) -> some View {
+    private func cell(_ i: Int, _ k: (name: String, percent: Int, pinned: Bool)?) -> some View {
         let first = i == 0
-        let isManual = TopKeys.isManual(i, keys: keys, manual: manual)
+        let isManual = k?.pinned ?? false
         return VStack(alignment: .leading, spacing: Theme.S.s) {
             HStack(alignment: .firstTextBaseline, spacing: 0) {
                 Text("\(i + 1)").font(Theme.T.caption.monospacedDigit()).foregroundColor(palette.a3)
                     .padding(.trailing, TopKeys.rankGap)
-                Crossfade(k?.0 ?? " ", alignment: .leading) { name in
+                Crossfade(k?.name ?? " ", alignment: .leading) { name in
                     Text(name).font(Theme.T.title)
                         .foregroundColor(isManual ? palette.manualWhite : first ? palette.a1 : palette.a2)
                         .lineLimit(1).minimumScaleFactor(0.7)
@@ -1347,7 +1377,7 @@ struct TopKeys: View {
                             .lineLimit(1).fixedSize()
                     } else {
                         Color.clear.frame(width: 0, height: 0)
-                            .modifier(CountingNumber(value: Double(k?.1 ?? 0), suffix: "%"))
+                            .modifier(CountingNumber(value: Double(k?.percent ?? 0), suffix: "%"))
                             .font(Theme.T.value.monospacedDigit())
                             .foregroundColor(first ? palette.a2 : palette.a3)
                             .fixedSize()
@@ -1356,13 +1386,13 @@ struct TopKeys: View {
                 Spacer(minLength: 0)
             }
             // a name of another width: its percent slides along with the crossfade (Motion.swap)
-            .animation(Theme.Motion.swap, value: k?.0)
+            .animation(Theme.Motion.swap, value: k?.name)
             GeometryReader { g in
                 ZStack(alignment: .leading) {
                     Capsule().fill(palette.a5)
                     // the manual key has no detection % to draw: an empty track
                     Capsule().fill(first ? palette.a1 : palette.a3)
-                        .frame(width: isManual ? 0 : g.size.width * CGFloat(min(100, max(0, k?.1 ?? 0))) / 100)
+                        .frame(width: isManual ? 0 : g.size.width * CGFloat(min(100, max(0, k?.percent ?? 0))) / 100)
                 }
             }
             .frame(height: 3)

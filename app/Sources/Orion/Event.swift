@@ -14,10 +14,13 @@ struct Result: Equatable {
     /// The 12 pitch-class strengths (C, C#, ... B; 0...1) the key was read from; nil = the
     /// analyzer sent none (older helper, MIDI file): Notes Heard is hidden.
     var chroma: [Double]? = nil
+    /// The user's pinned key on this reading (`respelled` attaches it; nil = none, or it belongs to
+    /// another reading). `keys` stays the detector's own list.
+    var pin: ManualKey? = nil
 
     static func == (a: Result, b: Result) -> Bool {
         a.file == b.file && a.name == b.name && a.bpm == b.bpm && a.readError == b.readError
-            && a.bpmExact == b.bpmExact && a.tuningCents == b.tuningCents && a.chroma == b.chroma
+            && a.bpmExact == b.bpmExact && a.tuningCents == b.tuningCents && a.chroma == b.chroma && a.pin == b.pin
             && a.keys.count == b.keys.count
             && zip(a.keys, b.keys).allSatisfy { $0.0 == $1.0 && $0.1 == $1.1 }
     }

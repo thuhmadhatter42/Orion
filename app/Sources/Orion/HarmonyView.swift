@@ -43,7 +43,10 @@ struct HarmonyPanel: View {
 
     static let width: CGFloat = 432
 
-    private var key: String? { state.result?.keys.first?.0 }
+    private var key: String? { HarmonyPanel.key(state) }
+
+    /// The key the panel works from (chords, MATCH TO): the key in use, pin or detector's #1.
+    static func key(_ state: PocketState) -> String? { state.result?.keyInUse?.name }
     private var prefs: HarmonyPrefs { state.harmony }
 
     var body: some View {
@@ -359,8 +362,8 @@ struct MatchToRow: View {
 
 /// The circle of fifths: 12 majors outside, their relative minors inside. The key on show is
 /// lit, the runner-ups washed, the keys that fit it (its fifths neighbours and its relative)
-/// faintly outlined; a click makes a key THE key (SpellingSettings.choose, the same path as a
-/// click on key 2 or 3).
+/// faintly outlined; a click pins a key as THE key (setManualKey, the same path as a click on a
+/// top-3 slot).
 struct KeyWheel: View {
     @Environment(\.palette) private var palette
     let keys: [(String, Int)]
@@ -385,16 +388,20 @@ struct KeyWheel: View {
         return (minor ? (major + 9) % 12 : major, minor)
     }
 
-    /// How a slot is lit: 0 = the key on show, 1 = a runner-up, nil = not in the reading.
+    /// The key in use: the pin, else the detector's #1 (ManualKey.inUse, the one accessor).
+    private var inUse: String? { ManualKey.inUse(keys: keys, pin: manual)?.name }
+
+    /// How a slot is lit: 0 = the key in use, 1 = another of the detector's top 3, nil = neither.
     func rank(_ pc: Int, minor: Bool) -> Int? {
-        for (i, k) in keys.prefix(3).enumerated() {
-            if let c = AutoTuneSend.keyClass(k.0), c.pitchClass == pc, c.minor == minor { return i == 0 ? 0 : 1 }
+        if let c = inUse.flatMap(AutoTuneSend.keyClass), c.pitchClass == pc, c.minor == minor { return 0 }
+        for k in keys.prefix(3) {
+            if let c = AutoTuneSend.keyClass(k.0), c.pitchClass == pc, c.minor == minor { return 1 }
         }
         return nil
     }
 
     /// The keys that fit the key on show (KeyFit): outlined when they are not lit already.
-    var fits: Set<WheelKey> { keys.first.map { KeyFit.keys($0.0) } ?? [] }
+    var fits: Set<WheelKey> { inUse.map { KeyFit.keys($0) } ?? [] }
 
     /// The section under the mouse: slot index * 2 + (minor ? 1 : 0). nil = none.
     @State private var hovered: Int?
@@ -482,7 +489,7 @@ struct KeyWheel: View {
         KeyWheel.name(pc, minor: minor, keys: keys)
     }
 
-    /// Key (`pc`, `minor`) as reading `keys` (already respelled, the chosen key in front: what the
+    /// Key (`pc`, `minor`) as reading `keys` (already respelled, the detector's order: what the
     /// dial and the top 3 draw) names it; a key the reading does not list gets Auto-Tune's name
     /// (KeyChoice.keyName, the same rule the reading went through). A reading key whose name does
     /// not resolve is skipped and logged once (the fallback spelling stands).
@@ -527,7 +534,7 @@ struct KeyWheel: View {
             // Manual Key Selection (J 2026-11-09 15:19): the lock line, then what a click does
             return (title, "\(HelpText.manualLocked) \(HelpText.manualWheelReset)")
         }
-        guard let k = keys.first?.0, let t = AutoTuneSend.keyClass(k) else {
+        guard let k = inUse, let t = AutoTuneSend.keyClass(k) else {
             return (title, "Click to use it as the key.")
         }
         if t.pitchClass == pc && t.minor == minor {
@@ -552,7 +559,7 @@ struct KeyWheel: View {
     /// in the help tip, not in a printed CAMELOT label).
     private var center: some View {
         ZStack {
-            if let k = keys.first?.0, let code = Camelot.code(k) {
+            if let k = inUse, let code = Camelot.code(k) {
                 Crossfade(code) { code in
                     Text(code).font(Theme.T.value).foregroundColor(palette.a2)
                 }

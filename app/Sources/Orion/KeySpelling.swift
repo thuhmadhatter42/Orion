@@ -1,14 +1,17 @@
 import Combine
 import Foundation
 
-/// One of the top 3 keys the user clicked to make it THE key (shown big, sent to Auto-Tune, the
-/// DAW and the MIDI file) for one reading. Matched by the reading's file + name, so the next file
-/// or song shows the analyzer's own order again.
+/// A key the user clicked to PIN as THE key (shown big, sent to Auto-Tune, the DAW and the MIDI
+/// file) for one reading; the detector's own order never changes. Matched by the reading's file +
+/// name, so the next file or song shows the analyzer's own reading again.
 struct KeyChoice: Equatable {
     let file: URL
     let name: String
     let pitchClass: Int
     let minor: Bool
+    /// The top-3 slot (0-2) the key sat in when it was pinned (the detector's order then); it keeps
+    /// that slot while the other slots update. nil = it was not in the detector's top 3: no slot.
+    var slot: Int? = nil
 
     /// A key as Auto-Tune's Key menu spells it: major C Db D Eb E F F# G Ab A Bb B, minor
     /// C C# D Eb E F F# G G# A Bb B (+ "m"). The analyzer's own spelling.
@@ -35,24 +38,20 @@ struct KeyChoice: Equatable {
 }
 
 extension Result {
-    /// The reading as shown: the chosen key (if any) moved to the front, then every key name as
-    /// Auto-Tune's Key menu spells it (J 2026-11-09), so readings saved before that rule match too.
-    /// A chosen key the analyzer did not list (taught with "Wrong, it's X" or played on the
-    /// keyboard) goes in front at 0 %, and the list keeps its length.
+    /// The reading as shown: every key name as Auto-Tune's Key menu spells it (J 2026-11-09), so
+    /// readings saved before that rule match too, and the user's pick (if any) attached as `pin`.
+    /// The detector's order and % are never touched: a pick PINS, it never moves up the list or
+    /// counts as more likely (J 2026-11-18). "The key" for the dial, wheel, chords, sends and
+    /// exports is `keyInUse`, nothing else.
     func respelled(choice: KeyChoice? = SpellingSettings.shared.manualKey) -> Result {
-        var ks = keys
-        if let c = choice, c.matches(self) {
-            if let i = ks.firstIndex(where: { AutoTuneSend.keyClass($0.0).map { $0.pitchClass == c.pitchClass && $0.minor == c.minor } ?? false }) {
-                if i > 0 { ks.insert(ks.remove(at: i), at: 0) }
-            } else {
-                ks.insert((KeyChoice.keyName(c.pitchClass, minor: c.minor), 0), at: 0)
-                ks = Array(ks.prefix(max(3, keys.count)))
-            }
-        }
-        ks = ks.map { (KeyChoice.autoTuneName($0.0), $0.1) }
-        return Result(file: file, name: name, bpm: bpm, keys: ks,
-                      readError: readError, bpmExact: bpmExact, tuningCents: tuningCents, chroma: chroma)
+        Result(file: file, name: name, bpm: bpm, keys: keys.map { (KeyChoice.autoTuneName($0.0), $0.1) },
+               readError: readError, bpmExact: bpmExact, tuningCents: tuningCents, chroma: chroma,
+               pin: ManualKey.of(choice, raw: self))
     }
+
+    /// THE key in use: the pin if there is one, else the detector's #1. The one accessor every
+    /// "the key" reader goes through (ManualKey.inUse).
+    var keyInUse: (name: String, percent: Int)? { ManualKey.inUse(keys: keys, pin: pin) }
 }
 
 /// Manual Key Selection's one state (ManualKeySelection.swift sets and clears it). Key names

@@ -122,8 +122,8 @@ struct PocketState {
     var miniOpen = false
     /// Help mode: hovering a control explains it (HelpSettings; the HELP chip lights).
     var help = false
-    /// Manual Key Selection on the reading shown (it is `result`'s first key); nil = detection.
-    var manualKey: ManualKey? = nil
+    /// The pinned key on the reading shown (`result.pin`: one state, not a copy); nil = detection.
+    var manualKey: ManualKey? { result?.pin }
 
     /// The reading on the readout, if there is one.
     var result: Result? {
@@ -145,7 +145,7 @@ struct PocketState {
     /// Hold has a reading to freeze (or is on and can be released).
     var canHold: Bool { listening && (held || result != nil) }
     var canSend: Bool { result.map { $0.bpm != nil || !$0.keys.isEmpty } ?? false }
-    var canAutoTune: Bool { result?.keys.first.flatMap { AutoTuneSend.keyClass($0.0) } != nil }
+    var canAutoTune: Bool { result?.keyInUse.flatMap { AutoTuneSend.keyClass($0.name) } != nil }
 
     /// The lamp beside the hero key: Listen's own choice, else the key's confidence.
     var lamp: Lamp? {
@@ -158,9 +158,9 @@ struct PocketState {
     }
 
     /// The top key's confidence as 0...1 for the ring (nil = no key).
-    var confidence: Double? { result?.keys.first.map { Double(max(0, min(100, $0.1))) / 100 } }
+    var confidence: Double? { result?.keyInUse.map { Double(max(0, min(100, $0.percent))) / 100 } }
 
-    var scale: Scale? { result?.keys.first.flatMap { Scale.of($0.0) } }
+    var scale: Scale? { result?.keyInUse.flatMap { Scale.of($0.name) } }
 
     /// The lamp's word: LOCKED / UNSURE / LISTENING.
     var lampWord: String? {

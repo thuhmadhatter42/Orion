@@ -84,7 +84,7 @@ struct SendPayload: Equatable {
     }
 
     init(_ r: Result) {
-        self.init(bpm: MidiExport.bpmValue(r), key: r.keys.first?.0,
+        self.init(bpm: MidiExport.bpmValue(r), key: r.keyInUse?.name,
                   trackName: (r.name as NSString).deletingPathExtension)
     }
 

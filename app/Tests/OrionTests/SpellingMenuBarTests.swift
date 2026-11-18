@@ -20,7 +20,6 @@ final class SpellingMenuBarTests: XCTestCase {
         let shown = raw.respelled(choice: s.manualKey)
         p.readout = .result(shown, page: nil, download: true, options: ResultOptions(
             factor: .one, tuning: Tuning.meter(12, reference: 440), onCycleTempo: {}))
-        p.manualKey = ManualKey.of(s.manualKey, raw: raw)
         p.advanced = advanced
         return p
     }
@@ -33,7 +32,7 @@ final class SpellingMenuBarTests: XCTestCase {
             XCTAssertTrue(s.setManualKey(key, of: raw, from: .wheel))
             let q = state(s)
             let w = HarmonyPanel.wheel(q, settings: s)
-            let dial = try! XCTUnwrap(q.result?.keys.first?.0)
+            let dial = try! XCTUnwrap(q.result?.keyInUse?.name)
             let k = AutoTuneSend.keyClass(key)!
             XCTAssertEqual(w.name(k.pitchClass, minor: k.minor), dial, key)
             // the hover card names it the same way
@@ -57,7 +56,7 @@ final class SpellingMenuBarTests: XCTestCase {
         let s = settings()
         s.setManualKey("F#", of: raw, from: .topKeys)
         let q = state(s)
-        XCTAssertEqual(q.result?.keys.first?.0, "F#")
+        XCTAssertEqual(q.result?.keyInUse?.name, "F#")
         let w = HarmonyPanel.wheel(q, settings: s)
         XCTAssertEqual(w.name(6, minor: false), "F#")
         XCTAssertTrue(w.tip(for: w.manualSection!).title.hasPrefix("F# · "))

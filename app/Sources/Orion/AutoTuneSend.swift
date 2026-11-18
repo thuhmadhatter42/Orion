@@ -94,7 +94,7 @@ struct SendToAutoTuneMenuItem: View {
     @ObservedObject var engine: Engine
     @ObservedObject var tuning: TuningSettings
     var body: some View {
-        let key = MidiExport.current(engine.state)?.keys.first?.0
+        let key = MidiExport.current(engine.state)?.keyInUse?.name
         Button("Send Key to Auto-Tune") {
             if let key, !AutoTuneSend.sendAll(key: key, referencePitch: tuning.reference) {
                 AppLog.log("send to auto-tune \(key): nothing took it (beep)")
