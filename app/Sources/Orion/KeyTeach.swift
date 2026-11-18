@@ -205,35 +205,12 @@ enum KeyTeach {
         }
     }
 
+    /// The MANUAL menu's pick: pins the key like every other path (setManualKey) and teaches
+    /// nothing — a pick never makes Beat Key think a key is more likely (J, 2026-11-18).
     static func teach(_ key: String, engine: Engine, live: LiveController, model: FaceplateModel) {
         guard let r = raw(engine.state, live: live.state, page: model.pager) else {
-            AppLog.log("teach: no reading on show"); NSSound.beep(); return
+            AppLog.log("manual menu: no reading on show"); NSSound.beep(); return
         }
-        guard SpellingSettings.shared.setManualKey(key, of: r, from: .dropdown) else { return }   // logged; nothing changes
-        let source: TeachSource
-        let audio: TeachAudio
-        if live.state.isActive {
-            source = .live
-            audio = .clip(live.recentClip(), sampleRate: LiveProcess.sampleRate)
-        } else if case .done = engine.state {
-            source = .youtube
-            let link = model.url.trimmingCharacters(in: .whitespacesAndNewlines)
-            audio = FileManager.default.fileExists(atPath: r.file.path) ? .file(r.file, link: link.isEmpty ? nil : link)
-                                                                       : .none(link: link.isEmpty ? nil : link)
-        } else {
-            source = .file
-            audio = .file(r.file, link: nil)
-        }
-        let top = r.keys.first?.0 ?? "-"
-        AppLog.log("teach: \(key) (analyzer said \(top)), source \(source.rawValue), saving")
-        DispatchQueue.global(qos: .utility).async {
-            do {
-                let dir = try TeachStore.save(chosen: key, raw: r, source: source, audio: audio)
-                AppLog.log("teach: saved \(dir.lastPathComponent)")
-            } catch {
-                AppLog.log("teach: SAVE FAILED: \(TeachStore.code(error))")
-                DispatchQueue.main.async { NSSound.beep() }
-            }
-        }
+        SpellingSettings.shared.setManualKey(key, of: r, from: .dropdown)   // logged there; no teach record
     }
 }
