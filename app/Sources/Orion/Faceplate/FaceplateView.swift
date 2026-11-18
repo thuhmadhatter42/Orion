@@ -32,7 +32,7 @@ struct FaceplateView: View {
         // the display colour and High Contrast, from their one owner each, for every view below
         .paletteRoot(display: display)
         .environment(\.liveLevel, live.meter)   // the meter ticks on its own (LiveLevel)
-        .onDrop(of: ["public.file-url"], isTargeted: dropBinding, perform: drop)
+        .acceptsFileDrops(via: "window", isTargeted: dropBinding)
         .onReceive(engine.$state) { s in
             // a download, an analysis, Run Doctor or a recent reading takes the LCD back from Listen
             if s != .idle && live.state != .off { live.stop(reason: "the LCD went to \(LiveController.engineLabel(s))") }
@@ -121,7 +121,7 @@ struct FaceplateView: View {
 
     private var loginPrompt: LoginPrompt? { Faceplate.loginPrompt(engine.state, url: model.url) }
     private var findLit: Bool { Faceplate.isFindLit(model.picked, busy: engine.state.isBusy) }
-    private var showDrop: Bool { model.pinnedDrop || (model.dropTargeted && !engine.state.isBusy) }
+    private var showDrop: Bool { model.pinnedDrop || model.dropTargeted }   // a drop while busy is queued, so it shows too
 
     private var dropBinding: Binding<Bool> {
         Binding(get: { model.dropTargeted }, set: { model.dropTargeted = $0 })
@@ -157,12 +157,12 @@ struct FaceplateView: View {
         else { pick(panel.runModal()) }
     }
 
-    /// Analyze a File…, the Finder service and Open With all arrive here and read at once.
+    /// Every drop, Open With, the Dock icon, the Finder service and Analyze a File… arrive here
+    /// (Intake.receive) and join the Engine's queue: read now when idle, after the running job when busy.
     private func installIntake() {
         Intake.handler = { [engine, model] files in
-            guard !engine.state.isBusy else { return false }
             model.lastAction = .analyze
-            engine.analyze(files)
+            engine.submit(files)
             return true
         }
     }
@@ -172,31 +172,6 @@ struct FaceplateView: View {
         AppLog.log("window: find key/bpm (\(model.picked.count) files)")
         model.lastAction = .analyze
         engine.analyze(model.picked)
-    }
-
-    private func drop(_ providers: [NSItemProvider]) -> Bool {
-        guard !engine.state.isBusy else { return false }
-        let group = DispatchGroup()
-        var urls: [Int: URL] = [:]
-        let lock = NSLock()
-        for (i, p) in providers.enumerated() where p.hasItemConformingToTypeIdentifier("public.file-url") {
-            group.enter()
-            p.loadItem(forTypeIdentifier: "public.file-url", options: nil) { item, _ in
-                defer { group.leave() }
-                var u: URL?
-                if let d = item as? Data { u = URL(dataRepresentation: d, relativeTo: nil) }
-                else if let x = item as? URL { u = x }
-                if let u = u, u.isFileURL { lock.lock(); urls[i] = u; lock.unlock() }
-            }
-        }
-        group.notify(queue: .main) {
-            // audio files only; a drop with none (folder, PDF...) changes nothing
-            let files = Faceplate.audioFiles(urls.keys.sorted().compactMap { urls[$0] })
-            guard !files.isEmpty else { return }
-            model.lastAction = .analyze
-            engine.analyze(files)
-        }
-        return true
     }
 
     /// Left/right arrows page through several dropped files (unless the caret is in a link).

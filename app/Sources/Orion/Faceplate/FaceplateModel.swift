@@ -138,6 +138,21 @@ enum Faceplate {
         }
     }
 
+    /// Dropped folders become their direct children, one level deep (sorted by name, hidden files
+    /// and packages left out); a folder inside a folder is not entered. Files pass through in the
+    /// order they came. The result still goes through `audioFiles`.
+    static func expandFolders(_ urls: [URL]) -> [URL] {
+        urls.flatMap { u -> [URL] in
+            guard u.isFileURL,
+                  let v = try? u.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey]),
+                  v.isDirectory == true, v.isPackage != true else { return [u] }
+            let kids = (try? FileManager.default.contentsOfDirectory(
+                at: u, includingPropertiesForKeys: [.isRegularFileKey],
+                options: [.skipsHiddenFiles, .skipsPackageDescendants])) ?? []
+            return kids.sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+        }
+    }
+
     /// "Name.wav · Folder", the LCD's file line: the user's file in its own case (design pass F6).
     static func fileLine(_ r: Result) -> String {
         let p = fileParts(r)

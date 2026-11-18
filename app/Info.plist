@@ -50,6 +50,24 @@
             </array>
         </dict>
     </array>
+    <!-- Files and folders dropped on the Dock icon / Open With (OrionApp.application(_:open:) ->
+         Intake.receive). Without a document type the Dock icon refuses every drop. Alternate rank:
+         Beat Key is offered, never made the default app for any of these. -->
+    <key>CFBundleDocumentTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeName</key><string>Audio, video, MIDI and folders</string>
+            <key>CFBundleTypeRole</key><string>Viewer</string>
+            <key>LSHandlerRank</key><string>Alternate</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>public.audio</string>
+                <string>public.movie</string>
+                <string>public.midi-audio</string>
+                <string>public.folder</string>
+            </array>
+        </dict>
+    </array>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSSupportsAutomaticGraphicsSwitching</key><true/>
     <!-- Sparkle updates (app/RELEASING.md). The feed is the appcast.xml attached to the newest
