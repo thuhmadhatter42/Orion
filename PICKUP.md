@@ -2,16 +2,14 @@
 
 ## CURRENT STATE — 2026-11-17 14:45
 
-**2026-11-18 03:05 — J's ideas notated, nothing built.** Spec + chair map (code-symphony create mode): docs/ideas/2026-11-18-J-dictation.md. Artemis handoff: handoff/TO-ARTEMIS-2026-11-18-beat-key-button.md (the Artemis agent has not picked it up yet). Decide list D-ed342f5288.
-- Decided by J: rename the file itself but ASK first (quiet prompt + "remember my choice"); a file in a Pro Tools session's Audio Files folder always gets a forced confirm. A picked key pins (slot stays put, detector keeps running, pick adds no weight, click again unpins). The two BPM sources in the Artemis menu are one-or-the-other. Help rewrite waits for the **Board Talk** voice guide (docs/BOARD-TALK.md, not written): Pro Tools tooltip lengths + J's own words.
-- Skill change: code-symphony SKILL.md got a "Create mode" section (synced).
-- Studio D tooltip run FAILED 03:02 (agent, graded pass): screen locked, console user `studiod` not `j`. Nothing changed there; work folder trashed. MBP has Pro Tools 2026.11 + 2026.4.1; Sofia's iLok is out.
-- **Open questions for J:**
-  1. Tag: all three keys or the top key?
-  2. Teach data on a MANUAL-menu pick: stop saving it, or opt-in only?
-  3. Drop: where did the 10 beats go: the main window, the menu bar pocket, or the Dock icon?
-  4. Pro Tools tooltips: unlock Studio D as `j`, or let an agent read them on the MBP while you're away from it?
-- **Next (agent, after answers):** Board Talk guide → Help rewrite; pinned-key fix (Result.respelled KeySpelling.swift:42); one drop path + queue; rename prompt; Add App submenu; Broadcast chair. Still owed from before: 0.1.74 Sofia recheck (block below).
+**2026-11-18 03:42 — CURRENT.** main = b153b4c pushed. Merged + suite green (543 tests, 0 failures, 03:36): pinned key keeps its slot (KeySpelling/Pocket/one accessor Result.keyInUse), Listen "Add App" submenu (Live/AudioApps.swift, SystemAudio filterChoice; playing-first needs macOS 14.2+), Broadcast to Artemis (Broadcast.swift, docs/protocol-beatkey-broadcast.md), one drop path + queue (Intake.receive → Engine.submit; window, menu bar icon, pocket, Mini, Dock; Info.plist document types at Alternate rank). None clicked in the real app yet.
+- 0.1.74 rebuilt build PASSED the Sofia recheck 03:18 (app/build/help-check-0.1.74b/); Sofia has it installed. NOT published: publish.sh tags HEAD, and HEAD now has more code → ship as 0.1.75 instead.
+- **Rename feature: agent was mid-build when J left (MBP offline).** Its worktree .claude/worktrees/agent-ac9cf08b85089fd2d (branch worktree-agent-ac9cf08b85089fd2d) may hold partial work: check `git -C <wt> log main..` + status; finish it (spec: docs/ideas/2026-11-18-J-dictation.md §2 — ask-first prompt, remember choice, Pro Tools Audio Files forced confirm, all three keys default, one renamer = app_run.py renamed_name).
+- Pro Tools tooltips (for Board Talk): Studio D run got as far as an empty session + New Tracks before J had to leave; stopped and closed by me 03:40 (Pro Tools quit Don't Save, caffeinate killed, ~/pt-tooltips trashed, screenshot read). 0 tooltips captured. Needs a new window from J (Studio D is off limits otherwise).
+- **Next, in order:** finish + merge rename → Board Talk (docs/BOARD-TALK.md) + Help rewrite (needs tooltips) → VERSION 0.1.75 (bump + commit + push was refused by the permission classifier once; J said yes 03:21) → app/build.sh → Sofia check → ask J to publish.
+- **Open questions for J:** 1. Teach data on a MANUAL-menu pick: stop saving it, or opt-in only? 2. Studio D window for tooltips (or read them in Pro Tools on the MBP while J is away from it).
+- J's rule (memory build-everything-before-release): every asked feature is built on defaults before any build/release ask. J leaving the MBP = it goes offline; agents and ssh die.
+- Older detail: docs/ideas/2026-11-18-J-dictation.md, handoff/TO-ARTEMIS-2026-11-18-beat-key-button.md, decide D-ed342f5288 (all 4 answered).
 
 **0.1.73 PUBLIC (2026-11-17 02:03).** GitHub release Beat-Key-0.1.73 (pkg + DMG + appcast; Sparkle feed reads 0.1.73), Sofia `~/dev/fourletterrecords/beat-key-latest.json` = 0.1.73, pkg md5 on Sofia = local (55de20e2…), download page 303. Log app/build/publish-0.1.73.log.
 - 0.1.73 = b033b6c input drop / format change mid-listen is not an error (restart same device, 1 retry, then Mac-audio fallback; "WAITING FOR MUSIC..."); 89d3e2c LIVE legend in display colour; e12702a listening/analyzing lamps in display colour (FAILED stays red).
