@@ -7,6 +7,7 @@ struct SettingsView: View {
     @ObservedObject var loginItem: LoginItemSettings
     @ObservedObject var live: LiveSettings
     @ObservedObject var display: DisplaySettings
+    @ObservedObject var rename: RenameSettings
     @ObservedObject private var help = HelpSettings.shared
     @State private var devices: [InputDevice] = []
 
@@ -52,6 +53,18 @@ struct SettingsView: View {
                     .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             .onAppear { devices = InputDevice.all() }
+            Divider().padding(.vertical, 6)
+            Section(header: Text("File names").font(.headline)) {
+                Picker("Add key and BPM to the name", selection: Binding(
+                    get: { rename.choice }, set: { rename.set($0, from: "Settings") })) {
+                    Text("Ask me each time").tag(RenameChoice.ask)
+                    Text("Always").tag(RenameChoice.always)
+                    Text("Never").tag(RenameChoice.never)
+                }
+                .helpTip(HelpText.settingsRename)
+                Text("After Beat Key reads a file it can rename that file, for example Beat (141.0 BPM Ebm F# Bbm).wav. Files already tagged are left alone. A file inside a Pro Tools session's Audio Files folder always asks first.")
+                    .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
             Divider().padding(.vertical, 6)
             Section(header: Text("General").font(.headline)) {
                 Toggle("Open at Login", isOn: Binding(get: { loginItem.enabled }, set: { loginItem.set($0) }))

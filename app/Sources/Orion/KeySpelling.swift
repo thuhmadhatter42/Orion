@@ -46,7 +46,7 @@ extension Result {
     func respelled(choice: KeyChoice? = SpellingSettings.shared.manualKey) -> Result {
         Result(file: file, name: name, bpm: bpm, keys: keys.map { (KeyChoice.autoTuneName($0.0), $0.1) },
                readError: readError, bpmExact: bpmExact, tuningCents: tuningCents, chroma: chroma,
-               pin: ManualKey.of(choice, raw: self))
+               pin: ManualKey.of(choice, raw: self), tagged: tagged)
     }
 
     /// THE key in use: the pin if there is one, else the detector's #1. The one accessor every

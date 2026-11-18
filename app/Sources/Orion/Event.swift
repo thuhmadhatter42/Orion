@@ -17,11 +17,13 @@ struct Result: Equatable {
     /// The user's pinned key on this reading (`respelled` attaches it; nil = none, or it belongs to
     /// another reading). `keys` stays the detector's own list.
     var pin: ManualKey? = nil
+    /// The file's name already carries Beat Key's own key + BPM tag (the helper's recogniser said so).
+    var tagged: Bool = false
 
     static func == (a: Result, b: Result) -> Bool {
         a.file == b.file && a.name == b.name && a.bpm == b.bpm && a.readError == b.readError
             && a.bpmExact == b.bpmExact && a.tuningCents == b.tuningCents && a.chroma == b.chroma && a.pin == b.pin
-            && a.keys.count == b.keys.count
+            && a.tagged == b.tagged && a.keys.count == b.keys.count
             && zip(a.keys, b.keys).allSatisfy { $0.0 == $1.0 && $0.1 == $1.1 }
     }
 }
@@ -34,6 +36,12 @@ enum Event: Equatable {
     /// A YouTube login would fix this: reason "age" | "bot" | "members"; stale = the saved login
     /// was used and YouTube no longer takes it (the app deletes it and asks again).
     case needsLogin(reason: String, message: String, stale: Bool)
+    /// The helper's `rename`: the file is now at `to`.
+    case renamed(from: String, to: String)
+    /// The helper's `rename` found Beat Key's own tag already there and did nothing.
+    case renameSkipped(file: String)
+    /// The helper's `rename` could not rename (errno 0 = no code).
+    case renameFailed(file: String, errno: Int, message: String)
 
     /// One JSON line from app_run.py. app_run.py puts the event kind in "stage"
     /// ("downloading"... are progress, "done"/"analyzed"/"error" are terminal).
@@ -80,7 +88,7 @@ enum Event: Equatable {
                       readError: obj["error"] as? String,
                       bpmExact: (obj["bpm_exact"] as? NSNumber)?.doubleValue,
                       tuningCents: (obj["tuning_cents"] as? NSNumber)?.doubleValue,
-                      chroma: chroma(obj["chroma"]))
+                      chroma: chroma(obj["chroma"]), tagged: (obj["tagged"] as? Bool) ?? false)
     }
 
     static func parse(line: String) -> Event? {
@@ -100,6 +108,16 @@ enum Event: Equatable {
             return .needsLogin(reason: (obj["reason"] as? String) ?? "bot",
                                message: (obj["message"] as? String) ?? "",
                                stale: (obj["stale"] as? Bool) ?? false)
+        case "renamed":
+            guard let from = obj["file"] as? String, let to = obj["to"] as? String else { return nil }
+            return .renamed(from: from, to: to)
+        case "rename_skipped":
+            guard let file = obj["file"] as? String else { return nil }
+            return .renameSkipped(file: file)
+        case "rename_failed":
+            guard let file = obj["file"] as? String else { return nil }
+            return .renameFailed(file: file, errno: (obj["errno"] as? NSNumber)?.intValue ?? 0,
+                                 message: (obj["message"] as? String) ?? "Unknown error.")
         case "stage":
             guard let s = obj["stage"] as? String else { return nil }
             return .stage(s)

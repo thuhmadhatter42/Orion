@@ -256,6 +256,13 @@ final class RecentStore: ObservableObject {
         save()
     }
 
+    /// A recent reading's file was renamed: the entry keeps its place and date and points at the new path.
+    func moved(from oldPath: String, to url: URL) {
+        guard let i = readings.firstIndex(where: { $0.path == oldPath }) else { return }
+        readings[i] = Reading(readings[i].result.moved(to: url), date: readings[i].date)
+        save()
+    }
+
     func clear() {
         readings = []
         save()
