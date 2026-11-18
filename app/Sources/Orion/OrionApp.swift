@@ -43,6 +43,10 @@ struct OrionApp: App {
                 .onAppear(perform: launch)
         }
         .windowStyle(HiddenTitleBarWindowStyle())
+        // one window: opened files (Dock, Open With, `open -a`) go to the app delegate's
+        // application(_:open:) → Intake.receive, never to a new copy of this scene
+        // (0.1.75 on Studio D stacked a new window per open, 2026-11-18)
+        .handlesExternalEvents(matching: [])
         .commands {
             // one window: no File > New; the File menu is for reading files instead
             CommandGroup(replacing: .newItem) {
