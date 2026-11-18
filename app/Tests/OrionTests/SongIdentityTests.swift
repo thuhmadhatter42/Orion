@@ -50,11 +50,11 @@ final class SongIdentityTests: XCTestCase {
             c.start()
             let a = try XCTUnwrap(heard(c))
             XCTAssertTrue(s.setManualKey("Am", of: a, from: .wheel))
-            XCTAssertEqual(a.respelled(choice: s.manualKey).keys.first?.0, "Am", change)
+            XCTAssertEqual(a.respelled(choice: s.manualKey).keyInUse?.name, "Am", change)
             c.receive(change)
             let b = try XCTUnwrap(heard(c))
             XCTAssertFalse(s.manualKey!.matches(b), "the key picked in song A applies to song B after \(change)")
-            XCTAssertEqual(b.respelled(choice: s.manualKey).keys.first?.0, "Ebm", change)
+            XCTAssertEqual(b.respelled(choice: s.manualKey).keyInUse?.name, "Ebm", change)
             XCTAssertNil(ManualKey.of(s.manualKey, raw: b), change)
         }
     }
@@ -85,7 +85,7 @@ final class SongIdentityTests: XCTestCase {
         for _ in 0..<3 {
             let next = try XCTUnwrap(heard(c))
             XCTAssertTrue(s.manualKey!.matches(next))
-            XCTAssertEqual(next.respelled(choice: s.manualKey).keys.first?.0, "Am")
+            XCTAssertEqual(next.respelled(choice: s.manualKey).keyInUse?.name, "Am")
         }
         c.receive(#"{"event":"ready"}"#)                              // not a song change
         XCTAssertTrue(s.manualKey!.matches(try XCTUnwrap(heard(c))))

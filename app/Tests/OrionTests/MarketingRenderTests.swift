@@ -73,7 +73,6 @@ final class MarketingRenderTests: XCTestCase {
         var manual = adv
         manual.readout = .result(r.respelled(choice: s.manualKey), page: nil, download: true,
                                  options: ResultOptions(factor: .one, tuning: Tuning.meter(3, reference: 440), onCycleTempo: {}))
-        manual.manualKey = ManualKey.of(s.manualKey, raw: r)
 
         write(window(file), "window-default")
         write(window(adv), "window-advanced")

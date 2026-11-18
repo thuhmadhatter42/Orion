@@ -92,7 +92,7 @@ enum MidiExport {
     }
 
     static func runPanel(for r: Result) {
-        let key = r.keys.first?.0
+        let key = r.keyInUse?.name
         let panel = NSSavePanel()
         panel.allowedFileTypes = ["mid"]
         panel.nameFieldStringValue = suggestedName(track: r.name, bpm: r.bpm, key: key)

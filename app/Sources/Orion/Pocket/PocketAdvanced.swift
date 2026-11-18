@@ -20,7 +20,7 @@ extension PocketActions {
         chordFile = { chord in
             let r = shown()
             let bpm = ChordClip.bpm(r, factor: m.tempoFactor)
-            let url = ChordClip.write(chord, voicing: d.chordVoicing, bars: d.chordBars, bpm: bpm, key: r?.keys.first?.0)
+            let url = ChordClip.write(chord, voicing: d.chordVoicing, bars: d.chordBars, bpm: bpm, key: r?.keyInUse?.name)
             if url != nil { AppLog.log("\(surface): chord \(chord.asciiName) dragged as a MIDI clip") }
             else { AppLog.log("\(surface): chord \(chord.asciiName) MIDI clip could not be written") }
             return url
@@ -34,7 +34,7 @@ extension PocketActions {
                                                 sp.objectWillChange.map { _ in () }.eraseToAnyPublisher()])
                 .eraseToAnyPublisher()
             MiniController.shared.toggle(source: {
-                MiniFeed(key: shown()?.keys.first?.0, quality: d.chordQuality, voicing: d.chordVoicing)
+                MiniFeed(key: shown()?.keyInUse?.name, quality: d.chordQuality, voicing: d.chordVoicing)
             }, changes: changes, display: d)
         }
         setHarmony = { p in

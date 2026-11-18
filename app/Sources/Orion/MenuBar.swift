@@ -26,7 +26,7 @@ struct MenuBarReadout: Equatable {
         let manual = choice?.matches(r0) ?? false
         let r = r0.respelled(choice: choice)
         let bpm = Tempo.text(r, factor: factor).flatMap(Double.init).map { String(format: "%.1f", $0) }
-        let key = r.keys.first?.0
+        let key = r.keyInUse?.name
         let parts = [key, bpm].compactMap { $0 }
         guard !parts.isEmpty else { return MenuBarReadout(text: nil, lamp: nil, detail: "Nothing read") }
         let lampNow = manual ? nil : lamp ?? Lamp.of(r.keys)
@@ -328,7 +328,7 @@ extension PocketActions {
         a.teachKey = {
             guard let r = shown() else { NSSound.beep(); return }
             log("manual key menu")
-            let now = r.keys.first.flatMap { AutoTuneSend.keyClass($0.0) }
+            let now = r.keyInUse.flatMap { AutoTuneSend.keyClass($0.name) }
             PopupMenu.show(KeyChoice.allKeys.enumerated().flatMap { i, k -> [PopupMenu.Item] in
                 let kc = AutoTuneSend.keyClass(k)
                 let item = PopupMenu.Item(title: k, checked: kc?.pitchClass == now?.pitchClass && kc?.minor == now?.minor) {
@@ -352,7 +352,7 @@ extension PocketActions {
         }
         a.sendAutoTune = {
             log("send to auto-tune")
-            guard let key = shown()?.keys.first?.0 else { log("send to auto-tune: no key on show (beep)"); NSSound.beep(); return false }
+            guard let key = shown()?.keyInUse?.name else { log("send to auto-tune: no key on show (beep)"); NSSound.beep(); return false }
             guard AutoTuneSend.sendAll(key: key, referencePitch: tuning.reference)
             else { log("send to auto-tune \(key): nothing took it (beep)"); NSSound.beep(); return false }
             return true
@@ -530,10 +530,6 @@ extension PocketState {
         s.advanced = display.advanced
         s.harmony = HarmonyPrefs(display)
         s.help = help.isOn
-        // only while the readout shows that reading (not a drop hover, an error, working)
-        if s.result != nil {
-            s.manualKey = ManualKey.of(spelling.manualKey, raw: KeyTeach.raw(engine.state, live: live.state, page: model.pager))
-        }
         return s
     }
 }
