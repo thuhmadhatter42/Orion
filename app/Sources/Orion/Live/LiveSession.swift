@@ -212,6 +212,9 @@ enum LiveSource: Equatable {
     /// An input device (nil uid = the system's default input). channel 0 = all channels mixed,
     /// n = channel n only.
     case input(uid: String?, channel: Int)
+    /// Only one open app's sound (Input > Add App), by bundle id: the same ScreenCaptureKit
+    /// capture as `.system` with its filter narrowed to that app (macOS 13+).
+    case app(bundleID: String)
 
     static var systemAvailable: Bool {
         if #available(macOS 13.0, *) { return true }
@@ -224,12 +227,17 @@ enum LiveSource: Equatable {
         switch self {
         case .system: return "system"
         case .input(let uid, let ch): return "input:\(ch):\(uid ?? "")"
+        case .app(let id): return "app:\(id)"
         }
     }
 
     static func from(stored s: String?) -> LiveSource? {
         guard let s = s else { return nil }
         if s == "system" { return .system }
+        if s.hasPrefix("app:") {
+            let id = String(s.dropFirst(4))
+            return id.isEmpty ? nil : .app(bundleID: id)
+        }
         let parts = s.split(separator: ":", maxSplits: 2, omittingEmptySubsequences: false)
         guard parts.count == 3, parts[0] == "input", let ch = Int(parts[1]), ch >= 0 else { return nil }
         let uid = String(parts[2])
@@ -252,24 +260,43 @@ enum LiveSourcePlan: Equatable {
     }
 
     static let fallbackNotice = "SAVED INPUT MISSING · USING MAC AUDIO"
+    /// The same fallback when the chosen app (Add App) is not open.
+    static let appFallbackNotice = "SAVED APP NOT OPEN · USING MAC AUDIO"
 
-    /// Pure: the input being heard dropped out mid-listen and would not restart. Mac audio takes
-    /// over (the same fallback as at the start; the saved choice stays); `.use(lost)` = nothing
-    /// else can capture (no System Audio on macOS 12, or it was already Mac audio), so Listen fails.
+    static func notice(for saved: LiveSource) -> String {
+        if case .app = saved { return appFallbackNotice }
+        return fallbackNotice
+    }
+
+    /// Pure: the input (or chosen app) being heard dropped out mid-listen and would not restart.
+    /// Mac audio takes over (the same fallback as at the start; the saved choice stays);
+    /// `.use(lost)` = nothing else can capture (no System Audio on macOS 12, or it was already Mac
+    /// audio), so Listen fails.
     static func afterLoss(of lost: LiveSource, systemAvailable: Bool) -> LiveSourcePlan {
-        guard case .input(let uid, let ch) = lost, systemAvailable else { return .use(lost) }
-        return .fallback(.system, missingUID: uid ?? "default input", channel: ch)
+        guard systemAvailable else { return .use(lost) }
+        switch lost {
+        case .input(let uid, let ch): return .fallback(.system, missingUID: uid ?? "default input", channel: ch)
+        case .app(let id): return .fallback(.system, missingUID: id, channel: 0)
+        case .system: return .use(lost)
+        }
     }
     /// How long the notice stands in for the lamp's caption.
     static let noticeSeconds: TimeInterval = 8
 
-    /// Pure: `connectedUIDs` = the input devices Core Audio lists right now. Without System Audio
-    /// (macOS 12) there is nothing to fall back to, and the input's own "not connected" error stands.
-    static func plan(saved: LiveSource, connectedUIDs: Set<String>, systemAvailable: Bool) -> LiveSourcePlan {
-        guard case .input(let uid?, let ch) = saved, !connectedUIDs.contains(uid), systemAvailable else {
+    /// Pure: `connectedUIDs` = the input devices Core Audio lists right now, `runningAppIDs` = the
+    /// bundle ids of the open apps. Without System Audio (macOS 12) there is nothing to fall back
+    /// to, and the input's own "not connected" error stands.
+    static func plan(saved: LiveSource, connectedUIDs: Set<String>, systemAvailable: Bool,
+                     runningAppIDs: Set<String> = []) -> LiveSourcePlan {
+        guard systemAvailable else { return .use(saved) }
+        switch saved {
+        case .input(let uid?, let ch) where !connectedUIDs.contains(uid):
+            return .fallback(.system, missingUID: uid, channel: ch)
+        case .app(let id) where !runningAppIDs.contains(id):
+            return .fallback(.system, missingUID: id, channel: 0)
+        default:
             return .use(saved)
         }
-        return .fallback(.system, missingUID: uid, channel: ch)
     }
 }
 
@@ -290,7 +317,12 @@ final class LiveSettings: ObservableObject {
         self.systemAvailable = systemAvailable
         var s = LiveSource.from(stored: defaults.string(forKey: LiveSettings.sourceKey))
             ?? (systemAvailable ? .system : .input(uid: nil, channel: 0))
-        if s == .system && !systemAvailable { s = .input(uid: nil, channel: 0) }   // macOS 12
+        if !systemAvailable {   // macOS 12: no ScreenCaptureKit audio, so no Mac audio and no app
+            switch s {
+            case .system, .app: s = .input(uid: nil, channel: 0)
+            case .input: break
+            }
+        }
         source = s
         let g = defaults.object(forKey: LiveSettings.gapKey) as? Double
         gap = g.map { min(max($0, 1), 30) } ?? LiveSettings.defaultGap
@@ -306,6 +338,7 @@ final class LiveSettings: ObservableObject {
             let dev = uid.flatMap { u in devices.first { $0.uid == u } }
             let name = dev?.name ?? (uid == nil ? "Default Input" : "Missing Input")
             return ch > 0 ? "\(name) · Ch \(ch)" : name
+        case .app(let id): return "App: \(AudioApps.displayName(bundleID: id))"
         }
     }
 }
@@ -477,6 +510,7 @@ final class LiveController: ObservableObject {
     private let makeCapture: (LiveSource) -> AudioCapture?
     private let now: () -> Date
     private let devices: () -> [InputDevice]
+    private let runningAppIDs: () -> Set<String>
     private var noticeWork: DispatchWorkItem?
     /// What this Listen really opened (the plan's source, or Mac audio after a drop).
     private var activeSource = LiveSource.system
@@ -499,7 +533,9 @@ final class LiveController: ObservableObject {
     init(settings: LiveSettings, launch: @escaping LiveLauncher,
          makeCapture: @escaping (LiveSource) -> AudioCapture? = LiveController.realCapture,
          now: @escaping () -> Date = Date.init, songs: SongTracker? = nil,
-         devices: @escaping () -> [InputDevice] = InputDevice.all) {
+         devices: @escaping () -> [InputDevice] = InputDevice.all,
+         runningAppIDs: @escaping () -> Set<String> = AudioApps.runningBundleIDs) {
+        self.runningAppIDs = runningAppIDs
         self.settings = settings
         self.songs = songs ?? SongTracker(now: now)
         self.launch = launch
@@ -524,6 +560,9 @@ final class LiveController: ObservableObject {
             return nil
         case .input(let uid, let ch):
             return InputCapture(deviceUID: uid, channel: ch)
+        case .app(let id):
+            if #available(macOS 13.0, *) { return SystemAudioCapture(appBundleID: id) }
+            return nil
         }
     }
 
@@ -546,17 +585,22 @@ final class LiveController: ObservableObject {
         let gen = generation
         let devs = devices()
         let plan = LiveSourcePlan.plan(saved: settings.source, connectedUIDs: Set(devs.map(\.uid)),
-                                       systemAvailable: settings.systemAvailable)
+                                       systemAvailable: settings.systemAvailable,
+                                       runningAppIDs: runningAppIDs())
         activeSource = plan.source
         sourceName = LiveSettings.name(of: plan.source, devices: devs)
         AppLog.log("listen: start · source \(sourceName) (\(plan.source.stored)) · gap \(settings.gap) s")
         hearingLabel = LiveController.hearing(plan.source, name: sourceName)
         AppLog.log("listen: hearing \(hearingLabel)")
         if case .fallback(_, let uid, let ch) = plan {
-            AppLog.log("listen: saved input missing (uid \(uid), ch \(ch); connected: "
-                       + (devs.isEmpty ? "none" : devs.map { "\($0.name) [\($0.uid)]" }.joined(separator: ", "))
-                       + "), falling back to Mac audio (System Audio); saved choice kept")
-            showNotice(LiveSourcePlan.fallbackNotice, gen: gen)
+            if case .app(let id) = settings.source {
+                AppLog.log("listen: saved app \(id) is not open, falling back to Mac audio (System Audio); saved choice kept")
+            } else {
+                AppLog.log("listen: saved input missing (uid \(uid), ch \(ch); connected: "
+                           + (devs.isEmpty ? "none" : devs.map { "\($0.name) [\($0.uid)]" }.joined(separator: ", "))
+                           + "), falling back to Mac audio (System Audio); saved choice kept")
+            }
+            showNotice(LiveSourcePlan.notice(for: settings.source), gen: gen)
         }
         guard let cap = makeCapture(plan.source) else {
             AppLog.log("listen: no capture for \(plan.source.stored)")
@@ -633,12 +677,13 @@ final class LiveController: ObservableObject {
                     fail(InputCapture.lostText, gen: gen); return
                 }
                 AppLog.log("listen: input \(sourceName) is gone (uid \(uid), ch \(ch); \(why)); falling back to Mac audio (System Audio); saved choice kept; same song")
+                let lostSource = activeSource
                 capture?.stop()
                 capture = cap
                 activeSource = src
                 sourceName = LiveSettings.name(of: src, devices: devices())
                 hearingLabel = LiveController.hearing(src, name: sourceName)
-                showNotice(LiveSourcePlan.fallbackNotice, gen: gen)
+                showNotice(LiveSourcePlan.notice(for: lostSource), gen: gen)
                 run(cap, into: p, gen: gen)
             }
         }
@@ -682,6 +727,7 @@ final class LiveController: ObservableObject {
         switch source {
         case .system: return "all apps except Beat Key"
         case .input: return "input \(name)"
+        case .app(let id): return "only the app \(id)"
         }
     }
 

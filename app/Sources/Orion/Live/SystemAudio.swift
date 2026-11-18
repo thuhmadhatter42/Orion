@@ -4,13 +4,21 @@ import CoreGraphics
 import CoreMedia
 import ScreenCaptureKit
 
-/// Everything the Mac plays, through ScreenCaptureKit's audio (macOS 13+): the main display's
+/// What the Mac plays, through ScreenCaptureKit's audio (macOS 13+): the main display's
 /// stream with audio on and the picture shrunk to 2 x 2 px at one frame a second (SCK has no
-/// audio-only filter). Every app is heard; only Beat Key's own sound is left out
+/// audio-only filter). By default every app is heard; with `appBundleID` (Input > Add App) the one
+/// content filter below includes only that app. Beat Key's own sound is always left out
 /// (`excludesCurrentProcessAudio`). Needs the Screen (& System Audio) Recording permission;
 /// nothing is saved.
 @available(macOS 13.0, *)
 final class SystemAudioCapture: NSObject, AudioCapture, SCStreamOutput, SCStreamDelegate {
+    /// nil = every app; else only this app's sound (its bundle id).
+    let appBundleID: String?
+    /// The chosen app is not open (any more): told once; the controller falls back to Mac audio
+    /// (LiveSourcePlan.afterLoss), the same rule as an unplugged input.
+    var onDrop: ((CaptureDrop) -> Void)?
+    private var dropped = false
+    private var terminateObserver: NSObjectProtocol?
     private var stream: SCStream?
     private let queue = DispatchQueue(label: "com.jshriver.orion.system-audio")
     private var onSamples: (([Float]) -> Void)?
@@ -29,6 +37,37 @@ final class SystemAudioCapture: NSObject, AudioCapture, SCStreamOutput, SCStream
     private var retryWork: DispatchWorkItem?
     private var wakeObserver: NSObjectProtocol?
 
+    init(appBundleID: String? = nil) {
+        self.appBundleID = appBundleID
+        super.init()
+    }
+
+    /// What the content filter does: every app, only the chosen app, or the chosen app is not open.
+    enum FilterChoice: Equatable {
+        case everyApp
+        case only(String)
+        case appGone(String)
+    }
+
+    /// Pure: `app` = the chosen app's bundle id (nil = every app), `shareable` = the bundle ids
+    /// ScreenCaptureKit can filter on right now.
+    static func filterChoice(app: String?, shareable: [String]) -> FilterChoice {
+        guard let id = app else { return .everyApp }
+        return shareable.contains(id) ? .only(id) : .appGone(id)
+    }
+
+    private var scopeLabel: String { appBundleID.map { "app \($0)" } ?? "all apps" }
+
+    /// Once, on the capture's queue: the chosen app is gone.
+    private func reportGone(_ why: String) {
+        queue.async { [weak self] in
+            guard let self = self, !self.stopped, !self.dropped else { return }
+            self.dropped = true
+            AppLog.log("system audio: \(self.scopeLabel) is gone (\(why)); telling Listen")
+            self.onDrop?(.gone(why: why))
+        }
+    }
+
     /// macOS 15 renamed the privacy pane.
     static var permissionText: String {
         let pane: String
@@ -42,6 +81,13 @@ final class SystemAudioCapture: NSObject, AudioCapture, SCStreamOutput, SCStream
         wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.screensDidWakeNotification, object: nil, queue: nil) { [weak self] _ in
             self?.queue.async { self?.reopen(now: true, why: "screen woke") }
+        }
+        if let id = appBundleID {
+            terminateObserver = NSWorkspace.shared.notificationCenter.addObserver(
+                forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: nil) { [weak self] note in
+                let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+                if app?.bundleIdentifier == id { self?.reportGone("app quit") }
+            }
         }
         begin()
     }
@@ -58,12 +104,26 @@ final class SystemAudioCapture: NSObject, AudioCapture, SCStreamOutput, SCStream
         SCShareableContent.getExcludingDesktopWindows(false, onScreenWindowsOnly: false) { [weak self] content, error in
             guard let self = self, !self.stopped else { return }
             guard let display = content?.displays.first else {
-                AppLog.log("system audio: no display yet (\(error.map { "\($0)" } ?? "none")), retrying")
+                AppLog.log("system audio: no display yet for \(self.scopeLabel) (\(error.map { "\($0)" } ?? "none")), retrying")
                 self.queue.async { self.reopen(now: false, why: "no display") }
                 return
             }
-            // Every app, always (J, 2026-11-10). Mic isolation is the Input choice in Settings.
-            let filter = SCContentFilter(display: display, excludingApplications: [], exceptingWindows: [])
+            // Every app unless Add App chose one (J, 2026-11-10; Add App 2026-11-18). Mic isolation
+            // is the Input choice in Settings.
+            let apps = content?.applications ?? []
+            let filter: SCContentFilter
+            switch SystemAudioCapture.filterChoice(app: self.appBundleID, shareable: apps.compactMap(\.bundleIdentifier)) {
+            case .everyApp:
+                filter = SCContentFilter(display: display, excludingApplications: [], exceptingWindows: [])
+            case .only(let id):
+                guard let app = apps.first(where: { $0.bundleIdentifier == id }) else { self.reportGone("not shareable"); return }
+                AppLog.log("system audio: capturing only app \(id)")
+                filter = SCContentFilter(display: display, including: [app], exceptingWindows: [])
+            case .appGone(let id):
+                AppLog.log("system audio: app \(id) is not among the \(apps.count) apps ScreenCaptureKit can filter")
+                self.reportGone("not open")
+                return
+            }
             let cfg = SCStreamConfiguration()
             cfg.capturesAudio = true
             cfg.excludesCurrentProcessAudio = true
@@ -79,15 +139,17 @@ final class SystemAudioCapture: NSObject, AudioCapture, SCStreamOutput, SCStream
                 // a screen output too, or SCK logs a dropped frame every second
                 try s.addStreamOutput(self, type: .screen, sampleHandlerQueue: self.queue)
             } catch {
+                AppLog.log("system audio: could not add the stream output for \(self.scopeLabel): \(error)")
                 onError(SystemAudioCapture.text(error)); return
             }
             s.startCapture { [weak self] err in
                 guard let err = err else { return }
                 if SystemAudioCapture.isPermission(err) {
+                    AppLog.log("system audio: start refused for \(self?.scopeLabel ?? "?"): \(err)")
                     PermissionGuide.shared.need(.screen, why: "Listen on Mac audio (start refused)")
                     onError(SystemAudioCapture.text(err)); return
                 }
-                AppLog.log("system audio: start failed (\(err)), retrying")
+                AppLog.log("system audio: start failed for \(self?.scopeLabel ?? "?") (\(err)), retrying")
                 self?.queue.async { self?.reopen(now: false, why: "start failed") }
             }
             self.stream = s
@@ -98,6 +160,7 @@ final class SystemAudioCapture: NSObject, AudioCapture, SCStreamOutput, SCStream
         stopped = true
         retryWork?.cancel()
         if let w = wakeObserver { NSWorkspace.shared.notificationCenter.removeObserver(w); wakeObserver = nil }
+        if let t = terminateObserver { NSWorkspace.shared.notificationCenter.removeObserver(t); terminateObserver = nil }
         stream?.stopCapture { _ in }
         stream = nil
     }

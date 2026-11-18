@@ -383,7 +383,8 @@ enum SourceMenu {
     static func show(live: LiveController, extras: PocketExtras, close: @escaping () -> Void = {}) {
         let s = live.settings
         func pick(_ src: LiveSource) {
-            AppLog.log("listen source picked")
+            if case .app(let id) = src { AppLog.log("listen source picked: app \(id)") }
+            else { AppLog.log("listen source picked") }
             s.source = src
             extras.refresh(live: live)
             if live.state.isActive { live.start(why: "source changed") }
@@ -400,8 +401,28 @@ enum SourceMenu {
             if case .input(let uid, _) = s.source, uid == d.uid { on = true }
             items.append(PopupMenu.Item(title: d.name, checked: on) { pick(.input(uid: d.uid, channel: 0)) })
         }
-        items += [.separator, PopupMenu.Item(title: "Channels and More…") { close(); SettingsOpener.open() }]
+        items.append(.separator)
+        if LiveSource.systemAvailable { items.append(addAppItem(source: s.source, pick: pick)) }
+        items.append(PopupMenu.Item(title: "Channels and More…") { close(); SettingsOpener.open() })
         PopupMenu.show(items)
+    }
+
+    /// "Add App ▸": every open app (AudioApps), those playing now on top, then A-Z; picking one
+    /// makes Listen hear only that app (LiveSource.app).
+    static func addAppItem(source: LiveSource, pick: @escaping (LiveSource) -> Void) -> PopupMenu.Item {
+        let list = AudioApps.current()
+        func row(_ a: AudioApp) -> PopupMenu.Item {
+            var on = false
+            if case .app(let id) = source, id == a.bundleID { on = true }
+            return PopupMenu.Item(title: a.name, checked: on) { pick(.app(bundleID: a.bundleID)) }
+        }
+        var subs = list.apps.prefix(list.playingCount).map(row)
+        if list.playingCount > 0 && list.playingCount < list.apps.count { subs.append(.separator) }
+        subs += list.apps.dropFirst(list.playingCount).map(row)
+        if subs.isEmpty { subs = [PopupMenu.Item(title: "No Apps Open") {}] }
+        var isApp = false
+        if case .app = source { isApp = true }
+        return PopupMenu.Item(title: "Add App", checked: isApp, submenu: subs)
     }
 }
 
@@ -550,9 +571,14 @@ enum PopupMenu {
         var title: String
         var checked = false
         var action: (() -> Void)?
+        /// A parent item: opens these as a submenu (no action of its own).
+        var submenu: [Item]?
         static let separator = Item(title: "", action: nil)
         init(title: String, checked: Bool = false, action: (() -> Void)?) {
             self.title = title; self.checked = checked; self.action = action
+        }
+        init(title: String, checked: Bool = false, submenu: [Item]) {
+            self.title = title; self.checked = checked; self.submenu = submenu
         }
     }
 
@@ -562,10 +588,17 @@ enum PopupMenu {
         @objc func fire() { run() }
     }
 
-    static func show(_ items: [Item]) {
+    static func menu(_ items: [Item]) -> NSMenu {
         let m = NSMenu()
         m.autoenablesItems = false
         for it in items {
+            if let sub = it.submenu {
+                let mi = NSMenuItem(title: it.title, action: nil, keyEquivalent: "")
+                mi.state = it.checked ? .on : .off
+                mi.submenu = menu(sub)
+                m.addItem(mi)
+                continue
+            }
             guard let act = it.action else { m.addItem(.separator()); continue }
             let mi = NSMenuItem(title: it.title, action: #selector(Target.fire), keyEquivalent: "")
             let t = Target(act)
@@ -574,6 +607,10 @@ enum PopupMenu {
             mi.state = it.checked ? .on : .off
             m.addItem(mi)
         }
-        m.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+        return m
+    }
+
+    static func show(_ items: [Item]) {
+        menu(items).popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
     }
 }
