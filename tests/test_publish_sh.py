@@ -61,8 +61,6 @@ class PublishShTest(unittest.TestCase):
         (self.tmp / "app" / "build" / f"Beat-Key-{V}.dmg").write_text("dmg")
         (self.tmp / "app" / "build" / f"Beat-Key-{V}.pkg").write_text("pkg")
         (self.tmp / "app" / "build" / "appcast.xml").write_text(APPCAST.format(v=V))
-        (self.tmp / "friends-page").mkdir()
-        (self.tmp / "friends-page" / "index.html").write_text("<html>")
         self.bin = self.tmp / "stubbin"
         self.bin.mkdir()
         for n in ("xcrun", "git", "gh", "scp", "curl", "ssh-rc", "pkgutil"):
@@ -92,7 +90,7 @@ class PublishShTest(unittest.TestCase):
         self.assertIn(f"PUBLISHED {V}", out)
         pub = [c for c in calls if c.startswith(PUBLISH_CMDS)]
         order = ["git tag", "git push origin main", "git push origin Beat-Key", "scp app/build/Beat-Key",
-                 "scp app/build/Beat-Key", "ssh-rc js-mac-pro printf", "scp friends-page", "gh release create"]
+                 "scp app/build/Beat-Key", "ssh-rc js-mac-pro printf", "gh release create"]
         self.assertEqual(len(pub), len(order), pub)
         for c, want in zip(pub, order):
             self.assertTrue(c.startswith(want), (c, want))
@@ -172,16 +170,13 @@ class PublishShTest(unittest.TestCase):
     def test_b_pkg_on_server(self):
         self.check_fails("Beat-Key-9.8.7.pkg (never overwrite)", STUB_PKG_ON_SERVER="1")
 
-    def test_b_friends_page_missing(self):
-        self.check_fails("friends-page/index.html missing", lambda: (self.tmp / "friends-page/index.html").unlink())
-
     def final_fails(self, expect, **env):
         r, out, calls = self.run_publish(**env)
         self.assertNotEqual(r.returncode, 0, out)
         self.assertNotIn("PUBLISHED", out)
         self.assertIn(expect, out)
         for step in ("tag Beat-Key-9.8.7", "push main", "push tag", "DMG to js-mac-pro", "pkg to js-mac-pro",
-                     "beat-key-latest.json", "friends page", "GitHub release"):
+                     "beat-key-latest.json", "GitHub release"):
             self.assertIn(f"[{step}]", out.split("FAILED")[-1])
         self.assertTrue(any(c.startswith("gh release create") for c in calls))
 
