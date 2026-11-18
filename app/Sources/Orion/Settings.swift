@@ -26,6 +26,10 @@ struct SettingsView: View {
                     if LiveSource.systemAvailable { Text("System Audio (everything the Mac plays)").tag("system") }
                     Text("Default Input").tag("default")
                     ForEach(devices) { d in Text(d.name).tag("uid:\(d.uid)") }
+                    // chosen with Add App in the Listen menu; shown here so the picker isn't blank
+                    if case .app(let id) = live.source {
+                        Text(LiveSettings.name(of: live.source, devices: [])).tag("app:\(id)")
+                    }
                 }
                 .helpTip(HelpText.settingsListenTo)
                 if case .input(let uid, _) = live.source {
@@ -90,8 +94,10 @@ struct SettingsView: View {
             case .system: return "system"
             case .input(nil, _): return "default"
             case .input(let uid?, _): return "uid:\(uid)"
+            case .app(let id): return "app:\(id)"
             }
         }, set: { tag in
+            if tag.hasPrefix("app:") { return }   // the current app choice re-selected: nothing to change
             if tag == "system" { live.source = .system }
             else if tag == "default" { live.source = .input(uid: nil, channel: 0) }
             else { live.source = .input(uid: String(tag.dropFirst(4)), channel: 0) }
