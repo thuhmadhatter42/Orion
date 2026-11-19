@@ -1,0 +1,22 @@
+Avid AAX SDK 2.9.0, subset, unmodified. Used under its GPLv3 option (LICENSE.txt: "Or: You may also use
+this code under the terms of the GPL v3"); every file here carries that line in its own header. Plan §L2, §L9.
+
+Provenance:
+- Every file here that also exists in JUCE's public copy is byte-identical to it:
+  https://github.com/juce-framework/JUCE  commit 7dda739b9be09f1dfb9592a09e1701acf808cd44,
+  modules/juce_audio_plugin_client/AAX/SDK/ (checked with cmp, 2026-11-19).
+- These files are not in JUCE's copy and come from Avid's AAX SDK 2.9.0 download (aax-sdk-2-9-0.zip), each
+  with the same GPLv3 line in its header:
+    Interfaces/AAX_CDataBuffer.h  Interfaces/AAX_CTask.h  Interfaces/AAX_CValueDataBuffer.h
+    Interfaces/AAX_IHostTaskAgent.h  Interfaces/AAX_TaskUtilities.h  Interfaces/AAX_VenueUtilities.h
+    Interfaces/AAX_VHostTaskAgent.h  Interfaces/C99Compatibility/{inttypes,stdint,unistd}.h
+    Libs/AAXLibrary/include/AAX_TimeUtilities.h
+    Libs/AAXLibrary/source/{AAX_CAutoreleasePool.OSX.mm, AAX_CSessionDocumentClient.cpp, AAX_CTask.cpp,
+      AAX_CTaskAgent.cpp, AAX_ISessionDocumentClient.cpp, AAX_ITaskAgent.cpp, AAX_VDataBufferWrapper.cpp,
+      AAX_VHostTaskAgent.cpp, AAX_VSessionDocument.cpp, AAX_VTask.cpp}
+
+Copied: Interfaces/ (whole), Libs/AAXLibrary/source/ (minus the Windows-only AAX_CAutoreleasePool.Win.cpp),
+Libs/AAXLibrary/include/, LICENSE.txt.
+Not copied: examples, docs, TI, Utilities, build projects. plugin/build.sh compiles AAXLibrary from these
+sources (the SDK ships no prebuilt library).
+Never edit these files; upgrade by replacing the folder.
