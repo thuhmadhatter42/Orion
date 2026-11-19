@@ -59,4 +59,26 @@ assert len(c) == 1 and c[0]["CID"] == "42744B79416E6C7A56535433464C5263", c
 assert c[0]["Category"] == "Audio Module Class" and c[0]["Version"] == sys.argv[2]
 PY
 echo "ok: moduleinfo.json (Beat Key, one Audio Module Class)"
+
+# Beat Key MIDI (plan step 15)
+AUM="$HERE/build.noindex/Beat Key MIDI.component"
+check_bundle "$AUM" com.jshriver.orion.plugin.midi.au "_BeatKeyMIDIAUFactory"
+P="$AUM/Contents/Info.plist"
+for kv in type:aumf subtype:BtKM manufacturer:FLRc factoryFunction:BeatKeyMIDIAUFactory version:$AUVER; do
+  v=$(/usr/libexec/PlistBuddy -c "Print :AudioComponents:0:${kv%%:*}" "$P" 2>/dev/null)
+  [ "$v" = "${kv#*:}" ] || fail "AU MIDI AudioComponents ${kv%%:*} is '$v', want '${kv#*:}'"
+done
+otool -L "$AUM/Contents/MacOS/Beat Key" | grep -q CoreMIDI.framework || fail "AU MIDI does not link CoreMIDI (its MIDI output packets)"
+echo "ok: AudioComponents aumf BtKM FLRc, BeatKeyMIDIAUFactory, version $AUVER"
+V3M="$HERE/build.noindex/Beat Key MIDI.vst3"
+check_bundle "$V3M" com.jshriver.orion.plugin.midi.vst3 "_GetPluginFactory _bundleEntry _bundleExit"
+python3 -I - "$V3M/Contents/Resources/moduleinfo.json" "$VER" <<'PY' || fail "MIDI moduleinfo.json is wrong"
+import json, sys
+m = json.load(open(sys.argv[1]))
+assert m["Name"] == "Beat Key MIDI" and m["Version"] == sys.argv[2], (m["Name"], m["Version"])
+c = m["Classes"]
+assert len(c) == 1 and c[0]["CID"] == "42744B794D49444956535433464C5263" and c[0]["Name"] == "Beat Key MIDI", c
+assert c[0]["Category"] == "Audio Module Class" and c[0]["Version"] == sys.argv[2]
+PY
+echo "ok: moduleinfo.json (Beat Key MIDI, one Audio Module Class)"
 echo "plugin/smoke.sh: OK"

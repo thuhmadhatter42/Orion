@@ -45,9 +45,12 @@ typedef struct bkp_view_state {
     int         tempo_mult;      /* -1 halve, 0 as read, +1 double */
     double      host_tempo;      /* the session's tempo; 0 = the host did not say */
     int         bypass;
-    char        format[8];       /* "AU", "VST3" */
+    char        format[16];      /* "AU", "VST3", "AU-MIDI", "VST3-MIDI" */
     char        status[256];     /* "" when analyzing, else why not (the face shows it) */
     bk_snapshot snap;            /* top 3 with %, tuning, readings, song / reading_song, silent, ... */
+    int         midi;            /* 1 = the MIDI variant (plan step 15) */
+    int         midi_route;      /* bkp_midi_route: 0 no audio yet, 1 the host takes MIDI, 2 it does not */
+    int         midi_sounding;   /* bkp_midi_sounding: the key index whose chord is held, -1 none */
 } bkp_view_state;
 
 /* 0 = filled; -1 = closed (out->alive = 0) or a NULL out. */
@@ -63,6 +66,15 @@ void bkp_view_log_send(uint64_t token, const char *what, const char *value, int 
 void bkp_view_log(uint64_t token, const char *line);
 /* The plug-in's version (the repo's VERSION, compiled in). */
 const char *bkp_view_version(void);
+
+/* ---- the MIDI variant (plan step 15) ----
+ * The shims of Beat Key MIDI call bkp_view_midi_enable(p) once, after bkp_create: it asks the face's
+ * Swift for the chords (bkp_face_midi_chords: the app's Harmony, so the notes have one owner) and
+ * hands them to bkp_midi_enable.  0 = ok, -1 = refused (logged; the instance then sends no MIDI). */
+int bkp_view_midi_enable(bkp_instance *p);
+/* Implemented by the Swift face (plugin/ui/MidiOut.swift, @_cdecl): fills notes[k] with the chord of
+ * key index k (bk_key_index order), returns the notes per chord (0 = none) and sets *velocity. */
+int bkp_face_midi_chords(uint8_t notes[BKP_MIDI_KEYS][BKP_MIDI_NOTES], int *velocity);
 
 #ifdef __cplusplus
 }

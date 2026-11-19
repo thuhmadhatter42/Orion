@@ -110,6 +110,11 @@ struct FaceState: Equatable {
     var stale = false
     var silent = false
     var error = false
+    /// The MIDI variant (plan step 15): whether this is it, the route (0 no audio yet, 1 the host takes
+    /// MIDI, 2 it does not) and the key whose chord is held now.
+    var midi = false
+    var midiRoute = 0
+    var midiSounding: String?
 
     struct Choice: Equatable { var name: String; var percent: Int }
 
@@ -133,6 +138,9 @@ struct FaceState: Equatable {
         f.stale = s.snap.has_reading != 0 && s.snap.reading_song < s.snap.song
         f.silent = s.snap.silent != 0
         f.error = s.snap.error != 0
+        f.midi = s.midi != 0
+        f.midiRoute = Int(s.midi_route)
+        f.midiSounding = s.midi_sounding >= 0 ? bk_key_name(s.midi_sounding).map { String(cString: $0) } : nil
         if f.hasReading {
             let r = s.snap.reading
             f.top = [r.keys.0, r.keys.1, r.keys.2].compactMap { k in

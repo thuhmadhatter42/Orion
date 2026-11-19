@@ -31,7 +31,8 @@ enum FaceTips {
     static let newSong = "Start over: forget what was heard."
     static let topKey = "Click to pin, again to unpin."
     static let report = "Mail the log to Four Letter Records."
-    static let all = [key, bpm, sendBPM, sendAutoTune, more, newSong, topKey, report]
+    static let midiDrag = "Drag into your session: tempo + key as MIDI"
+    static let all = [key, bpm, sendBPM, sendAutoTune, more, newSong, topKey, report, midiDrag]
     static let maxBody = 60
 }
 
@@ -74,8 +75,12 @@ struct FaceMain: View {
                     .help(FaceTips.sendAutoTune)
                     .accessibility(label: Text("Send key to Auto-Tune"))
                 HStack(spacing: 4) {
-                    Text("BEAT KEY").font(FaceType.caption).tracking(FaceType.captionTracking)
-                        .foregroundColor(Color.white.opacity(0.28))
+                    if s.midi {
+                        MidiDragChip(model: model)   // the MIDI variant: drag-out .mid in the name's place
+                    } else {
+                        Text("BEAT KEY").font(FaceType.caption).tracking(FaceType.captionTracking)
+                            .foregroundColor(Color.white.opacity(0.28))
+                    }
                     Spacer(minLength: 0)
                     Button("MORE") { more.toggle() }
                         .buttonStyle(FaceChipStyle(lit: more))
@@ -132,6 +137,8 @@ struct FaceMain: View {
         let (text, kind, detail, link): (String, FaceLine.Kind, String?, URL?) = {
             if let l = model.line { return (l.text, l.kind, l.detail, l.link) }
             let st = model.statusText
+            // the MIDI variant: where the notes go, unless something is wrong or the plug-in is bypassed
+            if st.1 != .error, !model.state.bypass, let m = MidiOut.line(model.state) { return (m.text, m.kind, m.detail, nil) }
             if st.0.isEmpty, let host = model.state.hostTempo { return ("Session \(PluginSend.bpmText(host))", .info, nil, nil) }
             return (st.0, st.1, nil, nil)
         }()

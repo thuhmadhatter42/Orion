@@ -11,7 +11,8 @@ let package = Package(
     ],
     targets: [
         // Swift the app and the plug-in's face both compile (key names, tempo text, tuning maths, the
-        // Auto-Tune hand-off, the SEND BPM contract, the look's primitives). plugin/build.sh compiles the
+        // Auto-Tune hand-off, the SEND BPM contract, the look's primitives, the chord maths and the MIDI file
+        // writer that the MIDI variant uses). plugin/build.sh compiles the
         // same files into each plug-in format under that format's own module name.
         .target(name: "BeatKeyShared", path: "Sources/BeatKeyShared"),
         .executableTarget(name: "Orion",

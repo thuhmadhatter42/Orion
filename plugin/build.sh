@@ -4,6 +4,7 @@
 #
 #   plugin/build.noindex/Beat Key.component   AU    (aufx BtKy FLRc)
 #   plugin/build.noindex/Beat Key.vst3        VST3  (class 42744B79416E6C7A56535433464C5263)
+#   plugin/build.noindex/Beat Key MIDI.*      the MIDI variant of both (plugin/build-midi.sh, step 15)
 #
 # Each bundle links its own copy of the core (core/build.noindex/libbeatkey.a) and the instance layer,
 # and carries the weights (models/deeptemp-k16-3.bkw, CC BY-NC-SA, a data file, never compiled in) in
@@ -111,6 +112,9 @@ clang++ -bundle $ARCHS_FLAGS -o "$V3/Contents/MacOS/Beat Key" "$OBJ"/vst3/*.o "$
   -Wl,-exported_symbols_list,"$HERE/vst3/exports.txt" || refuse "could not link the VST3"
 check_universal "$V3/Contents/MacOS/Beat Key"
 sign_bundle "$V3"
+
+# Beat Key MIDI (plan step 15): the same shims with BKP_MIDI=1; sourced, it shares this script's helpers and objects
+. "$HERE/build-midi.sh"
 
 echo "== smoke (no host)"
 sh "$HERE/smoke.sh" || refuse "smoke failed (see above)"

@@ -38,6 +38,8 @@ KeyReading key_reading(const std::vector<HpcpFrame> &frames, const std::vector<P
 
 // "C", "Db", ... / "Cm", "C#m", ...: index as in KeyReading::scores.
 std::string key_name(int index);
+// The same name as a static C string (nullptr out of 0..23).  No allocation, no lock: any thread.
+const char *key_name_c(int index);
 
 }  // namespace bk
 

@@ -9,9 +9,11 @@
 #  3. vst3_harness (plugin/test/vst3_harness.cpp): the VST3 shim's own objects driven directly, no host, on
 #     both slices: factory, Bypass parameter, the real process() under the tripwire, state and its refusals.
 #     The AU shim has no direct harness (the SDK needs an AudioComponent); auval drives it in plugin/validate.sh.
+#     Built twice: Beat Key, and Beat Key MIDI (BKP_MIDI=1, plan step 15: the event bus and the notes).
 #  4. face_test (plugin/test/face_test.swift), both slices: the SwiftUI face and both buttons without a host
 #     (shared code, a real reading through the token, SEND AUTO-TUNE to a temp path, SEND BPM against a fake
-#     app); offscreen renders in plugin/build.noindex/face-shots (no window on screen).
+#     app, the MIDI variant's chords / lines / drag-out .mid); offscreen renders in plugin/build.noindex/face-shots
+#     (no window on screen).
 # The validator gate (auval, pluginval, Steinberg's validator) is plugin/validate.sh; it needs the
 # built bundles installed in ~/Library/Audio/Plug-Ins.
 # Scratch: plugin/build.noindex/test.XXXXXX, removed on every way out.  Logs go there, never to
@@ -72,6 +74,20 @@ if [ $# -eq 0 ]; then
     echo "== run vst3_harness: $slice slice"
     mkdir -p "$TMP/v3-$slice/logs"
     BEATKEY_LOG_DIR="$TMP/v3-$slice/logs" arch -$slice "$TMP/vst3_harness" "$WEIGHTS" || fail "vst3_harness failed on the $slice slice"
+  done
+
+  echo "== the VST3 shim as Beat Key MIDI (BKP_MIDI=1, plan step 15): event bus + notes, driven directly"
+  clang++ $CXXF -I"$ROOT/core/include" -isystem "$PI" "-DBKP_VERSION=\"$VERSION\"" -DBKP_MIDI=1 \
+    "$HERE/vst3/beatkey_vst3.cpp" "$HERE/test/vst3_harness.cpp" "$HERE/shared/bkp.cpp" \
+    "$TMP/pi_coreiids.o" "$TMP/pi_funknown.o" "$TMP/face-harness/face.o" "$TMP/face-harness/bkp_view.o" "$TMP/beatkey_vst3_view.o" \
+    "$ROOT/core/build.noindex/libbeatkey.a" \
+    -L"$TMP" -ltripwire -Wl,-rpath,"$TMP" -framework Accelerate -framework CoreFoundation -framework AppKit -framework Foundation \
+    $(cat "$TMP/face-harness/face.ldflags") \
+    -o "$TMP/vst3_harness_midi"
+  for slice in arm64 x86_64; do
+    echo "== run vst3_harness (MIDI): $slice slice"
+    mkdir -p "$TMP/v3m-$slice/logs"
+    BEATKEY_LOG_DIR="$TMP/v3m-$slice/logs" arch -$slice "$TMP/vst3_harness_midi" "$WEIGHTS" || fail "vst3_harness (MIDI) failed on the $slice slice"
   done
 
   echo "== the face (plugin/test/face_test.swift): shared code, a real reading through the token, both sends, offscreen renders"

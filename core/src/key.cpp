@@ -147,10 +147,23 @@ bool estimate_tuning(const std::vector<Peaks> &peaks, double &cents_out) {
 
 }  // namespace
 
-std::string key_name(int index) {
-    const int pc = index / 2;
-    return index % 2 == 0 ? std::string(kMajor[pc]) : std::string(kMinor[pc]) + "m";
+namespace {
+// The 24 names, built once at load from kMajor / kMinor (never at first use: no guard lock, so the
+// audio thread may read them through bk_key_name).
+std::array<std::array<char, 4>, 24> make_names() {
+    std::array<std::array<char, 4>, 24> t{};
+    for (int i = 0; i < 24; i++) {
+        const std::string n = i % 2 == 0 ? std::string(kMajor[i / 2]) : std::string(kMinor[i / 2]) + "m";
+        for (size_t c = 0; c < n.size() && c < 3; c++) t[(size_t)i][c] = n[c];
+    }
+    return t;
 }
+const std::array<std::array<char, 4>, 24> kNames = make_names();
+}  // namespace
+
+const char *key_name_c(int index) { return index >= 0 && index < 24 ? kNames[(size_t)index].data() : nullptr; }
+
+std::string key_name(int index) { return key_name_c(index); }
 
 KeyReading key_reading(const std::vector<HpcpFrame> &frames_440, const std::vector<Peaks> &peaks) {
     KeyReading out;

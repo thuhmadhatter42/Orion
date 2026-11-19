@@ -70,6 +70,10 @@ int bkp_view_read(uint64_t token, bkp_view_state *out) {
     bkp_status(p, out->status, sizeof out->status);
     bkp_snapshot(p, &out->snap);
     out->bpm_exact = out->has_bpm && out->snap.has_reading && out->snap.reading.has_bpm_exact;
+    out->midi = bkp_midi(p);
+    out->midi_route = bkp_midi_route(p);
+    out->midi_sounding = bkp_midi_sounding(p);
+    if (out->midi) bkp_midi_log_route(p);   /* one line per route change, while the face is open */
     pthread_mutex_unlock(&g_mu);
     return 0;
 }
@@ -121,3 +125,16 @@ void bkp_view_log(uint64_t token, const char *line) {
 }
 
 const char *bkp_view_version(void) { return BKP_VERSION; }
+
+int bkp_view_midi_enable(bkp_instance *p) {
+    if (!p) return -1;
+    uint8_t notes[BKP_MIDI_KEYS][BKP_MIDI_NOTES];
+    memset(notes, 0, sizeof notes);
+    int velocity = 0;
+    const int n = bkp_face_midi_chords(notes, &velocity);
+    if (n <= 0) {
+        bkp_log(p, "REFUSED: the face gave no chords for the MIDI variant; this instance sends no MIDI");
+        return -1;
+    }
+    return bkp_midi_enable(p, (const uint8_t (*)[BKP_MIDI_NOTES])notes, n, velocity);
+}

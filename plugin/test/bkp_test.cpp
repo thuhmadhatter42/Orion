@@ -11,7 +11,10 @@
  *              leaves the instance as it was
  *   marker     the "host died with Beat Key in it" marker: a dead process's marker is reported once
  *              and removed; ours exists while an instance is open and is gone after the last
- * Usage: bkp_test <weights.bkw> <scratch folder> [passthru|tripwire|live|state|marker ...]
+ *   midi       the MIDI variant's notes (plan step 15): enable and its refusals; a host that takes no
+ *              MIDI; the pin's chord on, a change = offs then ons, bypass = offs; a real reading's chord is
+ *              the key bkp_key_in_use names (one rule); the path under the tripwire; the route log lines
+ * Usage: bkp_test <weights.bkw> <scratch folder> [passthru|tripwire|live|state|marker|midi ...]
  * BEATKEY_LOG_DIR must point inside the scratch folder (plugin/test.sh sets it).
  */
 #include <atomic>
@@ -487,9 +490,136 @@ void test_marker() {
 
 }  // namespace
 
+// ------------------------------------------------------------------ midi
+namespace {
+
+// A test table (the real one is the face's, checked by vst3_harness and face_test): key k = k, k+1, k+2 + 40.
+void table(uint8_t t[BKP_MIDI_KEYS][BKP_MIDI_NOTES]) {
+    memset(t, 0, sizeof(uint8_t) * BKP_MIDI_KEYS * BKP_MIDI_NOTES);
+    for (int k = 0; k < BKP_MIDI_KEYS; k++)
+        for (int i = 0; i < 3; i++) t[k][i] = (uint8_t)(40 + k + i);
+}
+
+// The events of one block, after an audio block went through.
+int block(bkp_instance *p, int takes, bkp_midi_event *ev) {
+    std::vector<float> x(256, 0.0f);
+    const void *in[1] = {x.data()};
+    void *out[1] = {x.data()};
+    bkp_process(p, in, 1, out, 1, 256, 0);
+    return bkp_midi_process(p, takes, ev);
+}
+
+bool is_chord(const bkp_midi_event *ev, int n, int at, uint8_t status, int key, uint8_t vel) {
+    if (at + 3 > n) return false;
+    for (int i = 0; i < 3; i++) {
+        const bkp_midi_event &e = ev[at + i];
+        if (e.offset != 0 || e.status != status || e.note != 40 + key + i || e.velocity != vel) return false;
+    }
+    return true;
+}
+
+}  // namespace
+
+void test_midi() {
+    printf("== the MIDI variant's notes\n");
+    uint8_t t[BKP_MIDI_KEYS][BKP_MIDI_NOTES];
+    table(t);
+    bkp_midi_event ev[BKP_MIDI_EVENTS];
+    bkp_instance *p = make("TEST-MIDI");
+    CHECK(bkp_prepare(p, 44100) == 0, "prepare failed");
+    CHECK(!bkp_midi(p) && bkp_midi_process(p, 1, ev) == 0 && bkp_midi_route(p) == 0, "a plain instance made MIDI");
+
+    size_t mark = log_mark();
+    CHECK(bkp_midi_enable(p, t, 0, 96) == -1, "0 notes a chord accepted");
+    CHECK(bkp_midi_enable(p, t, BKP_MIDI_NOTES + 1, 96) == -1, "too many notes accepted");
+    CHECK(bkp_midi_enable(p, t, 3, 0) == -1 && bkp_midi_enable(p, t, 3, 128) == -1, "velocity 0 / 128 accepted");
+    CHECK(bkp_midi_enable(p, nullptr, 3, 96) == -1, "no table accepted");
+    {
+        uint8_t bad[BKP_MIDI_KEYS][BKP_MIDI_NOTES];
+        table(bad);
+        bad[5][1] = 200;
+        CHECK(bkp_midi_enable(p, bad, 3, 96) == -1, "note 200 accepted");
+    }
+    CHECK(log_has_since(mark, "REFUSED: MIDI enable") && log_has_since(mark, "note 2 is 200"), "no refusal lines");
+    CHECK(!bkp_midi(p), "a refused enable left the instance MIDI");
+    mark = log_mark();
+    CHECK(bkp_midi_enable(p, t, 3, 90) == 0 && bkp_midi(p), "enable");
+    CHECK(log_has_since(mark, "MIDI variant: the key in use goes out as notes on channel 1 (3 a chord, velocity 90; C = 40 41 42, Cm = 41 42 43)"),
+          "no enable line");
+    CHECK(bkp_midi_enable(p, t, 3, 90) == -1, "enabled twice");
+
+    // a host that takes no MIDI: nothing, and the face is told
+    bkp_set_pin(p, "Am");
+    const int am = bk_key_index("Am"), c = bk_key_index("C");
+    CHECK(block(p, 0, ev) == 0 && bkp_midi_route(p) == 2 && bkp_midi_sounding(p) == -1, "events or a held chord with no MIDI output");
+    mark = log_mark();
+    bkp_midi_log_route(p);
+    bkp_midi_log_route(p);
+    CHECK(log_has_since(mark, "MIDI out: the host gives Beat Key no MIDI output"), "no route line");
+
+    // the pin's chord; nothing more while it stays; a change = offs then ons; bypass = offs
+    int n = block(p, 1, ev);
+    CHECK(n == 3 && is_chord(ev, n, 0, 0x90, am, 90) && bkp_midi_route(p) == 1 && bkp_midi_sounding(p) == am, "Am on: %d events", n);
+    CHECK(block(p, 1, ev) == 0, "the same chord sent again");
+    bkp_set_pin(p, "C");
+    n = block(p, 1, ev);
+    CHECK(n == 6 && is_chord(ev, n, 0, 0x80, am, 0) && is_chord(ev, n, 3, 0x90, c, 90) && bkp_midi_sounding(p) == c, "Am -> C: %d events", n);
+    bkp_set_bypass(p, 1);
+    n = block(p, 1, ev);
+    CHECK(n == 3 && is_chord(ev, n, 0, 0x80, c, 0) && bkp_midi_sounding(p) == -1, "bypass: %d events", n);
+    CHECK(block(p, 1, ev) == 0, "events while bypassed");
+    bkp_set_bypass(p, 0);
+    n = block(p, 1, ev);
+    CHECK(n == 3 && is_chord(ev, n, 0, 0x90, c, 90), "after bypass: %d events", n);
+    // the host stops taking MIDI, then takes it again: the chord starts again (nothing was held meanwhile)
+    CHECK(block(p, 0, ev) == 0 && bkp_midi_sounding(p) == -1, "a chord held with nowhere to send it");
+    n = block(p, 1, ev);
+    CHECK(n == 3 && is_chord(ev, n, 0, 0x90, c, 90), "back: %d events", n);
+    bkp_set_pin(p, nullptr);   // no pin, nothing heard yet (silence fed so far): offs
+    n = block(p, 1, ev);
+    CHECK(n == 3 && is_chord(ev, n, 0, 0x80, c, 0) && bkp_midi_sounding(p) == -1, "unpinned, no key: %d events", n);
+
+    // a real reading: the chord is the key bkp_key_in_use names (the one rule for both)
+    feed(p, clip(44100, 10.0, 120), 44100);
+    CHECK(wait_readings(p, 3), "no reading after 10 s of audio");
+    char key[8];
+    CHECK(bkp_key_in_use(p, key, sizeof key) == 0, "no key in use after a reading");
+    n = bkp_midi_process(p, 1, ev);
+    const int k = bk_key_index(key);
+    CHECK(k >= 0 && n == 3 && is_chord(ev, n, 0, 0x90, k, 90) && bkp_midi_sounding(p) == k, "reading %s: %d events, sounding %d", key, n,
+          bkp_midi_sounding(p));
+
+    // the path under the tripwire (live analyzer with a reading, pin changes between blocks)
+    long mallocs = 0, locks = 0;
+    const char *pins[] = {"", "F#m", "F#m", "Bb", "", "Eb"};
+    std::vector<float> x(512, 0.0f);
+    for (const char *pin : pins) {
+        bkp_set_pin(p, pin);
+        const void *in[1] = {x.data()};
+        void *out[1] = {x.data()};
+        tw_arm();
+        bkp_process(p, in, 1, out, 1, 512, 0);
+        (void)bkp_midi_process(p, 1, ev);
+        (void)bkp_midi_route(p);
+        (void)bkp_midi_sounding(p);
+        tw_disarm();
+        mallocs += tw_mallocs();
+        locks += tw_locks();
+    }
+    CHECK(mallocs == 0 && locks == 0, "the MIDI path allocated %ld / locked %ld times", mallocs, locks);
+    CHECK(bkp_midi_sounding(p) == bk_key_index("Eb"), "last pin's chord not held: %d", bkp_midi_sounding(p));
+
+    mark = log_mark();
+    bkp_midi_log_route(p);
+    CHECK(log_has_since(mark, "MIDI out: the host takes MIDI from Beat Key"), "no route line for 'takes'");
+    mark = log_mark();
+    bkp_destroy(p);
+    CHECK(log_has_since(mark, "chord changes sent; route at close: the host takes MIDI"), "no MIDI close line");
+}
+
 int main(int argc, char **argv) {
     if (argc < 3) {
-        fprintf(stderr, "usage: bkp_test <weights.bkw> <scratch folder> [passthru|tripwire|live|state|marker ...]\n");
+        fprintf(stderr, "usage: bkp_test <weights.bkw> <scratch folder> [passthru|tripwire|live|state|marker|midi ...]\n");
         return 2;
     }
     g_weights = argv[1];
@@ -509,6 +639,7 @@ int main(int argc, char **argv) {
     if (want("live")) test_live();
     if (want("state")) test_state();
     if (want("marker")) test_marker();
+    if (want("midi")) test_midi();
     printf("bkp_test: %d checks, %d failed\n", g_checks, g_failed);
     return g_failed ? 1 : 0;
 }

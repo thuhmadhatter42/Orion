@@ -11,13 +11,20 @@
  * state is empty.  setState before initialize is fine: the instance exists from the constructor.
  *
  * Threads: process() is the audio thread and calls bkp_process / bkp_set_host_tempo / bkp_set_bypass
- * only (no lock, no allocation, no log).  Everything else is the host's main / setup thread.
+ * (and bkp_midi_process) only (no lock, no allocation, no log).  Everything else is the host's main /
+ * setup thread.
+ *
+ * BKP_MIDI=1 builds the MIDI variant (plan step 15) from this same file: Beat Key MIDI, its own class id,
+ * plus one event output bus.  After each block the instance layer says which notes changed
+ * (bkp_midi_process) and they go into the block's output event list; a host that leaves the bus
+ * inactive or gives no list is told so on the face.
  */
 #include "pluginterfaces/base/ipluginbase.h"
 #include "pluginterfaces/base/ibstream.h"
 #include "pluginterfaces/vst/ivstcomponent.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
 #include "pluginterfaces/vst/ivsteditcontroller.h"
+#include "pluginterfaces/vst/ivstevents.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
 #include "pluginterfaces/vst/ivstprocesscontext.h"
 #include "pluginterfaces/vst/ivstunits.h"
@@ -38,6 +45,9 @@
 #ifndef BKP_VERSION
 #error "BKP_VERSION is not defined: build with plugin/build.sh"
 #endif
+#ifndef BKP_MIDI
+#define BKP_MIDI 0
+#endif
 
 using namespace Steinberg;
 using namespace Steinberg::Vst;
@@ -55,14 +65,23 @@ DEF_CLASS_IID(IPlugView)
 
 namespace {
 
+#if BKP_MIDI
+// Class ID of Beat Key MIDI (fixed forever): "BtKy" "MIDI" "VST3" "FLRc".
+const TUID kBeatKeyCid = INLINE_UID(0x42744B79, 0x4D494449, 0x56535433, 0x464C5263);
+constexpr const char* kClassName = "Beat Key MIDI";
+constexpr const char* kBundleId = "com.jshriver.orion.plugin.midi.vst3";
+constexpr const char* kFormat = "VST3-MIDI";
+#else
 // Class ID of Beat Key (fixed forever): "BtKy" "Anlz" "VST3" "FLRc".
 const TUID kBeatKeyCid = INLINE_UID(0x42744B79, 0x416E6C7A, 0x56535433, 0x464C5263);
+constexpr const char* kClassName = "Beat Key";
+constexpr const char* kBundleId = "com.jshriver.orion.plugin.vst3";
+constexpr const char* kFormat = "VST3";
+#endif
 constexpr const char* kVendor = "Four Letter Records";
 constexpr const char* kUrl = "https://fourletterrecords.com";
 constexpr const char* kEmail = "contact@fourletterrecords.com";
-constexpr const char* kClassName = "Beat Key";
 constexpr const char* kSubCategories = "Fx|Analyzer";
-constexpr const char* kBundleId = "com.jshriver.orion.plugin.vst3";
 constexpr ParamID kBypassId = 0;
 constexpr std::uint8_t kStateTag[4] = { 'B', 'K', 'V', '3' };
 constexpr std::size_t kStateHead = 6;
@@ -150,9 +169,12 @@ class BeatKeyVst3 final : public IComponent, public IAudioProcessor, public IPro
 public:
 	BeatKeyVst3() : mController(this)
 	{
-		bkp_config cfg = { "VST3", kBundleId, nullptr, nullptr };
+		bkp_config cfg = { kFormat, kBundleId, nullptr, nullptr };
 		mInst = bkp_create(&cfg);
 		mViewToken = bkp_view_register(mInst);
+#if BKP_MIDI
+		bkp_view_midi_enable(mInst); // the face's chords; a refusal is logged and the face says no MIDI
+#endif
 	}
 	~BeatKeyVst3()
 	{
@@ -199,9 +221,23 @@ public:
 	// ---- IComponent ----
 	tresult PLUGIN_API getControllerClassId(TUID) override { return kNotImplemented; } // single component
 	tresult PLUGIN_API setIoMode(IoMode) override { return kResultOk; }
-	int32 PLUGIN_API getBusCount(MediaType type, BusDirection) override { return type == kAudio ? 1 : 0; }
+	int32 PLUGIN_API getBusCount(MediaType type, BusDirection dir) override
+	{
+		return type == kAudio ? 1 : (BKP_MIDI && type == kEvent && dir == kOutput) ? 1 : 0;
+	}
 	tresult PLUGIN_API getBusInfo(MediaType type, BusDirection dir, int32 index, BusInfo& bus) override
 	{
+#if BKP_MIDI
+		if (type == kEvent && dir == kOutput && index == 0) { // the MIDI variant's notes, channel 1
+			bus.mediaType = kEvent;
+			bus.direction = kOutput;
+			bus.channelCount = 1;
+			Widen(bus.name, 128, "Beat Key notes");
+			bus.busType = kMain;
+			bus.flags = BusInfo::kDefaultActive;
+			return kResultOk;
+		}
+#endif
 		if (type != kAudio || index != 0) {
 			return kInvalidArgument;
 		}
@@ -214,8 +250,19 @@ public:
 		return kResultOk;
 	}
 	tresult PLUGIN_API getRoutingInfo(RoutingInfo&, RoutingInfo&) override { return kNotImplemented; }
-	tresult PLUGIN_API activateBus(MediaType type, BusDirection, int32 index, TBool) override
+	tresult PLUGIN_API activateBus(MediaType type, BusDirection dir, int32 index, TBool state) override
 	{
+#if BKP_MIDI
+		if (type == kEvent && dir == kOutput && index == 0) {
+			if (mEventOut.exchange(state ? 1 : 0) != (state ? 1 : 0)) {
+				bkp_log(mInst, "VST3 MIDI output bus %s by the host", state ? "activated" : "deactivated");
+			}
+			return kResultOk;
+		}
+#else
+		(void)dir;
+		(void)state;
+#endif
 		return (type == kAudio && index == 0) ? kResultOk : kInvalidArgument;
 	}
 	tresult PLUGIN_API setActive(TBool state) override
@@ -294,6 +341,24 @@ public:
 		void* const* out = f64 ? reinterpret_cast<void* const*>(o.channelBuffers64) : reinterpret_cast<void* const*>(o.channelBuffers32);
 		bkp_process(mInst, in, i ? i->numChannels : 0, out, o.numChannels, static_cast<uint32_t>(data.numSamples), f64);
 		o.silenceFlags = i ? i->silenceFlags : ~static_cast<std::uint64_t>(0);
+#if BKP_MIDI
+		bkp_midi_event ev[BKP_MIDI_EVENTS];
+		const int n = bkp_midi_process(mInst, mEventOut.load(std::memory_order_relaxed) && data.outputEvents, ev);
+		for (int k = 0; k < n; k++) {
+			Event e{};
+			e.busIndex = 0;
+			e.sampleOffset = static_cast<int32>(ev[k].offset);
+			e.flags = Event::kIsLive;
+			if (ev[k].status == 0x90) {
+				e.type = Event::kNoteOnEvent;
+				e.noteOn = NoteOnEvent{ 0, ev[k].note, 0.f, ev[k].velocity / 127.f, 0, -1 };
+			} else {
+				e.type = Event::kNoteOffEvent;
+				e.noteOff = NoteOffEvent{ 0, ev[k].note, 0.f, -1, 0.f };
+			}
+			data.outputEvents->addEvent(e);
+		}
+#endif
 		return kResultOk;
 	}
 
@@ -332,6 +397,9 @@ private:
 	std::atomic<ParamValue> mBypass{ 0.0 };
 	IComponentHandler* mHandler = nullptr;
 	SpeakerArrangement mArrangement = SpeakerArr::kStereo;
+#if BKP_MIDI
+	std::atomic<int> mEventOut{ 1 }; // the event output bus (kDefaultActive until the host says otherwise)
+#endif
 };
 
 tresult PLUGIN_API BeatKeyVst3::getState(IBStream* stream)

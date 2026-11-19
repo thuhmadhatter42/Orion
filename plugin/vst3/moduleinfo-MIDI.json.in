@@ -1,0 +1,29 @@
+{
+	"Name": "Beat Key MIDI",
+	"Version": "@VERSION@",
+	"Factory Info": {
+		"Vendor": "Four Letter Records",
+		"URL": "https://fourletterrecords.com",
+		"E-Mail": "contact@fourletterrecords.com",
+		"Flags": {
+			"Unicode": true,
+			"Classes Discardable": false,
+			"Component Non Discardable": false
+		}
+	},
+	"Compatibility": [],
+	"Classes": [
+		{
+			"CID": "42744B794D49444956535433464C5263",
+			"Category": "Audio Module Class",
+			"Name": "Beat Key MIDI",
+			"Vendor": "Four Letter Records",
+			"Version": "@VERSION@",
+			"SDKVersion": "VST 3.8.1",
+			"Sub Categories": ["Fx", "Analyzer"],
+			"Class Flags": 0,
+			"Cardinality": 2147483647,
+			"Snapshots": []
+		}
+	]
+}

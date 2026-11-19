@@ -7,6 +7,9 @@
  *   - the Bypass parameter (kIsBypass, one step) and its normalized value
  *   - component state round-trips byte for byte, carries bypass; garbage / a wrong tag / over the cap are
  *     refused and leave the instance as it was
+ *   - built with BKP_MIDI=1 (plan step 15, Beat Key MIDI): its own class, the event output bus, and the
+ *     notes in process(): a pinned key's chord (the face's table) as note-ons, note-offs on bypass, the
+ *     chord again after it, nothing into an inactive bus or a missing list; all under the tripwire
  * Usage: BEATKEY_LOG_DIR=<scratch> vst3_harness <weights.bkw>
  * No bundle is loaded, so the harness loads the weights itself first (as the shim's bundle lookup would).
  */
@@ -15,6 +18,7 @@
 #include "pluginterfaces/vst/ivstcomponent.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
 #include "pluginterfaces/vst/ivsteditcontroller.h"
+#include "pluginterfaces/vst/ivstevents.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
 #include "pluginterfaces/vst/ivstprocesscontext.h"
 #include "pluginterfaces/vst/vstspeaker.h"
@@ -24,7 +28,12 @@
 #include <vector>
 
 #include "../shared/bkp.h"
+#include "../shared/bkp_view.h"
 #include "../vst3/beatkey_vst3.h"
+
+#ifndef BKP_MIDI
+#define BKP_MIDI 0
+#endif
 
 using namespace Steinberg;
 using namespace Steinberg::Vst;
@@ -106,6 +115,19 @@ public:
 	IParamValueQueue* PLUGIN_API addParameterData(const ParamID&, int32&) override { return nullptr; }
 };
 
+// The block's output event list: a fixed array, so adding never allocates (the tripwire watches it).
+class Events final : public IEventList {
+public:
+	Event e[64];
+	int n = 0;
+	tresult PLUGIN_API queryInterface(const TUID, void** obj) override { *obj = nullptr; return kNoInterface; }
+	uint32 PLUGIN_API addRef() override { return 1; }
+	uint32 PLUGIN_API release() override { return 1; }
+	int32 PLUGIN_API getEventCount() override { return n; }
+	tresult PLUGIN_API getEvent(int32 i, Event& out) override { if (i < 0 || i >= n) return kInvalidArgument; out = e[i]; return kResultOk; }
+	tresult PLUGIN_API addEvent(Event& in) override { if (n >= 64) return kResultFalse; e[n++] = in; return kResultOk; }
+};
+
 template <class I>
 I* ask(FUnknown* u, const TUID iid)
 {
@@ -132,7 +154,10 @@ int main(int argc, char** argv)
 	IPluginFactory* f = GetPluginFactory();
 	CHECK(f && f->countClasses() == 1, "class count");
 	PClassInfo ci;
-	CHECK(f->getClassInfo(0, &ci) == kResultOk && std::strcmp(ci.name, "Beat Key") == 0 && std::strcmp(ci.category, kVstAudioEffectClass) == 0, "class info");
+	CHECK(f->getClassInfo(0, &ci) == kResultOk && std::strcmp(ci.name, BKP_MIDI ? "Beat Key MIDI" : "Beat Key") == 0 &&
+			std::strcmp(ci.category, kVstAudioEffectClass) == 0, "class info");
+	static const uint8_t kMidiCid[16] = { 0x42, 0x74, 0x4B, 0x79, 0x4D, 0x49, 0x44, 0x49, 0x56, 0x53, 0x54, 0x33, 0x46, 0x4C, 0x52, 0x63 };
+	CHECK((std::memcmp(ci.cid, kMidiCid, 16) == 0) == (BKP_MIDI != 0), "the class id is not this variant's");
 	CHECK(f->getClassInfo(1, &ci) == kInvalidArgument, "index 1 accepted");
 	void* obj = nullptr;
 	CHECK(f->createInstance(ci.cid, IComponent::iid, &obj) == kResultOk && obj, "createInstance");
@@ -149,6 +174,39 @@ int main(int argc, char** argv)
 	CHECK((pi.flags & ParameterInfo::kIsBypass) && pi.stepCount == 1 && pi.id == 0, "bypass flags %d steps %d", pi.flags, pi.stepCount);
 	CHECK(ctl->getParamNormalized(0) == 0.0, "bypass starts off");
 
+#if BKP_MIDI
+	printf("== the MIDI variant: buses, and a pinned key through state\n");
+	CHECK(comp->getBusCount(kEvent, kOutput) == 1 && comp->getBusCount(kEvent, kInput) == 0, "event buses");
+	BusInfo eb = {};
+	CHECK(comp->getBusInfo(kEvent, kOutput, 0, eb) == kResultOk && eb.mediaType == kEvent && eb.channelCount == 1 &&
+			(eb.flags & BusInfo::kDefaultActive), "event output bus info");
+	CHECK(comp->getBusInfo(kEvent, kOutput, 1, eb) == kInvalidArgument, "a second event bus");
+	CHECK(comp->activateBus(kEvent, kOutput, 0, true) == kResultOk, "activate the event bus");
+	// the face's table: what the notes must be (the app's Harmony, through bkp_face_midi_chords)
+	uint8_t table[BKP_MIDI_KEYS][BKP_MIDI_NOTES] = {};
+	int vel = 0;
+	const int per = bkp_face_midi_chords(table, &vel);
+	const int am = bk_key_index("Am");
+	CHECK(per == 3 && vel == 96 && table[am][0] == 57 && table[am][1] == 60 && table[am][2] == 64, "Am chord %d %d %d (%d a chord, velocity %d)",
+		table[am][0], table[am][1], table[am][2], per, vel);
+	{
+		// a session that pinned Am: a layer blob with the pin, in the shim's state wrapper
+		bkp_config bc = { "TEST", nullptr, argv[1], "harness" };
+		bkp_instance* donor = bkp_create(&bc);
+		bkp_set_pin(donor, "Am");
+		Mem pinned;
+		uint8_t head[6] = { 'B', 'K', 'V', '3', 1, 0 };
+		uint8_t blob[BKP_STATE_CAP];
+		const size_t bn = bkp_state_save(donor, blob, sizeof blob);
+		bkp_destroy(donor);
+		pinned.b.assign(head, head + 6);
+		pinned.b.insert(pinned.b.end(), blob, blob + bn);
+		CHECK(bn > 0 && comp->setState(&pinned) == kResultOk, "pinned state refused");
+	}
+	Events events;
+	int ons = 0, offs = 0, onsAfter = 0, during = 0, inactive = 0;
+	bool pitchesOk = true;
+#endif
 	printf("== process under the tripwire\n");
 	CHECK(comp->initialize(nullptr) == kResultOk, "initialize");
 	ProcessSetup setup = { kRealtime, kSample32, 1024, 48000.0 };
@@ -187,15 +245,45 @@ int main(int argc, char** argv)
 		changes.q.v = block == 100 ? 1.0 : 0.0;
 		d.inputParameterChanges = &changes;
 		d.processContext = &ctx;
+#if BKP_MIDI
+		events.n = 0;
+		d.outputEvents = (block >= 300 && block < 320) ? nullptr : &events;   // a host with no list for a while
+		if (block == 340) comp->activateBus(kEvent, kOutput, 0, false);        // then one that turns the bus off
+		if (block == 360) comp->activateBus(kEvent, kOutput, 0, true);
+#endif
 		tw_arm();
 		const tresult pr = proc->process(d);
 		tw_disarm();
 		mallocs += tw_mallocs();
 		locks += tw_locks();
+#if BKP_MIDI
+		for (int k = 0; k < events.n; k++) {
+			const Event& e = events.e[k];
+			if (e.type == Event::kNoteOnEvent) {
+				pitchesOk = pitchesOk && e.noteOn.channel == 0 && std::fabs(e.noteOn.velocity - 96 / 127.f) < 1e-6f &&
+					(e.noteOn.pitch == table[am][0] || e.noteOn.pitch == table[am][1] || e.noteOn.pitch == table[am][2]);
+				(block < 100 ? ons : onsAfter)++;
+			} else if (e.type == Event::kNoteOffEvent) {
+				offs++;
+			}
+			if (block > 100 && block < 150) during++;
+			if (block > 340 && block < 360) inactive++;
+		}
+#endif
 		CHECK(pr == kResultOk, "process block %d", block);
 		same = same && (f64 ? std::memcmp(odl.data(), dl.data(), 8192) == 0 : std::memcmp(ol.data(), l.data(), 4096) == 0);
 		if (block == 120) CHECK(ctl->getParamNormalized(0) == 1.0, "bypass change in process not seen by the controller");
 	}
+#if BKP_MIDI
+	// the chord at the start, off on bypass (block 100), on again after (150), again after the missing list
+	// (300-319: nothing held, so it starts at 320) and after the bus came back (360)
+	CHECK(ons == 3, "%d note-ons before bypass, want the 3 of Am", ons);
+	CHECK(pitchesOk, "a note that is not Am's chord, or not channel 1 at velocity 96");
+	CHECK(during == 0, "%d events while bypassed after the note-offs", during);
+	CHECK(offs >= 3, "%d note-offs (bypass must end the chord)", offs);
+	CHECK(onsAfter == 9, "%d note-ons after bypass, want 3 + 3 (list back) + 3 (bus back)", onsAfter);
+	CHECK(inactive == 0, "%d events written while the event bus was off", inactive);
+#endif
 	CHECK(mallocs == 0, "process allocated %ld times", mallocs);
 	CHECK(locks == 0, "process locked %ld times", locks);
 	CHECK(same, "output is not the input");
