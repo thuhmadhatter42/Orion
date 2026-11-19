@@ -11,6 +11,9 @@ import SwiftUI
 //   4. SEND BPM against a fake app: not installed, answers ok + read-back, answers no, never answers,
 //      launched and never listening; each ends in one line and one log line
 //   5. renders: empty, reading, pinned, MORE popover content, a failed send line
+//   6. the MIDI variant (plan step 15): the C side's chord table is the app's Harmony for all 24 keys; a
+//      MIDI instance's notes through bkp_view_midi_enable; the face's route lines; the drag-out .mid is
+//      MidiExport's bytes; a render with the .MID chip
 
 var failures = 0
 var checks = 0
@@ -244,6 +247,79 @@ struct FaceTest {
         _ = runSend(e)
         spin(0.2)
         render(face, shots + "/face-send-failed.png")
+
+        // ---- 6. the MIDI variant
+        // the table the C side gets is the app's chord strip: degree I, triad, root position, for every core key
+        let table = MidiOut.table()
+        check(table.count == 24, "24 chords")
+        for (k, name) in MidiOut.coreKeys.enumerated() {
+            let strip = Harmony.diatonic(name, quality: .triad).first?.notes(.root) ?? []
+            check(strip.count == 3 && table[k] == strip, "chord for \(name): \(table[k]) vs the strip's \(strip)")
+            check(Int(name.withCString { bk_key_index($0) }) == k, "core key \(k) is \(name)")
+        }
+        check(table[0] == [48, 52, 55] && table[Int("Am".withCString { bk_key_index($0) })] == [57, 60, 64] &&
+              table[Int("F#m".withCString { bk_key_index($0) })] == [54, 57, 61] && table[Int("B".withCString { bk_key_index($0) })] == [59, 63, 66],
+              "C, Am, F#m, B chords")
+        check(KeyNotes.velocity == 96 && KeyNotes.velocity == MidiExport.defaultVelocity, "velocity is the chord clips' 96")
+        var mcfg = bkp_config()
+        let pm: OpaquePointer? = "VST3-MIDI".withCString { f in weights.withCString { w in "test.face".withCString { h in
+            mcfg.format = f; mcfg.weights_path = w; mcfg.host = h; mcfg.bundle_id = nil
+            return bkp_create(&mcfg)
+        } } }
+        guard let pm else { print("FAIL no MIDI instance"); exit(1) }
+        check(bkp_view_midi_enable(pm) == 0 && bkp_midi(pm) == 1, "bkp_view_midi_enable through the face's table")
+        check(logText(logDir).contains("MIDI variant: the key in use goes out as notes on channel 1 (3 a chord, velocity 96; C = 48 52 55, Cm = 48 51 55)"),
+              "enable logged with the real table")
+        check(bkp_prepare(pm, 44100) == 0, "MIDI instance prepare")
+        let mtoken = bkp_view_register(pm)
+        var ev = [bkp_midi_event](repeating: bkp_midi_event(), count: Int(BKP_MIDI_EVENTS))
+        func midiBlock(_ takes: Int32) -> [bkp_midi_event] {
+            let n = Int(bkp_midi_process(pm, takes, &ev))
+            return Array(ev.prefix(n))
+        }
+        let mface = FaceHostView(token: mtoken)
+        let w4 = offscreen(mface)
+        mface.model.refresh()
+        check(mface.model.state.midi && mface.model.state.midiRoute == 0 && MidiOut.line(mface.model.state) == nil, "MIDI face before audio")
+        check(MidiOut.write(token: mtoken, state: mface.model.state, in: tmp) == nil && logText(logDir).contains("MIDI DRAG REFUSED: no key or BPM yet"),
+              "drag refused with nothing to write")
+        _ = midiBlock(0)
+        mface.model.refresh()
+        check(mface.model.state.midiRoute == 2 && MidiOut.line(mface.model.state)?.text == "No MIDI out in this host. Drag .MID.", "no-MIDI host line")
+        check(logText(logDir).contains("MIDI out: the host gives Beat Key no MIDI output"), "no-MIDI route logged")
+        mface.model.togglePin("Am")
+        let on = midiBlock(1)
+        check(on.count == 3 && on.map { Int($0.note) } == KeyNotes.triad("Am") && on.allSatisfy { $0.status == 0x90 && $0.velocity == 96 },
+              "Am chord on: \(on.map { $0.note })")
+        mface.model.refresh()
+        check(mface.model.state.midiSounding == "Am" && MidiOut.line(mface.model.state)?.text == "MIDI out: Am chord", "MIDI line: \(MidiOut.line(mface.model.state)?.text ?? "nil")")
+        check(MidiOut.noteNames("Am") == "A C E" && MidiOut.noteNames("Ebm") == "E♭ G♭ B♭", "note names")
+        bkp_set_host_tempo(pm, 120)
+        spin(0.3)
+        render(mface, shots + "/face-midi.png")
+        // the drag-out file: MidiExport's bytes for the key in use (no BPM read yet: key only)
+        if let url = MidiOut.write(token: mtoken, state: mface.model.state, in: tmp) {
+            let bytes = (try? Data(contentsOf: url)) ?? Data()
+            check(url.lastPathComponent == "Beat Key (Am).mid", "drag file name \(url.lastPathComponent)")
+            check(bytes == MidiExport.data(bpm: nil, key: "Am", trackName: "Beat Key"), "drag file is MidiExport's bytes")
+            check(logText(logDir).contains("MIDI DRAG: wrote \(url.path)"), "drag logged")
+        } else { check(false, "drag file not written") }
+        // with a BPM: the reading's tempo and key (the C-major instance above, its BPM in use)
+        var withBPM = FaceState.read(token)
+        withBPM.midi = true
+        if let url = MidiOut.write(token: token, state: withBPM, in: tmp), let bpm = withBPM.bpm {
+            let bytes = (try? Data(contentsOf: url)) ?? Data()
+            check(bytes == MidiExport.data(bpm: bpm, key: withBPM.key, trackName: "Beat Key"), "tempo + key file is MidiExport's bytes")
+            check(bytes.range(of: Data([0xFF, 0x51, 0x03])) != nil && bytes.range(of: Data([0xFF, 0x59, 0x02])) != nil, "tempo and key-signature events present")
+            check(url.lastPathComponent == MidiExport.suggestedName(track: "Beat Key", bpm: withBPM.bpmText, key: withBPM.key), "name with BPM")
+        } else { check(false, "tempo + key drag file not written") }
+        try? FileManager.default.removeItem(at: tmp)
+        check(FaceState.read(token).midi == false, "the plain instance is not MIDI")
+        bkp_view_unregister(mtoken)
+        mface.model.stop()
+        bkp_destroy(pm)
+        check(logText(logDir).contains("MIDI: 1 chord changes sent"), "MIDI close line")
+        _ = w4
 
         // ---- closed instance: the face says so and never touches it
         bkp_view_unregister(token)

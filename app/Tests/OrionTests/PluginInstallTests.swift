@@ -201,6 +201,7 @@ final class PluginInstallTests: XCTestCase {
         XCTAssertTrue(fm.fileExists(atPath: home.appendingPathComponent(".Trash/Beat Key.component").path), "moved to the Trash, not deleted")
         XCTAssertTrue(fm.fileExists(atPath: home.appendingPathComponent(".Trash/Beat Key.vst3").path))
         XCTAssertTrue(fm.fileExists(atPath: home.appendingPathComponent(".Trash/Beat Key.aaxplugin").path))
+        XCTAssertTrue(fm.fileExists(atPath: home.appendingPathComponent(".Trash/Beat Key MIDI.vst3").path), "Beat Key MIDI goes too")
         XCTAssertTrue(fm.fileExists(atPath: neighbour.path), "another vendor's plug-in is never touched")
     }
 
@@ -241,6 +242,14 @@ final class PluginInstallTests: XCTestCase {
             XCTAssertEqual(ref, "com.jshriver.orion.plugin.\(fmt).pkg")
             let file = try XCTUnwrap((d.nodes(forXPath: "//pkg-ref[@id='\(ref)'][@version]").first as? XMLElement)?.stringValue)
             XCTAssertEqual(file, "Beat-Key-\(fmt.uppercased()).pkg")
+            XCTAssertEqual(try d.nodes(forXPath: "//line[@choice='com.jshriver.orion.plugin.\(fmt)']").count, 1, "in the outline")
+        }
+        // Beat Key MIDI (plan step 15): its three formats are choices too, each with its own component package
+        for (fmt, file) in [("midi.au", "Beat-Key-AU-MIDI.pkg"), ("midi.vst3", "Beat-Key-VST3-MIDI.pkg"), ("midi.aax", "Beat-Key-AAX-MIDI.pkg")] {
+            let c = try choice("com.jshriver.orion.plugin.\(fmt)")
+            let ref = try XCTUnwrap(c.elements(forName: "pkg-ref").first?.attribute(forName: "id")?.stringValue)
+            XCTAssertEqual(ref, "com.jshriver.orion.plugin.\(fmt).pkg")
+            XCTAssertEqual((try d.nodes(forXPath: "//pkg-ref[@id='\(ref)'][@version]").first as? XMLElement)?.stringValue, file)
             XCTAssertEqual(try d.nodes(forXPath: "//line[@choice='com.jshriver.orion.plugin.\(fmt)']").count, 1, "in the outline")
         }
         XCTAssertEqual(try d.nodes(forXPath: "//pkg-ref[@id='com.jshriver.orion.pkg'][@version]").count, 1)

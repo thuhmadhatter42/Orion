@@ -20,6 +20,10 @@ enum PluginUpdate {
         Format(name: "Audio Unit", path: "/Library/Audio/Plug-Ins/Components/Beat Key.component"),
         Format(name: "VST3", path: "/Library/Audio/Plug-Ins/VST3/Beat Key.vst3"),
         Format(name: "AAX", path: "/Library/Application Support/Avid/Audio/Plug-Ins/Beat Key.aaxplugin"),
+        // Beat Key MIDI (plan step 15): the same installer and version, its own bundles
+        Format(name: "Audio Unit MIDI", path: "/Library/Audio/Plug-Ins/Components/Beat Key MIDI.component"),
+        Format(name: "VST3 MIDI", path: "/Library/Audio/Plug-Ins/VST3/Beat Key MIDI.vst3"),
+        Format(name: "AAX MIDI", path: "/Library/Application Support/Avid/Audio/Plug-Ins/Beat Key MIDI.aaxplugin"),
     ]
 
     /// The package the app carries (Contents/Resources); nil in `swift run` and tests.

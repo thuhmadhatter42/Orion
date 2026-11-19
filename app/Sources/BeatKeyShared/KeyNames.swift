@@ -3,7 +3,8 @@ import Foundation
 // BeatKeyShared: Swift that the app (target Orion) and every plug-in format (compiled by plugin/build.sh
 // under the format's own module name, BeatKeyAU / BeatKeyVST3) both compile. One copy of each owner:
 // key names and spelling (this file), tempo text, tuning maths, the Auto-Tune hand-off, the plug-in send
-// contract, the look primitives (Accent, CapWhite, plate greys) and the log hook (SharedLog).
+// contract, the look primitives (Accent, CapWhite, plate greys), the log hook (SharedLog), the chord maths
+// (Chords.swift: Scale, Harmony, KeyNotes) and the MIDI file writer (MidiFile.swift: MidiExport).
 // Nothing here knows the app's state or a host: values, maths and the hand-off writer.
 
 /// THE key-name table and parser: every other file asks here. Auto-Tune's spelling is the rule

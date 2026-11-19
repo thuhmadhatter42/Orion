@@ -14,14 +14,36 @@
 #include "AAX_CEffectParameters.h"
 #include "../shared/bkp.h"
 
+/* BKP_MIDI=1 builds Beat Key MIDI (plan step 15) from the same sources: its own IDs, a local MIDI output node
+ * in the context, and the notes from bkp_midi_process posted to it after each block. */
+#ifndef BKP_MIDI
+#define BKP_MIDI 0
+#endif
+#if BKP_MIDI
+#include "AAX_IMIDINode.h"
+#endif
+
 /* IDs (permanent once shipped: Pro Tools sessions name the plug-in by them). */
 constexpr AAX_CTypeID kBeatKeyAaxManufacturerID = 'FLRc'; // the AU's manufacturer code
+#if BKP_MIDI
+constexpr AAX_CTypeID kBeatKeyAaxProductID = 'BtKM';      // the MIDI AU's subtype
+#else
 constexpr AAX_CTypeID kBeatKeyAaxProductID = 'BtKy';      // the AU's subtype
+#endif
 constexpr AAX_CTypeID kBeatKeyAaxChunkID = 'BKst';        // the one chunk: the layer's state blob
 constexpr int32_t kBeatKeyAaxChunkVersion = 1;            // the blob carries its own version inside
 constexpr AAX_CTypeID kBeatKeyAaxViewTokenBlock = 'BKtk'; // GetCustomData: the face's token (uint64_t)
+#if BKP_MIDI
+#define BEATKEY_AAX_EFFECT_ID "com.jshriver.orion.plugin.midi"
+#define BEATKEY_AAX_BUNDLE_ID "com.jshriver.orion.plugin.midi.aax"
+#define BEATKEY_AAX_FORMAT "AAX-MIDI"
+#define BEATKEY_AAX_NAME "Beat Key MIDI"
+#else
 #define BEATKEY_AAX_EFFECT_ID "com.jshriver.orion.plugin"
 #define BEATKEY_AAX_BUNDLE_ID "com.jshriver.orion.plugin.aax"
+#define BEATKEY_AAX_FORMAT "AAX"
+#define BEATKEY_AAX_NAME "Beat Key"
+#endif
 
 /* The AudioSuite effect (plan step 14), a second effect in the same bundle: whole-clip Analyze through
  * AAX_CHostProcessor.  Its own product and AudioSuite IDs (permanent too), as the SDK's DemoDelay_HostProcessor does. */
@@ -37,12 +59,18 @@ struct BeatKeyAaxContext {
 	float** mOutputPP;
 	int32_t* mBufferSize;
 	bkp_instance** mInstance;
+#if BKP_MIDI
+	AAX_IMIDINode* mMIDIOut; // the local MIDI output node ("Beat Key notes")
+#endif
 };
 enum {
 	eBeatKeyAaxField_AudioIn = AAX_FIELD_INDEX(BeatKeyAaxContext, mInputPP),
 	eBeatKeyAaxField_AudioOut = AAX_FIELD_INDEX(BeatKeyAaxContext, mOutputPP),
 	eBeatKeyAaxField_BufferSize = AAX_FIELD_INDEX(BeatKeyAaxContext, mBufferSize),
 	eBeatKeyAaxField_Instance = AAX_FIELD_INDEX(BeatKeyAaxContext, mInstance),
+#if BKP_MIDI
+	eBeatKeyAaxField_MIDIOut = AAX_FIELD_INDEX(BeatKeyAaxContext, mMIDIOut),
+#endif
 };
 
 /* AUDIO THREAD.  For every context in [begin, end): bkp_process with nch in = nch out.  A null context, a null

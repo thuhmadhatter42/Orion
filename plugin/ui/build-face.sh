@@ -8,7 +8,8 @@
 # Each format gets its own module name (BeatKeyAU, BeatKeyVST3, ...), so two formats in one host never
 # share a Swift or Objective-C class name (plan A6). Swift 5 mode, macOS 12.0, arm64 + x86_64.
 # The Swift it compiles, one copy each (never a second key table: BeatKeyShared/KeyNames.swift is it):
-#   app/Sources/BeatKeyShared/*.swift        key names, tempo text, tuning, Auto-Tune hand-off, SEND BPM contract, look
+#   app/Sources/BeatKeyShared/*.swift        key names, tempo text, tuning, Auto-Tune hand-off, SEND BPM contract, look,
+#                                            chords (the MIDI variant's notes), the MIDI file writer (its drag-out .mid)
 #   app/Sources/Orion/House/Glow.swift       the house glow module, as the app has it
 #   plugin/ui/*.swift                        the face
 set -e

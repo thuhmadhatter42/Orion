@@ -4,7 +4,8 @@
 #
 #   plugin-pkgs.sh build <outdir>
 #       Packs each plug-in bundle into its own component package (plain payload, system-wide, no
-#       relocation) and the three into Beat-Key-Plug-ins.pkg, the small installer the app carries to
+#       relocation): Beat Key and Beat Key MIDI (plan step 15) in each format, six in all, and puts them
+#       into Beat-Key-Plug-ins.pkg, the small installer the app carries to
 #       update the plug-ins (Beat Key menu > Update Plug-ins...). Writes <outdir>/components/*.pkg
 #       and <outdir>/Beat-Key-Plug-ins.pkg. Refuses (reason on stderr, exit 1) when a bundle is
 #       missing, unsigned, not universal, or when the AAX is not signed.
@@ -17,7 +18,8 @@
 # Environment (all optional):
 #   BEATKEY_VERSION        default: ../../VERSION
 #   BEATKEY_AU / _VST3 / _AAX   bundle paths, default plugin/build.noindex/Beat Key.{component,vst3,aaxplugin}
-#   BEATKEY_SKIP_AAX=1     build WITHOUT the AAX (says so loudly; the installer then has no AAX choice)
+#   BEATKEY_AU_MIDI / _VST3_MIDI / _AAX_MIDI   the MIDI variant, default plugin/build.noindex/Beat Key MIDI.*
+#   BEATKEY_SKIP_AAX=1     build WITHOUT the AAX bundles, both of them (says so loudly; the installer then has no AAX choice)
 #   BEATKEY_AAX_MARKER     plugin/build.noindex/AAX-NOT-PACE-SIGNED: the file plugin/build.sh leaves when the AAX
 #                          signing step did not run (A6). While it exists, this script refuses to package.
 #   BEATKEY_AAX_VERIFY     ~/.config/beat-key/aax-verify.sh (outside the repo, beside the signing script): run as
@@ -33,6 +35,9 @@ PLUGIN_OUT="$ROOT/plugin/build.noindex"
 AU="${BEATKEY_AU:-$PLUGIN_OUT/Beat Key.component}"
 VST3="${BEATKEY_VST3:-$PLUGIN_OUT/Beat Key.vst3}"
 AAX="${BEATKEY_AAX:-$PLUGIN_OUT/Beat Key.aaxplugin}"
+AU_MIDI="${BEATKEY_AU_MIDI:-$PLUGIN_OUT/Beat Key MIDI.component}"
+VST3_MIDI="${BEATKEY_VST3_MIDI:-$PLUGIN_OUT/Beat Key MIDI.vst3}"
+AAX_MIDI="${BEATKEY_AAX_MIDI:-$PLUGIN_OUT/Beat Key MIDI.aaxplugin}"
 MARKER="${BEATKEY_AAX_MARKER:-$PLUGIN_OUT/AAX-NOT-PACE-SIGNED}"
 AAX_VERIFY="${BEATKEY_AAX_VERIFY:-$HOME/.config/beat-key/aax-verify.sh}"
 PKG_IDENTITY="${PKG_SIGN_IDENTITY:-Developer ID Installer: J Shriver (9WTFGV63S2)}"
@@ -42,7 +47,7 @@ SKIP_AAX="${BEATKEY_SKIP_AAX:-0}"
 DEST_AU="/Library/Audio/Plug-Ins/Components"
 DEST_VST3="/Library/Audio/Plug-Ins/VST3"
 DEST_AAX="/Library/Application Support/Avid/Audio/Plug-Ins"
-ID_PREFIX="com.jshriver.orion.plugin"          # + .au / .vst3 / .aax, then .pkg
+ID_PREFIX="com.jshriver.orion.plugin"          # + .au / .vst3 / .aax (.midi.au / .midi.vst3 / .midi.aax), then .pkg
 
 say()    { echo "plugin-pkgs: $*"; [ -z "${BEATKEY_PKG_LOG:-}" ] || echo "plugin-pkgs: $*" >> "$BEATKEY_PKG_LOG"; }
 refuse() { echo "plugin-pkgs: REFUSED: $*" >&2; [ -z "${BEATKEY_PKG_LOG:-}" ] || echo "plugin-pkgs: REFUSED: $*" >> "$BEATKEY_PKG_LOG"; exit 1; }
@@ -65,13 +70,14 @@ check_bundle() {
   say "$label ok: $(basename "$b") $(plutil -extract CFBundleShortVersionString raw -o - "$b/Contents/Info.plist" 2>/dev/null) ($a), signature seals"
 }
 
-# check_aax: the AAX is built, sealed and signed. How it is signed stays outside the repo (A6, L6).
+# check_aax <bundle> <label>: the AAX is built, sealed and signed. How it is signed stays outside the repo (A6, L6).
 check_aax() {
+  local b="$1" label="$2"
   [ ! -e "$MARKER" ] || refuse "AAX not signed: $MARKER exists (plugin/build.sh left it because the AAX signing step did not run). Sign the AAX (see the plan's A6), or build with BEATKEY_SKIP_AAX=1 to ship without AAX"
-  check_bundle "$AAX" AAX
+  check_bundle "$b" "$label"
   if [ -f "$AAX_VERIFY" ]; then
-    sh "$AAX_VERIFY" "$AAX" >/dev/null 2>&1 || refuse "the AAX verify step ($AAX_VERIFY) failed on $AAX: the AAX is not signed"
-    say "AAX ok: verify step passed"
+    sh "$AAX_VERIFY" "$b" >/dev/null 2>&1 || refuse "the AAX verify step ($AAX_VERIFY) failed on $b: the AAX is not signed"
+    say "$label ok: verify step passed"
   else
     say "NOTE: no AAX verify script at $AAX_VERIFY; the AAX's signing marker is absent and its seal verifies, but no separate signature check ran"
   fi
@@ -116,15 +122,21 @@ cmd_build() {
   say "plug-ins for Beat Key $ver"
   check_bundle "$AU" AU
   check_bundle "$VST3" VST3
+  check_bundle "$AU_MIDI" AU-MIDI
+  check_bundle "$VST3_MIDI" VST3-MIDI
   if [ "$SKIP_AAX" = 1 ]; then
     say "WARNING: BEATKEY_SKIP_AAX=1: this installer has NO AAX (Pro Tools gets nothing from it)"
     : > "$out/skip-aax"
   else
-    check_aax
+    check_aax "$AAX" AAX
+    check_aax "$AAX_MIDI" AAX-MIDI
   fi
   component AU   "$AU"   "$DEST_AU"   au   "$out"
   component VST3 "$VST3" "$DEST_VST3" vst3 "$out"
   [ "$SKIP_AAX" = 1 ] || component AAX "$AAX" "$DEST_AAX" aax "$out"
+  component AU-MIDI   "$AU_MIDI"   "$DEST_AU"   midi.au   "$out"
+  component VST3-MIDI "$VST3_MIDI" "$DEST_VST3" midi.vst3 "$out"
+  [ "$SKIP_AAX" = 1 ] || component AAX-MIDI "$AAX_MIDI" "$DEST_AAX" midi.aax "$out"
   # the small product the app carries: just the plug-ins, no "Beat Key is open" check (the app is what runs it)
   pk="$out/Beat-Key-Plug-ins.pkg"
   cmd_distribution "$HERE/plugins-distribution.xml" "$out/plugins-distribution.xml" "$ver" "$out"
@@ -174,5 +186,5 @@ case "${1:-}" in
   build) shift; cmd_build "$@" ;;
   distribution) shift; cmd_distribution "$@" ;;
   verify) shift; cmd_verify "$@" ;;
-  *) sed -n '2,29p' "$0"; exit 2 ;;
+  *) sed -n '2,30p' "$0"; exit 2 ;;
 esac

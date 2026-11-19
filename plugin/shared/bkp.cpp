@@ -6,6 +6,8 @@
  * counter that says "the audio thread is inside", memmove / memset on the host's buffers, and the
  * core's bk_analyzer_push_channels (ring only).  For double buffers it converts into scratch that
  * was allocated at bkp_create.  Nothing else: no lock, no allocation, no log, no system call.
+ * The MIDI path (bkp_midi_process) adds: atomics, the core's lock-free snapshot read (under the same
+ * "inside" hand-over), and bk_key_index / bk_key_name (a static table).
  */
 #include "bkp.h"
 
@@ -40,6 +42,7 @@ constexpr uint32_t kScratch = 1024;   // frames per double -> float conversion p
 constexpr size_t kHeader = 16;        // magic, version, reserved, payload length, checksum
 constexpr size_t kPayloadV1 = 173;    // see put_payload
 
+static_assert(BKP_MIDI_EVENTS == 2 * BKP_MIDI_NOTES, "a chord change is the old chord off and the new one on");
 static_assert(std::atomic<double>::is_always_lock_free, "the host-tempo slot must be lock-free");
 static_assert(std::atomic<bk_analyzer *>::is_always_lock_free, "the analyzer hand-over must be lock-free");
 
@@ -202,6 +205,15 @@ bool name_ok(const char raw[4], char out[4]) {
     return bk_key_index(out) >= 0;
 }
 
+// THE rule for the key in use (the two buttons, the face, the MIDI notes): the pin; else the reading's
+// first key when it heard something tonal (0 % = nothing tonal yet).  Returns bk_key_index's index or
+// -1.  No allocation, no lock (the audio thread uses it).
+int key_choice(int pin, bool has_reading, const bk_reading &r) {
+    if (pin >= 0) return pin;
+    if (!has_reading || r.keys[0].percent <= 0.0 || r.keys[0].name[3] != 0) return -1;
+    return bk_key_index(r.keys[0].name);
+}
+
 }  // namespace
 
 struct bkp_instance {
@@ -235,6 +247,20 @@ struct bkp_instance {
     uint64_t clip_want = 0;                     // 0 = the host did not say how long
     int clip_ch = 0;                            // the channel count of the clip's first window
     std::vector<float> clip;                    // the mono downmix so far
+    // the key in use, for the audio thread (written under mu, read lock-free): bk_key_index or -1
+    std::atomic<int> pin_idx{-1};
+    std::atomic<int> held_idx{-1};             // key_choice(-1, held) while has_held
+
+    // the MIDI variant (bkp_midi_*): chords written once by bkp_midi_enable, before midi_on
+    std::atomic<int> midi_on{0};
+    uint8_t chords[BKP_MIDI_KEYS][BKP_MIDI_NOTES] = {};
+    int chord_n = 0;
+    uint8_t velocity = 0;
+    int sounding = -1;                         // audio thread only: the chord held now
+    std::atomic<int> sounding_pub{-1};         // the same, for the face
+    std::atomic<int> route{0};                 // 0 no block yet, 1 the host takes MIDI, 2 it does not
+    std::atomic<uint64_t> chords_sent{0};
+    int route_logged = 0;                      // under mu
 };
 
 namespace {
@@ -253,15 +279,41 @@ bk_analyzer *take_live(bkp_instance *p, bk_analyzer *replacement) {
     return old;
 }
 
+// The held reading changes only here (caller holds mu), so the audio thread's copy of its key stays true.
+void set_held(bkp_instance *p, bool has, const bk_reading &r) {
+    p->has_held = has;
+    p->held = has ? r : bk_reading{};
+    p->held_idx.store(has ? key_choice(-1, true, r) : -1, std::memory_order_relaxed);
+}
+
 // Keep the newest reading the analyzer has (caller holds mu).
 void hold_from(bkp_instance *p, const bk_analyzer *a) {
     if (!a) return;
     bk_snapshot s;
     bk_analyzer_snapshot(a, &s);
-    if (s.has_reading) {
-        p->held = s.reading;
-        p->has_held = true;
+    if (s.has_reading) set_held(p, true, s.reading);
+}
+
+// AUDIO THREAD.  The key in use without the lock: bkp_key_in_use's answer (the pin, else the live
+// reading, else the held one), read through the atomics and the core's lock-free snapshot.
+int key_now_audio(bkp_instance *p) {
+    const int pin = p->pin_idx.load(std::memory_order_relaxed);
+    if (pin >= 0) return pin;
+    int k = -2;   // -2 = the analyzer has no reading: the held one counts
+    p->inside.fetch_add(1, std::memory_order_seq_cst);
+    if (bk_analyzer *a = p->live.load(std::memory_order_seq_cst)) {
+        bk_snapshot s;
+        bk_analyzer_snapshot(a, &s);
+        if (s.has_reading) k = key_choice(-1, true, s.reading);
     }
+    p->inside.fetch_sub(1, std::memory_order_seq_cst);
+    return k == -2 ? p->held_idx.load(std::memory_order_relaxed) : k;
+}
+
+const char *route_text(int r) {
+    return r == 1   ? "the host takes MIDI from Beat Key"
+           : r == 2 ? "the host gives Beat Key no MIDI output (the face says: drag the .mid)"
+                    : "no audio yet";
 }
 
 void put_payload(Put &w, const bkp_instance *p, bool has, const bk_reading &r) {
@@ -347,6 +399,11 @@ void bkp_destroy(bkp_instance *p) {
         std::lock_guard<std::mutex> g(p->mu);
         bk_analyzer *a = take_live(p, nullptr);
         if (a) bk_analyzer_destroy(a);   // the last one joins the core's worker
+    }
+    if (p->midi_on.load()) {
+        const int s = p->sounding_pub.load();
+        bkp_log(p, "MIDI: %llu chord changes sent; route at close: %s%s", (unsigned long long)p->chords_sent.load(),
+                route_text(p->route.load()), s >= 0 ? "; a chord was still held (the host ends it when the track stops)" : "");
     }
     bkp_log(p, "plug-in closed");
     {
@@ -441,8 +498,7 @@ void bkp_snapshot(bkp_instance *p, bk_snapshot *out) {
     if (bk_analyzer *a = p->live.load()) {
         bk_analyzer_snapshot(a, out);
         if (out->has_reading) {
-            p->held = out->reading;
-            p->has_held = true;
+            set_held(p, true, out->reading);
             return;
         }
     }
@@ -455,7 +511,7 @@ void bkp_snapshot(bkp_instance *p, bk_snapshot *out) {
 void bkp_new_song(bkp_instance *p) {
     if (!p) return;
     std::lock_guard<std::mutex> g(p->mu);
-    p->has_held = false;
+    set_held(p, false, bk_reading{});
     if (bk_analyzer *a = p->live.load()) bk_analyzer_new_song(a);
 }
 
@@ -481,13 +537,16 @@ int bkp_set_pin(bkp_instance *p, const char *key) {
     std::lock_guard<std::mutex> g(p->mu);
     if (!key || !*key) {
         p->pin[0] = 0;
+        p->pin_idx.store(-1);
         return 0;
     }
-    if (bk_key_index(key) < 0) {
+    const int k = bk_key_index(key);
+    if (k < 0) {
         bkp_log(p, "REFUSED: pin '%.16s' is not a key name", key);
         return -1;
     }
     snprintf(p->pin, sizeof p->pin, "%s", key);
+    p->pin_idx.store(k);
     return 0;
 }
 
@@ -520,19 +579,11 @@ int bkp_tempo_mult(bkp_instance *p) {
 int bkp_key_in_use(bkp_instance *p, char *buf, size_t cap) {
     if (!p || !buf || !cap) return -1;
     buf[0] = 0;
-    char pin[4];
-    {
-        std::lock_guard<std::mutex> g(p->mu);
-        memcpy(pin, p->pin, sizeof pin);
-    }
-    if (pin[0]) {
-        snprintf(buf, cap, "%s", pin);
-        return 0;
-    }
     bk_snapshot s;
     bkp_snapshot(p, &s);
-    if (!s.has_reading || s.reading.keys[0].percent <= 0.0) return -1;   // nothing tonal heard yet
-    snprintf(buf, cap, "%s", s.reading.keys[0].name);
+    const int k = key_choice(p->pin_idx.load(), s.has_reading, s.reading);
+    if (k < 0) return -1;   // no pin and nothing tonal heard yet
+    snprintf(buf, cap, "%s", bk_key_name(k));
     return 0;
 }
 
@@ -654,15 +705,88 @@ int bkp_state_load(bkp_instance *p, const uint8_t *buf, size_t len, char *err, s
 
     std::lock_guard<std::mutex> g(p->mu);
     memcpy(p->pin, (flags & 1) ? pin : "\0\0\0", 4);
+    p->pin_idx.store((flags & 1) ? bk_key_index(pin) : -1);
     p->mult = mult;
-    p->has_held = has;
-    p->held = has ? x : bk_reading{};
+    set_held(p, has, x);
     bkp_log(p, "session state restored: pin %s, tempo x%s, %s", p->pin[0] ? p->pin : "none",
             mult > 0 ? "2" : mult < 0 ? "1/2" : "1", has ? "last reading kept" : "no reading");
     return 0;
 }
 
 const char *bkp_format(const bkp_instance *p) { return p ? p->format.c_str() : ""; }
+
+// ---- the MIDI variant ----
+
+int bkp_midi_enable(bkp_instance *p, const uint8_t notes[BKP_MIDI_KEYS][BKP_MIDI_NOTES], int count, int velocity) {
+    if (!p) return -1;
+    std::lock_guard<std::mutex> g(p->mu);
+    if (p->midi_on.load()) {
+        bkp_log(p, "REFUSED: MIDI enable: already the MIDI variant; the chords stay as they were");
+        return -1;
+    }
+    if (!notes || count < 1 || count > BKP_MIDI_NOTES || velocity < 1 || velocity > 127) {
+        bkp_log(p, "REFUSED: MIDI enable: %s, %d notes a chord, velocity %d; this instance sends no MIDI",
+                notes ? "chords given" : "no chords", count, velocity);
+        return -1;
+    }
+    for (int k = 0; k < BKP_MIDI_KEYS; k++)
+        for (int i = 0; i < count; i++)
+            if (notes[k][i] > 127) {
+                bkp_log(p, "REFUSED: MIDI enable: key %s note %d is %u (MIDI notes are 0-127); this instance sends no MIDI",
+                        bk_key_name(k), i + 1, (unsigned)notes[k][i]);
+                return -1;
+            }
+    memcpy(p->chords, notes, sizeof p->chords);
+    p->chord_n = count;
+    p->velocity = (uint8_t)velocity;
+    p->midi_on.store(1, std::memory_order_release);
+    char c0[40] = {0}, cm[40] = {0};
+    for (int i = 0; i < count; i++) {
+        snprintf(c0 + strlen(c0), sizeof c0 - strlen(c0), "%s%u", i ? " " : "", (unsigned)notes[0][i]);
+        snprintf(cm + strlen(cm), sizeof cm - strlen(cm), "%s%u", i ? " " : "", (unsigned)notes[1][i]);
+    }
+    bkp_log(p, "MIDI variant: the key in use goes out as notes on channel 1 (%d a chord, velocity %d; C = %s, Cm = %s)", count,
+            velocity, c0, cm);
+    return 0;
+}
+
+int bkp_midi(const bkp_instance *p) { return p && p->midi_on.load(std::memory_order_acquire) ? 1 : 0; }
+
+int bkp_midi_process(bkp_instance *p, int host_takes, bkp_midi_event *ev) {
+    if (!p || !p->midi_on.load(std::memory_order_acquire)) return 0;
+    p->route.store(host_takes ? 1 : 2, std::memory_order_relaxed);
+    if (!host_takes || !ev) {   // nowhere to put a note: nothing is held; the chord starts again when it can
+        if (p->sounding >= 0) {
+            p->sounding = -1;
+            p->sounding_pub.store(-1, std::memory_order_relaxed);
+        }
+        return 0;
+    }
+    const int want = p->bypass.load(std::memory_order_relaxed) ? -1 : key_now_audio(p);
+    if (want == p->sounding) return 0;
+    int n = 0;
+    if (p->sounding >= 0)
+        for (int i = 0; i < p->chord_n; i++) ev[n++] = bkp_midi_event{0, 0x80, p->chords[p->sounding][i], 0};
+    if (want >= 0) {
+        for (int i = 0; i < p->chord_n; i++) ev[n++] = bkp_midi_event{0, 0x90, p->chords[want][i], p->velocity};
+        p->chords_sent.fetch_add(1, std::memory_order_relaxed);
+    }
+    p->sounding = want;
+    p->sounding_pub.store(want, std::memory_order_relaxed);
+    return n;
+}
+
+int bkp_midi_route(const bkp_instance *p) { return p ? p->route.load(std::memory_order_relaxed) : 0; }
+int bkp_midi_sounding(const bkp_instance *p) { return p ? p->sounding_pub.load(std::memory_order_relaxed) : -1; }
+
+void bkp_midi_log_route(bkp_instance *p) {
+    if (!p || !p->midi_on.load()) return;
+    std::lock_guard<std::mutex> g(p->mu);
+    const int r = p->route.load();
+    if (r == p->route_logged) return;
+    p->route_logged = r;
+    bkp_log(p, "MIDI out: %s", route_text(r));
+}
 
 }  // extern "C"
 

@@ -6,6 +6,7 @@
 #   plugin/build.noindex/Beat Key.vst3        VST3  (class 42744B79416E6C7A56535433464C5263)
 #   plugin/build.noindex/Beat Key.aaxplugin   AAX Native (FLRc BtKy) + AudioSuite Analyze (FLRc BtKA); AAXLibrary from
 #                                             plugin/vendor/aax-sdk-2.9.0
+#   plugin/build.noindex/Beat Key MIDI.*      the MIDI variant of both (plugin/build-midi.sh, step 15)
 #
 # Each bundle links its own copy of the core (core/build.noindex/libbeatkey.a) and the instance layer,
 # and carries the weights (models/deeptemp-k16-3.bkw, CC BY-NC-SA, a data file, never compiled in) in
@@ -167,16 +168,23 @@ check_universal "$AX/Contents/MacOS/Beat Key"
 sign_bundle "$AX"
 # PACE signing (A6): the step that authorises the binary for retail Pro Tools is private (plan §L6) and lives
 # outside this repo.  No script = an unsigned AAX, said loudly, plus a marker the installer refuses on.
+# One marker for every AAX bundle (Beat Key, Beat Key MIDI): any unsigned one sets it.
 rm -f "$OUT/AAX-NOT-PACE-SIGNED"
 AAX_SIGN=${BEATKEY_AAX_SIGN:-$HOME/.config/beat-key/aax-sign.sh}
-if [ -f "$AAX_SIGN" ]; then
-  sh "$AAX_SIGN" "$AX" </dev/null || refuse "AAX not signed: $AAX_SIGN failed (its output is above)"
-  out=$(codesign --verify --deep --strict --verbose=2 "$AX" 2>&1) || { echo "$out" >&2; refuse "codesign --verify --deep --strict failed on the AAX after PACE signing"; }
-  echo "AAX PACE-signed by $AAX_SIGN"
-else
-  : > "$OUT/AAX-NOT-PACE-SIGNED"
-  echo "**** AAX not signed: no $AAX_SIGN.  Retail Pro Tools will NOT load this bundle; the installer refuses it. ****" >&2
-fi
+pace_sign() {   # $1 = AAX bundle
+  if [ -f "$AAX_SIGN" ]; then
+    sh "$AAX_SIGN" "$1" </dev/null || refuse "AAX not signed: $AAX_SIGN failed on $(basename "$1") (its output is above)"
+    out=$(codesign --verify --deep --strict --verbose=2 "$1" 2>&1) || { echo "$out" >&2; refuse "codesign --verify --deep --strict failed on $(basename "$1") after PACE signing"; }
+    echo "AAX PACE-signed by $AAX_SIGN: $(basename "$1")"
+  else
+    : > "$OUT/AAX-NOT-PACE-SIGNED"
+    echo "**** AAX not signed: no $AAX_SIGN.  Retail Pro Tools will NOT load $(basename "$1"); the installer refuses it. ****" >&2
+  fi
+}
+pace_sign "$AX"
+
+# Beat Key MIDI (plan step 15): the same shims with BKP_MIDI=1; sourced, it shares this script's helpers and objects
+. "$HERE/build-midi.sh"
 
 echo "== smoke (no host)"
 sh "$HERE/smoke.sh" || refuse "smoke failed (see above)"

@@ -91,6 +91,9 @@ typedef struct bk_reading {
 /* The 24 key names the core reads out ("C".."B", "Cm".."Bm" in Auto-Tune's spelling): the index
  * 2 * pitch class + (0 major, 1 minor), or -1 for anything else (NULL included).  Any thread. */
 int bk_key_index(const char *name);
+/* The other way: index 0..23 to its name (a static string), NULL out of range.  No allocation, no
+ * lock: any thread, the AUDIO thread included (bk_key_index too, from this version on). */
+const char *bk_key_name(int index);
 
 /* ---- a whole clip (bpm.py analyze_full, without the decoding) ---- */
 

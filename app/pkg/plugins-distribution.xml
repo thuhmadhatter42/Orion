@@ -15,6 +15,11 @@
       <!-- BEGIN AAX -->
       <line choice="com.jshriver.orion.plugin.aax"/>
       <!-- END AAX -->
+      <line choice="com.jshriver.orion.plugin.midi.au"/>
+      <line choice="com.jshriver.orion.plugin.midi.vst3"/>
+      <!-- BEGIN AAX -->
+      <line choice="com.jshriver.orion.plugin.midi.aax"/>
+      <!-- END AAX -->
     </line>
   </choices-outline>
   <choice id="default"/>
@@ -29,9 +34,25 @@
     <pkg-ref id="com.jshriver.orion.plugin.aax.pkg"/>
   </choice>
   <!-- END AAX -->
+  <choice id="com.jshriver.orion.plugin.midi.au" start_selected="true" title="Audio Unit: Beat Key MIDI" description="Beat Key MIDI: the key in use as MIDI notes, plus a drag-out MIDI file. Installs to /Library/Audio/Plug-Ins/Components.">
+    <pkg-ref id="com.jshriver.orion.plugin.midi.au.pkg"/>
+  </choice>
+  <choice id="com.jshriver.orion.plugin.midi.vst3" start_selected="true" title="VST3: Beat Key MIDI" description="Beat Key MIDI: the key in use as MIDI notes, plus a drag-out MIDI file. Installs to /Library/Audio/Plug-Ins/VST3.">
+    <pkg-ref id="com.jshriver.orion.plugin.midi.vst3.pkg"/>
+  </choice>
+  <!-- BEGIN AAX -->
+  <choice id="com.jshriver.orion.plugin.midi.aax" start_selected="true" title="AAX: Beat Key MIDI" description="Beat Key MIDI for Pro Tools. Installs to /Library/Application Support/Avid/Audio/Plug-Ins.">
+    <pkg-ref id="com.jshriver.orion.plugin.midi.aax.pkg"/>
+  </choice>
+  <!-- END AAX -->
   <pkg-ref id="com.jshriver.orion.plugin.au.pkg" version="@VERSION@" onConclusion="none">Beat-Key-AU.pkg</pkg-ref>
   <pkg-ref id="com.jshriver.orion.plugin.vst3.pkg" version="@VERSION@" onConclusion="none">Beat-Key-VST3.pkg</pkg-ref>
   <!-- BEGIN AAX -->
   <pkg-ref id="com.jshriver.orion.plugin.aax.pkg" version="@VERSION@" onConclusion="none">Beat-Key-AAX.pkg</pkg-ref>
+  <!-- END AAX -->
+  <pkg-ref id="com.jshriver.orion.plugin.midi.au.pkg" version="@VERSION@" onConclusion="none">Beat-Key-AU-MIDI.pkg</pkg-ref>
+  <pkg-ref id="com.jshriver.orion.plugin.midi.vst3.pkg" version="@VERSION@" onConclusion="none">Beat-Key-VST3-MIDI.pkg</pkg-ref>
+  <!-- BEGIN AAX -->
+  <pkg-ref id="com.jshriver.orion.plugin.midi.aax.pkg" version="@VERSION@" onConclusion="none">Beat-Key-AAX-MIDI.pkg</pkg-ref>
   <!-- END AAX -->
 </installer-gui-script>

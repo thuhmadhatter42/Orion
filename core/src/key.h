@@ -46,6 +46,8 @@ void key_top3(const KeyScores &s, double agree, KeyGuess out[3]);
 
 // "C", "Db", ... / "Cm", "C#m", ...: index as in KeyReading::scores.
 std::string key_name(int index);
+// The same name as a static C string (nullptr out of 0..23).  No allocation, no lock: any thread.
+const char *key_name_c(int index);
 
 }  // namespace bk
 

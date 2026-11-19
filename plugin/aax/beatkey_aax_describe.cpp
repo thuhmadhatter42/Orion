@@ -73,6 +73,9 @@ void describe_stem(AAX_IComponentDescriptor* comp, const Stem& s, Steps& st)
 	st.check(comp->AddAudioOut(eBeatKeyAaxField_AudioOut), "AddAudioOut");
 	st.check(comp->AddAudioBufferLength(eBeatKeyAaxField_BufferSize), "AddAudioBufferLength");
 	st.check(comp->AddPrivateData(eBeatKeyAaxField_Instance, sizeof(bkp_instance*), AAX_ePrivateDataOptions_DefaultOptions), "AddPrivateData");
+#if BKP_MIDI
+	st.check(comp->AddMIDINode(eBeatKeyAaxField_MIDIOut, AAX_eMIDINodeType_LocalOutput, "Beat Key notes", 0x0001), "AddMIDINode (output)");
+#endif
 	AAX_IPropertyMap* const pm = comp->NewPropertyMap();
 	if (!pm) {
 		st.check(AAX_ERROR_NULL_OBJECT, s.name);
@@ -80,7 +83,13 @@ void describe_stem(AAX_IComponentDescriptor* comp, const Stem& s, Steps& st)
 	}
 	st.check(pm->AddProperty(AAX_eProperty_ManufacturerID, kBeatKeyAaxManufacturerID), "ManufacturerID");
 	st.check(pm->AddProperty(AAX_eProperty_ProductID, kBeatKeyAaxProductID), "ProductID");
-	st.check(pm->AddProperty(AAX_eProperty_PlugInID_Native, s.nativeID), "PlugInID_Native");
+#if BKP_MIDI
+	// Beat Key MIDI's own native IDs: the same table with 'BK' turned into 'BM' ('BKs2' -> 'BMs2'), permanent too
+	const AAX_CTypeID nativeID = (s.nativeID & 0x0000FFFFu) | (static_cast<AAX_CTypeID>('B') << 24) | (static_cast<AAX_CTypeID>('M') << 16);
+#else
+	const AAX_CTypeID nativeID = s.nativeID;
+#endif
+	st.check(pm->AddProperty(AAX_eProperty_PlugInID_Native, nativeID), "PlugInID_Native");
 	st.check(pm->AddProperty(AAX_eProperty_InputStemFormat, static_cast<AAX_CPropertyValue>(s.format)), "InputStemFormat");
 	st.check(pm->AddProperty(AAX_eProperty_OutputStemFormat, static_cast<AAX_CPropertyValue>(s.format)), "OutputStemFormat");
 	st.check(pm->AddProperty(AAX_eProperty_CanBypass, 1), "CanBypass");
@@ -92,9 +101,15 @@ void describe_stem(AAX_IComponentDescriptor* comp, const Stem& s, Steps& st)
 AAX_Result describe_effect(AAX_IEffectDescriptor* d)
 {
 	Steps st;
+#if BKP_MIDI
+	st.check(d->AddName("Beat Key MIDI"), "AddName");
+	st.check(d->AddName("BeatKeyMIDI"), "AddName");
+	st.check(d->AddName("BtKM"), "AddName");
+#else
 	st.check(d->AddName("Beat Key"), "AddName");
 	st.check(d->AddName("BeatKey"), "AddName");
 	st.check(d->AddName("BtKy"), "AddName");
+#endif
 	st.check(d->AddCategory(AAX_ePlugInCategory_Effect), "AddCategory");
 	for (const Stem& s : kStems) {
 		AAX_IComponentDescriptor* const comp = d->NewComponentDescriptor();
@@ -134,11 +149,21 @@ AAX_Result GetEffectDescriptions(AAX_ICollection* outCollection)
 		st.check(describe_effect(d), "describe the effect");
 		st.check(outCollection->AddEffect(BEATKEY_AAX_EFFECT_ID, d), "AddEffect");
 	}
-	st.check(BeatKeyAax_DescribeAudioSuite(outCollection), "describe the AudioSuite effect"); // plan step 14
+#if !BKP_MIDI
+	// plan step 14.  Beat Key MIDI has no AudioSuite effect: its IDs are the plain bundle's, and a whole-clip pass
+	// has no MIDI to send; AudioSuite Analyze comes from Beat Key.aaxplugin.
+	st.check(BeatKeyAax_DescribeAudioSuite(outCollection), "describe the AudioSuite effect");
+#endif
 	st.check(outCollection->SetManufacturerName("Four Letter Records"), "SetManufacturerName");
+#if BKP_MIDI
+	st.check(outCollection->AddPackageName("Beat Key MIDI"), "AddPackageName");
+	st.check(outCollection->AddPackageName("BeatKeyMIDI"), "AddPackageName");
+	st.check(outCollection->AddPackageName("BtKM"), "AddPackageName");
+#else
 	st.check(outCollection->AddPackageName("Beat Key"), "AddPackageName");
 	st.check(outCollection->AddPackageName("BeatKey"), "AddPackageName");
 	st.check(outCollection->AddPackageName("BtKy"), "AddPackageName");
+#endif
 	st.check(outCollection->SetPackageVersion(BKP_AAX_VERSION_INT), "SetPackageVersion");
 	return st.first;
 }

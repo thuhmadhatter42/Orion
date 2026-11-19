@@ -57,6 +57,23 @@ void beatkey_aax_process_instances(BeatKeyAaxContext* const begin[], const void*
 		}
 		bkp_process(inst, reinterpret_cast<const void* const*>(c->mInputPP), c->mInputPP ? nch : 0,
 			reinterpret_cast<void* const*>(c->mOutputPP), nch, frames, 0);
+#if BKP_MIDI
+		// the notes that changed, to the MIDI output node (the DemoMIDI_NoteOn pattern)
+		bkp_midi_event ev[BKP_MIDI_EVENTS];
+		AAX_IMIDINode* const node = c->mMIDIOut;
+		const int n = bkp_midi_process(inst, node != nullptr, ev);
+		for (int k = 0; k < n; k++) {
+			AAX_CMidiPacket pkt;
+			pkt.mTimestamp = ev[k].offset;
+			pkt.mLength = 3;
+			pkt.mData[0] = ev[k].status;
+			pkt.mData[1] = ev[k].note;
+			pkt.mData[2] = ev[k].velocity;
+			pkt.mData[3] = 0;
+			pkt.mIsImmediate = false;
+			node->PostMIDIPacket(&pkt);
+		}
+#endif
 	}
 }
 
@@ -96,13 +113,18 @@ AAX_CEffectParameters* AAX_CALLBACK BeatKeyAaxParameters::CreateAudioSuite()
 BeatKeyAaxParameters::BeatKeyAaxParameters(bool audioSuite)
 	: mAudioSuite(audioSuite)
 {
-	// format "AAX" for both effects: one bundle, one crash marker (<pid>-AAX) shared by every instance in it
-	bkp_config cfg = { "AAX", BEATKEY_AAX_BUNDLE_ID, nullptr, nullptr };
+	// one format for both effects of a bundle ("AAX", or "AAX-MIDI" in Beat Key MIDI): one crash marker per bundle
+	bkp_config cfg = { BEATKEY_AAX_FORMAT, BEATKEY_AAX_BUNDLE_ID, nullptr, nullptr };
 	mInst = bkp_create(&cfg);
 	if (mInst && mAudioSuite) {
 		bkp_use_clips(mInst);
 	}
 	mViewToken = bkp_view_register(mInst);
+#if BKP_MIDI
+	if (!mAudioSuite) {
+		bkp_view_midi_enable(mInst); // the face's chords; a refusal is logged and the face says no MIDI
+	}
+#endif
 }
 
 BeatKeyAaxParameters::~BeatKeyAaxParameters()

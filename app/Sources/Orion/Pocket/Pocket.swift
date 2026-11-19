@@ -4,60 +4,6 @@ import Foundation
 // The menu-bar popover ("the pocket faceplate"): its logic, kept out of the views so it can be
 // tested. The views are in PocketView.swift; the status item and popover in MenuBar.swift.
 
-/// The notes of a key's scale for the 12-note keyboard: tonic pitch class (C = 0), the seven
-/// pitch classes of the major / natural minor scale, and whether the key is spelled with sharps.
-struct Scale: Equatable {
-    let tonic: Int
-    let minor: Bool
-    let notes: Set<Int>
-    let sharps: Bool
-    /// The tonic as the key is written ("E♭", "D♯"); the scale line spells from it.
-    let tonicName: String
-
-    static let major = [0, 2, 4, 5, 7, 9, 11]
-    static let naturalMinor = [0, 2, 3, 5, 7, 8, 10]
-    static let letters = Array("CDEFGAB")
-    private static let letterPC = [0, 2, 4, 5, 7, 9, 11]
-
-    /// Pitch class `pc` written on letter `letter` (0 = C ... 6 = B), with the accidentals that
-    /// takes: pc 3 on E = "E♭", pc 6 on E = "E♯", pc 5 on G = "G♭♭". The one speller for scales,
-    /// chord roots and relative keys.
-    static func spell(_ pc: Int, letter: Int) -> String {
-        let li = ((letter % 7) + 7) % 7
-        var diff = (((pc - letterPC[li]) % 12) + 12) % 12
-        if diff > 6 { diff -= 12 }
-        let acc = diff > 0 ? String(repeating: "♯", count: diff) : String(repeating: "♭", count: -diff)
-        return String(letters[li]) + acc
-    }
-
-    /// The tonic's letter (0 = C ... 6 = B).
-    var tonicLetter: Int { tonicName.first.flatMap { Scale.letters.firstIndex(of: $0) } ?? 0 }
-
-    /// "Ebm", "F#", "Bb" → its scale; nil = not a key name.
-    static func of(_ key: String) -> Scale? {
-        guard let k = KeyNames.parse(key) else { return nil }
-        let steps = k.minor ? naturalMinor : major
-        let t = key.trimmingCharacters(in: .whitespaces)
-            .replacingOccurrences(of: "♯", with: "#").replacingOccurrences(of: "♭", with: "b")
-        let root = t.hasSuffix("m") ? String(t.dropLast()) : t
-        let sharps = root.contains("#") ? true : root.contains("b") ? false : k.sharps > 0
-        return Scale(tonic: k.pitchClass, minor: k.minor,
-                     notes: Set(steps.map { ($0 + k.pitchClass) % 12 }), sharps: sharps,
-                     tonicName: root.replacingOccurrences(of: "#", with: "♯").replacingOccurrences(of: "b", with: "♭"))
-    }
-
-    /// The name of pitch class `pc` as this key spells it (for the keyboard's black keys).
-    func name(_ pc: Int) -> String { KeyNames.pitchName(pc, sharps: sharps) }
-
-    /// The scale's notes from the tonic up, one letter per degree, so the spelling is the written
-    /// one: E♭ minor is E♭ F G♭ A♭ B♭ C♭ D♭, D♯ minor is D♯ E♯ F♯ G♯ A♯ B C♯ (double accidentals
-    /// where the key needs them, as in G♯ major's F♯♯).
-    var spelled: [String] {
-        let steps = minor ? Scale.naturalMinor : Scale.major
-        return steps.enumerated().map { i, step in Scale.spell((tonic + step) % 12, letter: tonicLetter + i) }
-    }
-}
-
 /// The input meter: a peak sample (0...1 linear) on a -54...0 dB scale, as 0...1.
 enum LevelMeter {
     static let floorDB: Float = -54

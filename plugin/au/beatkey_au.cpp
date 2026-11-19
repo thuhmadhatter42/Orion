@@ -8,12 +8,26 @@
  * Threads: the constructor, Initialize, SaveState, RestoreState, GetProperty and the destructor run on the
  * host's threads; ProcessBufferLists runs on the audio thread and calls bkp_set_bypass,
  * bkp_set_host_tempo and bkp_process only (no lock, no allocation, no log).
+ *
+ * BKP_MIDI=1 builds the MIDI variant (plan step 15) from this same file: Beat Key MIDI, a music effect
+ * (aumf BtKM FLRc) with the same pass-through and face, plus one MIDI output (kAudioUnitProperty_
+ * MIDIOutputCallbackInfo / _MIDIOutputCallback).  After each render the instance layer says which notes
+ * changed (bkp_midi_process) and they go to the host's callback; a host that set no callback is told
+ * so on the face.
  */
 #include <AudioUnitSDK/AUBase.h>
 #include <AudioUnitSDK/AUEffectBase.h>
 #include <AudioToolbox/AudioUnitProperties.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <cstdint>
+#ifndef BKP_MIDI
+#define BKP_MIDI 0
+#endif
+#if BKP_MIDI
+#include <AudioUnitSDK/AUMIDIEffectBase.h>
+#include <CoreMIDI/MIDIServices.h>
+#include <atomic>
+#endif
 
 #include "../shared/bkp.h"
 #include "../shared/bkp_view.h"
@@ -21,25 +35,42 @@
 #ifndef BKP_VERSION
 #error "BKP_VERSION is not defined: build with plugin/build.sh"
 #endif
+#if BKP_MIDI
+#define BEATKEY_AU_BUNDLE_ID "com.jshriver.orion.plugin.midi.au"
+#define BEATKEY_AU_FORMAT "AU-MIDI"
+#define BEATKEY_AU_VIEW_FACTORY "BeatKeyMIDIAUViewFactory"
+#define BEATKEY_AU_CLASS BeatKeyMIDIAU   /* the factory export is <class>Factory: BeatKeyMIDIAUFactory */
+using BeatKeyAUBase = ausdk::AUMIDIEffectBase;
+#define BEATKEY_AU_FACTORY ausdk::AUMIDIEffectFactory   /* the MIDI selectors (MusicDeviceMIDIEvent) are dispatched */
+#else
 #define BEATKEY_AU_BUNDLE_ID "com.jshriver.orion.plugin.au"
+#define BEATKEY_AU_FORMAT "AU"
+#define BEATKEY_AU_VIEW_FACTORY "BeatKeyAUViewFactory"
+#define BEATKEY_AU_CLASS BeatKeyAU
+using BeatKeyAUBase = ausdk::AUEffectBase;
+#define BEATKEY_AU_FACTORY ausdk::AUBaseFactory
+#endif
 /* Private property: the face's token, read by the Cocoa view factory (beatkey_au_view.m). */
 constexpr AudioUnitPropertyID kBeatKeyPropViewToken = 64001;
 #define kStateKey CFSTR("beatKeyState")
 constexpr UInt32 kMaxChannels = 256;   // pointer arrays on the audio thread's stack
 
-class BeatKeyAU final : public ausdk::AUEffectBase {
-	using Base = ausdk::AUEffectBase;
+class BEATKEY_AU_CLASS final : public BeatKeyAUBase {
+	using Base = BeatKeyAUBase;
 
 public:
-	explicit BeatKeyAU(AudioComponentInstance ci) : Base{ ci, true }
+	explicit BEATKEY_AU_CLASS(AudioComponentInstance ci) : Base{ ci, true }
 	{
 		CreateElements();
-		bkp_config cfg = { "AU", BEATKEY_AU_BUNDLE_ID, nullptr, nullptr };
+		bkp_config cfg = { BEATKEY_AU_FORMAT, BEATKEY_AU_BUNDLE_ID, nullptr, nullptr };
 		mInst = bkp_create(&cfg);
 		mViewToken = bkp_view_register(mInst);
+#if BKP_MIDI
+		bkp_view_midi_enable(mInst); // the face's chords; a refusal is logged and the face says no MIDI
+#endif
 	}
 
-	~BeatKeyAU() override
+	~BEATKEY_AU_CLASS() override
 	{
 		bkp_view_unregister(mViewToken); // before the instance goes: an open face stops reading it
 		bkp_destroy(mInst);
@@ -116,6 +147,18 @@ public:
 			outWritable = false;
 			return noErr;
 		}
+#if BKP_MIDI
+		if (inScope == kAudioUnitScope_Global && inID == kAudioUnitProperty_MIDIOutputCallbackInfo) {
+			outDataSize = sizeof(CFArrayRef);
+			outWritable = false;
+			return noErr;
+		}
+		if (inScope == kAudioUnitScope_Global && inID == kAudioUnitProperty_MIDIOutputCallback) {
+			outDataSize = sizeof(AUMIDIOutputCallbackStruct);
+			outWritable = true;
+			return noErr;
+		}
+#endif
 		return Base::GetPropertyInfo(inID, inScope, inElement, outDataSize, outWritable);
 	}
 
@@ -135,15 +178,68 @@ public:
 			}
 			auto* info = static_cast<AudioUnitCocoaViewInfo*>(outData);
 			info->mCocoaAUViewBundleLocation = url;
-			info->mCocoaAUViewClass[0] = CFSTR("BeatKeyAUViewFactory");
+			info->mCocoaAUViewClass[0] = CFSTR(BEATKEY_AU_VIEW_FACTORY);
 			return noErr;
 		}
 		if (inScope == kAudioUnitScope_Global && inID == kBeatKeyPropViewToken) {
 			*static_cast<std::uint64_t*>(outData) = mViewToken;
 			return noErr;
 		}
+#if BKP_MIDI
+		if (inScope == kAudioUnitScope_Global && inID == kAudioUnitProperty_MIDIOutputCallbackInfo) {
+			// one MIDI output; the host owns (releases) the array
+			CFStringRef name = CFSTR("Beat Key notes");
+			*static_cast<CFArrayRef*>(outData) = CFArrayCreate(nullptr, reinterpret_cast<const void**>(&name), 1, &kCFTypeArrayCallBacks);
+			return noErr;
+		}
+#endif
 		return Base::GetProperty(inID, inScope, inElement, outData);
 	}
+
+#if BKP_MIDI
+	// The host hands over its MIDI output callback (or a NULL one to stop).  Host thread; the audio
+	// thread reads the pair through the atomics (user data first, callback last).
+	OSStatus SetProperty(AudioUnitPropertyID inID, AudioUnitScope inScope, AudioUnitElement inElement,
+		const void* inData, UInt32 inDataSize) override
+	{
+		if (inScope == kAudioUnitScope_Global && inID == kAudioUnitProperty_MIDIOutputCallback) {
+			if (!inData || inDataSize < sizeof(AUMIDIOutputCallbackStruct)) {
+				bkp_log(mInst, "REFUSED: AU MIDI output callback: %u bytes, want %zu", static_cast<unsigned>(inDataSize),
+					sizeof(AUMIDIOutputCallbackStruct));
+				return kAudioUnitErr_InvalidPropertyValue;
+			}
+			const auto* cb = static_cast<const AUMIDIOutputCallbackStruct*>(inData);
+			mMidiCallback.store(nullptr, std::memory_order_release);
+			mMidiUserData.store(cb->userData, std::memory_order_release);
+			mMidiCallback.store(cb->midiOutputCallback, std::memory_order_release);
+			bkp_log(mInst, "AU MIDI output: the host %s", cb->midiOutputCallback ? "set its callback (it takes MIDI)" : "cleared its callback");
+			return noErr;
+		}
+		return Base::SetProperty(inID, inScope, inElement, inData, inDataSize);
+	}
+
+	// Audio thread: the block as usual, then the notes that changed to the host's callback.
+	OSStatus Render(AudioUnitRenderActionFlags& ioActionFlags, const AudioTimeStamp& inTimeStamp, UInt32 nFrames) noexcept
+		AUSDK_RTSAFE override
+	{
+		const OSStatus st = Base::Render(ioActionFlags, inTimeStamp, nFrames);
+		const AUMIDIOutputCallback cb = mMidiCallback.load(std::memory_order_acquire);
+		void* const user = mMidiUserData.load(std::memory_order_acquire);
+		bkp_midi_event ev[BKP_MIDI_EVENTS];
+		const int n = bkp_midi_process(mInst, cb != nullptr, ev);
+		if (n > 0 && cb) {
+			alignas(8) Byte buf[sizeof(MIDIPacketList) + BKP_MIDI_EVENTS * (sizeof(MIDIPacket) + 4)];
+			auto* list = reinterpret_cast<MIDIPacketList*>(buf);
+			MIDIPacket* pkt = MIDIPacketListInit(list);
+			for (int i = 0; i < n && pkt; i++) {
+				const Byte msg[3] = { ev[i].status, ev[i].note, ev[i].velocity };
+				pkt = MIDIPacketListAdd(list, sizeof buf, pkt, ev[i].offset, 3, msg);
+			}
+			cb(user, &inTimeStamp, 0, list);
+		}
+		return st;
+	}
+#endif
 
 	// ---- any N in, the same N out ----
 	UInt32 SupportedNumChannels(const AUChannelInfo** outInfo) override
@@ -203,7 +299,13 @@ public:
 private:
 	bkp_instance* mInst = nullptr;
 	std::uint64_t mViewToken = 0;
+#if BKP_MIDI
+	std::atomic<AUMIDIOutputCallback> mMidiCallback{ nullptr };
+	std::atomic<void*> mMidiUserData{ nullptr };
+#endif
 };
 
-// Defines and exports BeatKeyAUFactory, the factoryFunction the Info.plist names (the only export).
-AUSDK_COMPONENT_ENTRY(ausdk::AUBaseFactory, BeatKeyAU)
+// Defines and exports BeatKeyAUFactory (BeatKeyMIDIAUFactory for the MIDI variant), the factoryFunction
+// the Info.plist names (the only export).  The extra macro level expands BEATKEY_AU_CLASS before ## pastes it.
+#define BEATKEY_AU_ENTRY(F, C) AUSDK_COMPONENT_ENTRY(F, C)
+BEATKEY_AU_ENTRY(BEATKEY_AU_FACTORY, BEATKEY_AU_CLASS)

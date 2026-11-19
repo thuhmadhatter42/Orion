@@ -55,9 +55,11 @@ int bk_load_weights(const char *path, char *err, size_t err_cap) {
 int bk_key_index(const char *name) {
     if (!name) return -1;
     for (int i = 0; i < 24; i++)
-        if (bk::key_name(i) == name) return i;
+        if (strcmp(bk::key_name_c(i), name) == 0) return i;
     return -1;
 }
+
+const char *bk_key_name(int index) { return bk::key_name_c(index); }
 
 int bk_ready(void) { return bk::weights_ready() ? 1 : 0; }
 

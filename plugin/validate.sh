@@ -2,6 +2,7 @@
 # plugin/validate.sh: the validator gate (plan step 8), on BOTH slices, Beat Key's own bundles ONLY.
 #   sh plugin/validate.sh            install the built bundles into ~/Library/Audio/Plug-Ins, run the gate
 #   sh plugin/validate.sh --remove   take them out of ~/Library/Audio/Plug-Ins again (to the Trash)
+#   sh plugin/validate.sh --midi [--remove]   the same for Beat Key MIDI (plan step 15: aumf BtKM FLRc, its .vst3)
 #
 #   1. auval -v aufx BtKy FLRc, native (arm64) and under arch -x86_64
 #   2. Steinberg's VST3 validator (plugin/tools/build-vst3-validator.sh) on the .vst3, arm64 and x86_64
@@ -16,12 +17,15 @@ set -e
 HERE=$(cd "$(dirname "$0")" && pwd)
 fail() { echo "plugin/validate.sh: FAIL: $*" >&2; exit 1; }
 OUT="$HERE/build.noindex"
-AU_SRC="$OUT/Beat Key.component"
-V3_SRC="$OUT/Beat Key.vst3"
-AU_DST="$HOME/Library/Audio/Plug-Ins/Components/Beat Key.component"
-V3_DST="$HOME/Library/Audio/Plug-Ins/VST3/Beat Key.vst3"
+NAME="Beat Key"; AU_CODE="aufx BtKy FLRc"
+if [ "$1" = "--midi" ]; then NAME="Beat Key MIDI"; AU_CODE="aumf BtKM FLRc"; shift; fi
+AU_SRC="$OUT/$NAME.component"
+V3_SRC="$OUT/$NAME.vst3"
+AU_DST="$HOME/Library/Audio/Plug-Ins/Components/$NAME.component"
+V3_DST="$HOME/Library/Audio/Plug-Ins/VST3/$NAME.vst3"
 PLUGINVAL=${PLUGINVAL:-/Applications/pluginval.app/Contents/MacOS/pluginval}
 LOGS="$OUT/validate"
+[ "$NAME" = "Beat Key" ] || LOGS="$OUT/validate-midi"
 
 if [ "$1" = "--remove" ]; then
   for b in "$AU_DST" "$V3_DST"; do
@@ -37,7 +41,7 @@ fi
 [ -x "$PLUGINVAL" ] || fail "pluginval not found at $PLUGINVAL"
 VALIDATOR=${VST3_VALIDATOR:-$OUT/vst3sdk-build/bin/Release/validator}
 [ -x "$VALIDATOR" ] || VALIDATOR=$(sh "$HERE/tools/build-vst3-validator.sh") || fail "no VST3 validator"
-for s in /Library/Audio/Plug-Ins/Components/Beat\ Key.component /Library/Audio/Plug-Ins/VST3/Beat\ Key.vst3; do
+for s in "/Library/Audio/Plug-Ins/Components/$NAME.component" "/Library/Audio/Plug-Ins/VST3/$NAME.vst3"; do
   [ -e "$s" ] && fail "$s exists system-wide and would shadow the build under test (A1.7); remove it first"
 done
 rm -rf "$LOGS"; mkdir -p "$LOGS"
@@ -54,12 +58,13 @@ need() {   # $1 log, $2 grep -E pattern that proves the step ran, $3 what
   grep -Eq "$2" "$1" || fail "$3: no proof it ran in $1 (looked for: $2)"
 }
 
-echo "== 1. auval -v aufx BtKy FLRc"
+echo "== 1. auval -v $AU_CODE ($NAME)"
 for slice in arm64 x86_64; do
   log="$LOGS/auval-$slice.txt"
   ok=0
   for try in 1 2 3 4 5 6; do   # the component registrar needs a moment to see a newly installed AU
-    if arch -$slice auval -v aufx BtKy FLRc > "$log" 2>&1; then ok=1; break; fi
+    # shellcheck disable=SC2086
+    if arch -$slice auval -v $AU_CODE > "$log" 2>&1; then ok=1; break; fi
     grep -q "didn't find the component" "$log" || break
     sleep 10
   done
@@ -99,8 +104,9 @@ for slice in arm64 x86_64; do
       need "$log" "Result: [0-9]+ tests passed, 0 tests failed" "pluginval's VST3 validator output ($slice)"
     else
       need "$log" "AU VALIDATION SUCCEEDED" "pluginval's auval step ($slice)"
+      need "$log" "VALIDATING AUDIO UNIT: '${AU_CODE%% *}'" "pluginval's auval step named $AU_CODE ($slice)"
     fi
     echo "pluginval $kind $slice: $(grep -c '^Starting tests in' "$log") test groups, $sweep rate x block runs, SUCCESS"
   done
 done
-echo "plugin/validate.sh: PASS (auval, VST3 validator, pluginval 10; arm64 and x86_64). Logs: $LOGS"
+echo "plugin/validate.sh: PASS $NAME (auval, VST3 validator, pluginval 10; arm64 and x86_64). Logs: $LOGS"

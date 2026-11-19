@@ -229,6 +229,12 @@ void test_bringup() {
               bk_key_index("Bm") == 23, "bk_key_index on the core's own names");
     CHECK(bk_key_index("C#") == -1 && bk_key_index("Dbm") == -1 && bk_key_index("") == -1 && bk_key_index(nullptr) == -1 &&
               bk_key_index("Cmm") == -1, "bk_key_index accepted a name the core never reads out");
+    {
+        bool round = true;
+        for (int i = 0; i < 24; i++) round = round && bk_key_name(i) && bk_key_index(bk_key_name(i)) == i;
+        CHECK(round && bk_key_name(-1) == nullptr && bk_key_name(24) == nullptr && strcmp(bk_key_name(7), "Ebm") == 0,
+              "bk_key_name does not invert bk_key_index");
+    }
 
     std::vector<float> x = clip(44100, 1.0, 120);
     bk_reading r;

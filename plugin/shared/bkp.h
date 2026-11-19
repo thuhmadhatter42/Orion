@@ -10,12 +10,15 @@
  *   - the session state blob (pin, x2 / /2, last reading): encode / decode, version, size cap
  *   - the values the two buttons send (key in use, BPM in use) and their log lines
  *   - the "host died with Beat Key in it" marker (house kit crash catcher for a plug-in, A7)
+ *   - the MIDI variant's note stream (plan step 15): when the key in use changes, the note-offs and
+ *     note-ons every format puts on its MIDI output (bkp_midi_*)
  * Plain C API so the shims (C++ / Objective-C) and the SwiftUI face (step 9) call the same thing.
  *
  * Threads:
- *   bkp_process, bkp_set_host_tempo                 the AUDIO thread: no allocation, no lock, no log,
- *                                                   no system call (the tripwire test proves it).
- *   bkp_host_tempo, bkp_bypass                      any thread, lock-free.
+ *   bkp_process, bkp_set_host_tempo,                the AUDIO thread: no allocation, no lock, no log,
+ *   bkp_midi_process                                no system call (the tripwire test proves it).
+ *   bkp_host_tempo, bkp_bypass, bkp_midi,           any thread, lock-free.
+ *   bkp_midi_route, bkp_midi_sounding
  *   everything else                                 any NON-audio thread (host main thread, UI); they
  *                                                   share one per-instance lock, never taken by the
  *                                                   audio thread.
@@ -126,6 +129,45 @@ void bkp_clip_progress(bkp_instance *p, uint64_t *have, uint64_t *want);
 int bkp_clip_end(bkp_instance *p, const char *how, bk_reading *out, char *err, size_t err_cap);
 /* Drops an unfinished clip (the host stopped the pass).  `why` goes to the log. */
 void bkp_clip_cancel(bkp_instance *p, const char *why);
+/* ---- the MIDI variant (plan step 15, §Q2 default: the key in use as notes) ----
+ * A second plug-in type (Beat Key MIDI: AU aumf, VST3 with an event output, AAX with a MIDI output node)
+ * that is the same instance plus this.  While a key is in use (bkp_key_in_use's rule, one owner), its
+ * chord is held on MIDI channel 1; when the key in use changes, the old chord's note-offs and the new
+ * chord's note-ons go out at the start of the block; no key (none yet, New Song) or bypass = note-offs.
+ * The chords are not this layer's: the shims pass the face's table (bkp_view_midi_enable, plugin/ui:
+ * the app's Harmony, tonic triad in root position), indexed like bk_key_index.
+ * AAX (the AAX shim's hook): call bkp_midi_process once per render with host_takes = 1 when the MIDI
+ * output node is connected, and post each event to that node at its offset; nothing else is needed. */
+#define BKP_MIDI_KEYS   24
+#define BKP_MIDI_NOTES  6                       /* notes per chord at most */
+#define BKP_MIDI_EVENTS 12                      /* 2 x BKP_MIDI_NOTES: bkp_midi_process writes at most this many */
+
+typedef struct bkp_midi_event {
+    uint32_t offset;                            /* sample offset in the block (always 0 today) */
+    uint8_t  status;                            /* 0x90 note-on / 0x80 note-off, channel 1 */
+    uint8_t  note;
+    uint8_t  velocity;                          /* 0 on a note-off */
+} bkp_midi_event;
+
+/* Makes this instance the MIDI variant.  notes[k][0..count-1] = the chord for key index k (MIDI
+ * numbers 0..127), count 1..BKP_MIDI_NOTES, velocity 1..127.  Non-audio thread, before the host
+ * starts audio (the shims: their constructor).  0 = ok, -1 = refused (logged; the instance stays a
+ * plain Beat Key and sends no MIDI). */
+int bkp_midi_enable(bkp_instance *p, const uint8_t notes[BKP_MIDI_KEYS][BKP_MIDI_NOTES], int count, int velocity);
+/* 1 = the MIDI variant. */
+int bkp_midi(const bkp_instance *p);
+/* AUDIO THREAD, once per block, after bkp_process.  host_takes = 1 when the host gave this block
+ * somewhere to put MIDI (AU: an output callback is set; VST3: the event bus is active and the block
+ * has an output event list; AAX: the output node).  Writes the block's events into ev (room for
+ * BKP_MIDI_EVENTS) and returns how many (0 when nothing changed, or not the MIDI variant).  When
+ * the host does not take MIDI, nothing is written and nothing is held. */
+int bkp_midi_process(bkp_instance *p, int host_takes, bkp_midi_event *ev);
+/* For the face: 0 = no block yet, 1 = the host takes MIDI, 2 = it does not. */
+int bkp_midi_route(const bkp_instance *p);
+/* For the face: the key index whose chord is held now, -1 = none. */
+int bkp_midi_sounding(const bkp_instance *p);
+/* The face's poll: one log line when the route changed since the last call (non-audio thread). */
+void bkp_midi_log_route(bkp_instance *p);
 
 /* ---- session state (the host's chunk) ---- */
 #define BKP_STATE_MAGIC   0x53504B42u   /* "BKPS" little-endian */

@@ -3,6 +3,7 @@
 # Beat Key's own AAX bundle ONLY, pointed at plugin/build.noindex/Beat Key.aaxplugin by path.  Never installs,
 # never scans a plug-in folder, never opens Pro Tools.
 #   sh plugin/validate-aax.sh
+#   sh plugin/validate-aax.sh --midi     the same on Beat Key MIDI.aaxplugin (plan step 15); log aaxval-midi.txt
 #
 # The validator is Avid's (developer-only licence), so it is never in this repo: $AAX_VALIDATOR_TGZ names the
 # archive from the AAX developer tools (default: J's SDK folder).  It is unpacked into
@@ -24,7 +25,8 @@ set -e
 HERE=$(cd "$(dirname "$0")" && pwd)
 OUT="$HERE/build.noindex"
 fail() { echo "plugin/validate-aax.sh: FAIL: $*" >&2; exit 1; }
-AX="$OUT/Beat Key.aaxplugin"
+AX="$OUT/Beat Key.aaxplugin"; LOGNAME_=aaxval.txt
+if [ "${1:-}" = "--midi" ]; then AX="$OUT/Beat Key MIDI.aaxplugin"; LOGNAME_=aaxval-midi.txt; fi
 [ -d "$AX" ] || fail "no AAX at $AX (run plugin/build.sh)"
 TGZ=${AAX_VALIDATOR_TGZ:-$HOME/dev/ProTools SDK/AAX/aax-validator-dsh-2024-6-0-138bab0d-mac-arm64.tar.gz}
 NAME=$(basename "$TGZ" .tar.gz)
@@ -42,7 +44,7 @@ sed -i '' -e "s/disk\['Container Free Space'\] = disk\['Container Free Space'\]\
   -e "s/disk\['Mount Point'\] += /disk['Mount Point'] = disk['Mount Point'].to_s + /" "$SI"
 
 mkdir -p "$OUT/validate"
-LOG="$OUT/validate/aaxval.txt"
+LOG="$OUT/validate/$LOGNAME_"
 echo "== AAX Validator ($NAME) on $AX"
 (cd "$V/CommandLineTools" && printf 'load_dish aaxval\nruntests "%s"\nexit\n' "$AX" | ./dsh) 2>&1 \
   | tr -d '\000' | LC_ALL=C tr -c '[:print:]\n\t' '?' > "$LOG" || fail "dsh did not run (log $LOG)"

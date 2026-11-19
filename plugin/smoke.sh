@@ -71,4 +71,33 @@ if [ -f "$HERE/build.noindex/AAX-NOT-PACE-SIGNED" ]; then
 else
   echo "ok: AAX PkgInfo TDMwPTul, GetEffectDescriptions linked, PACE signing step ran"
 fi
+# Beat Key MIDI (plan step 15)
+AUM="$HERE/build.noindex/Beat Key MIDI.component"
+check_bundle "$AUM" com.jshriver.orion.plugin.midi.au "_BeatKeyMIDIAUFactory"
+P="$AUM/Contents/Info.plist"
+for kv in type:aumf subtype:BtKM manufacturer:FLRc factoryFunction:BeatKeyMIDIAUFactory version:$AUVER; do
+  v=$(/usr/libexec/PlistBuddy -c "Print :AudioComponents:0:${kv%%:*}" "$P" 2>/dev/null)
+  [ "$v" = "${kv#*:}" ] || fail "AU MIDI AudioComponents ${kv%%:*} is '$v', want '${kv#*:}'"
+done
+otool -L "$AUM/Contents/MacOS/Beat Key" | grep -q CoreMIDI.framework || fail "AU MIDI does not link CoreMIDI (its MIDI output packets)"
+echo "ok: AudioComponents aumf BtKM FLRc, BeatKeyMIDIAUFactory, version $AUVER"
+V3M="$HERE/build.noindex/Beat Key MIDI.vst3"
+check_bundle "$V3M" com.jshriver.orion.plugin.midi.vst3 "_GetPluginFactory _bundleEntry _bundleExit"
+python3 -I - "$V3M/Contents/Resources/moduleinfo.json" "$VER" <<'PY' || fail "MIDI moduleinfo.json is wrong"
+import json, sys
+m = json.load(open(sys.argv[1]))
+assert m["Name"] == "Beat Key MIDI" and m["Version"] == sys.argv[2], (m["Name"], m["Version"])
+c = m["Classes"]
+assert len(c) == 1 and c[0]["CID"] == "42744B794D49444956535433464C5263" and c[0]["Name"] == "Beat Key MIDI", c
+assert c[0]["Category"] == "Audio Module Class" and c[0]["Version"] == sys.argv[2]
+PY
+echo "ok: moduleinfo.json (Beat Key MIDI, one Audio Module Class)"
+AXM="$HERE/build.noindex/Beat Key MIDI.aaxplugin"
+check_bundle "$AXM" com.jshriver.orion.plugin.midi.aax "_ACFCanUnloadNow _ACFGetClassFactory _ACFGetSDKVersion _ACFRegisterComponent _ACFRegisterPlugin _ACFShutdown _ACFStartup" TDMw
+[ "$(cat "$AXM/Contents/PkgInfo")" = "TDMwPTul" ] || fail "AAX MIDI PkgInfo is not TDMwPTul"
+for a in arm64 x86_64; do
+  nm -arch $a "$AXM/Contents/MacOS/Beat Key" | grep -q ' __Z21GetEffectDescriptionsP15AAX_ICollection$' || fail "AAX MIDI $a slice has no GetEffectDescriptions"
+  nm -arch $a "$AXM/Contents/MacOS/Beat Key" | grep -q '_bkp_midi_process' || fail "AAX MIDI $a slice does not call bkp_midi_process"
+done
+echo "ok: AAX MIDI PkgInfo TDMwPTul, GetEffectDescriptions + bkp_midi_process linked"
 echo "plugin/smoke.sh: OK"

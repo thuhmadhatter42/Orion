@@ -33,6 +33,9 @@ receipt  com.jshriver.orion.pkg
 receipt  com.jshriver.orion.plugin.au.pkg
 receipt  com.jshriver.orion.plugin.vst3.pkg
 receipt  com.jshriver.orion.plugin.aax.pkg
+receipt  com.jshriver.orion.plugin.midi.au.pkg
+receipt  com.jshriver.orion.plugin.midi.vst3.pkg
+receipt  com.jshriver.orion.plugin.midi.aax.pkg
 
 # The plug-ins (plan step 16): the installer lays them down system-wide, so these need the password. A copy dragged into
 # the user's own Plug-Ins folder (or the validator gate's test install) goes too. Paths absent on this Mac are skipped.
@@ -42,6 +45,13 @@ system  /Library/Application Support/Avid/Audio/Plug-Ins/Beat Key.aaxplugin
 user    Library/Audio/Plug-Ins/Components/Beat Key.component
 user    Library/Audio/Plug-Ins/VST3/Beat Key.vst3
 user    Library/Application Support/Avid/Audio/Plug-Ins/Beat Key.aaxplugin
+# Beat Key MIDI (plan step 15), the same three formats
+system  /Library/Audio/Plug-Ins/Components/Beat Key MIDI.component
+system  /Library/Audio/Plug-Ins/VST3/Beat Key MIDI.vst3
+system  /Library/Application Support/Avid/Audio/Plug-Ins/Beat Key MIDI.aaxplugin
+user    Library/Audio/Plug-Ins/Components/Beat Key MIDI.component
+user    Library/Audio/Plug-Ins/VST3/Beat Key MIDI.vst3
+user    Library/Application Support/Avid/Audio/Plug-Ins/Beat Key MIDI.aaxplugin
 # The plug-in's own settings (accent colour: the suite com.jshriver.orion.plugin). Kept with "Keep my settings".
 data    Library/Preferences/com.jshriver.orion.plugin.plist
 
