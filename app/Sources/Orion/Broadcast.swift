@@ -165,7 +165,7 @@ final class Broadcast {
         guard let r, let source else { return BroadcastReading(source: .none, songID: "") }
         var out = BroadcastReading(source: source == .listen ? .listen : .file, songID: songID(for: r.file))
         if let k = r.keyInUse {
-            if AutoTuneSend.keyClass(k.name) != nil {
+            if KeyNames.parse(k.name) != nil {
                 out.key = k.name
                 out.confidence = Double(max(0, min(100, k.percent))) / 100
             } else {

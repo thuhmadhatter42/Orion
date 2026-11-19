@@ -4,7 +4,6 @@ import SwiftUI
 /// What the readout shows. Derived from the engine state plus the drag hover.
 enum Readout {
     case idle
-    case drop
     case working(stage: String, download: Bool)
     case result(Result, page: String?, download: Bool, note: String? = nil, options: ResultOptions = ResultOptions())
     /// hint = the line under the error; nil = Run Doctor (or the link) as always.
@@ -33,7 +32,6 @@ struct ResultOptions {
 struct LCD: View {
     @Environment(\.palette) private var palette
     let state: PocketState
-    let highlighted: Bool
     var actions = PocketActions()
 
     /// The other states' box (idle, working, error, Doctor, login...): 16 in from the glass's top,
@@ -56,7 +54,7 @@ struct LCD: View {
         .padding(.bottom, Theme.S.l)
         .padding(.horizontal, Theme.S.lcd)
         .lcdGlass(radius: r)
-        .background(highlighted ? AnyView(dropRing(shape)) : AnyView(EmptyView()))
+        .background(state.dropTargeted ? AnyView(dropRing(shape)) : AnyView(EmptyView()))
     }
 
     /// `0 0 0 2px amber, 0 0 22px rgba(amber,.35)` when a file hovers over the window.
@@ -70,7 +68,7 @@ struct LCD: View {
 
     /// A reading fills the band and centres itself in it; every other state keeps its box.
     @ViewBuilder private var top: some View {
-        if case .result = state.readout {
+        if case .result = state.readout, !state.dropTargeted {
             content.frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             content
@@ -81,9 +79,16 @@ struct LCD: View {
     }
 
     @ViewBuilder private var content: some View {
+        if state.dropTargeted {
+            DropReadout()      // a file hovers over the window: it covers whatever the readout shows
+        } else {
+            readout
+        }
+    }
+
+    @ViewBuilder private var readout: some View {
         switch state.readout {
         case .idle: IdleReadout()
-        case .drop: DropReadout()
         case let .working(stage, download): WorkingReadout(stage: stage, download: download)
         case let .result(r, page, _, note, o):
             ResultReadout(result: r, page: page, note: note, options: o, state: state, actions: actions)
@@ -133,11 +138,12 @@ struct IdleReadout: View {
     @Environment(\.palette) private var palette
     var body: some View {
         Centered {
-            Text("Drop a beat").font(Theme.T.title).foregroundColor(palette.a2)
-            Text("or paste a YouTube link, open a file or listen").font(Theme.T.caption)
+            Text(Faceplate.idleTitle).font(Theme.T.title).foregroundColor(palette.a2)
+            Text(Faceplate.idleHint).font(Theme.T.caption)
                 .foregroundColor(palette.a3).padding(.top, Theme.S.s)
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibility(label: Text(Faceplate.idleLabel))
         .contentShape(Rectangle())
         .helpTip(HelpText.readout)
     }
@@ -189,7 +195,7 @@ struct WorkingReadout: View {
             RunningBar().padding(.top, Theme.S.m)
             Spacer(minLength: 0)
             HStack(spacing: Theme.S.l) {
-                ForEach(stepLights, id: \.0) { name, step in
+                ForEach(Faceplate.stepLights(stage: stage, download: download), id: \.0) { name, step in
                     StepLabel(name: name, step: step)
                 }
                 if stage == "analyzing" {
@@ -199,11 +205,6 @@ struct WorkingReadout: View {
             }
             .accessibility(hidden: true)
         }
-    }
-
-    private var stepLights: [(String, Faceplate.Step)] {
-        if Faceplate.isDoctorStage(stage) { return Faceplate.doctorSteps(stage) }
-        return download ? Faceplate.steps(stage) : [("ANALYZE", .on)]
     }
 }
 
@@ -241,7 +242,7 @@ struct DoctorReadout: View {
                 .padding(.top, Theme.S.s)
             Spacer(minLength: 0)
             Text(report.line).captionStyle()
-                .foregroundColor(failed ? Theme.rgb(255, 106, 92, 0.85) : palette.a2)
+                .foregroundColor(failed ? Theme.redHint(highContrast: palette.highContrast) : palette.a2)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -533,7 +534,7 @@ struct ErrorReadout: View {
                 .accessibility(label: Text(message))
             Text(hint ?? Faceplate.failureHint(download: download))
                 .captionStyle()
-                .foregroundColor(Theme.rgb(255, 106, 92, palette.highContrast ? 1 : 0.75))
+                .foregroundColor(Theme.redHint(highContrast: palette.highContrast))
                 .lineLimit(1)
                 .padding(.top, Theme.S.s)
         }

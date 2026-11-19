@@ -16,8 +16,6 @@ struct Scale: Equatable {
 
     static let major = [0, 2, 4, 5, 7, 9, 11]
     static let naturalMinor = [0, 2, 3, 5, 7, 8, 10]
-    static let sharpNames = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"]
-    static let flatNames = ["C", "D♭", "D", "E♭", "E", "F", "G♭", "G", "A♭", "A", "B♭", "B"]
     static let letters = Array("CDEFGAB")
     private static let letterPC = [0, 2, 4, 5, 7, 9, 11]
 
@@ -37,19 +35,19 @@ struct Scale: Equatable {
 
     /// "Ebm", "F#", "Bb" → its scale; nil = not a key name.
     static func of(_ key: String) -> Scale? {
-        guard let k = AutoTuneSend.keyClass(key) else { return nil }
+        guard let k = KeyNames.parse(key) else { return nil }
         let steps = k.minor ? naturalMinor : major
         let t = key.trimmingCharacters(in: .whitespaces)
             .replacingOccurrences(of: "♯", with: "#").replacingOccurrences(of: "♭", with: "b")
         let root = t.hasSuffix("m") ? String(t.dropLast()) : t
-        let sharps = root.contains("#") ? true : root.contains("b") ? false : (MidiExport.keySignature(key)?.sharps ?? 0) > 0
+        let sharps = root.contains("#") ? true : root.contains("b") ? false : k.sharps > 0
         return Scale(tonic: k.pitchClass, minor: k.minor,
                      notes: Set(steps.map { ($0 + k.pitchClass) % 12 }), sharps: sharps,
                      tonicName: root.replacingOccurrences(of: "#", with: "♯").replacingOccurrences(of: "b", with: "♭"))
     }
 
     /// The name of pitch class `pc` as this key spells it (for the keyboard's black keys).
-    func name(_ pc: Int) -> String { (sharps ? Scale.sharpNames : Scale.flatNames)[((pc % 12) + 12) % 12] }
+    func name(_ pc: Int) -> String { KeyNames.pitchName(pc, sharps: sharps) }
 
     /// The scale's notes from the tonic up, one letter per degree, so the spelling is the written
     /// one: E♭ minor is E♭ F G♭ A♭ B♭ C♭ D♭, D♯ minor is D♯ E♯ F♯ G♯ A♯ B C♯ (double accidentals
@@ -92,6 +90,9 @@ enum Clipboard {
 /// Everything the popover draws, as plain values (so it can be rendered offscreen and tested).
 struct PocketState {
     var readout: Readout = .idle
+    /// A file hovers over the WINDOW (the drop ring and DROP TO GET BPM AND KEY cover the readout).
+    /// The popover never sets it.
+    var dropTargeted = false
     /// Listen is on (listening, reading or locked).
     var listening = false
     /// "System Audio", "Scarlett 4i4 · Ch 3".
@@ -145,7 +146,7 @@ struct PocketState {
     /// Hold has a reading to freeze (or is on and can be released).
     var canHold: Bool { listening && (held || result != nil) }
     var canSend: Bool { result.map { $0.bpm != nil || !$0.keys.isEmpty } ?? false }
-    var canAutoTune: Bool { result?.keyInUse.flatMap { AutoTuneSend.keyClass($0.name) } != nil }
+    var canAutoTune: Bool { result?.keyInUse.flatMap { KeyNames.parse($0.name) } != nil }
 
     /// The lamp beside the hero key: Listen's own choice, else the key's confidence.
     var lamp: Lamp? {

@@ -26,19 +26,6 @@ enum AutoTuneSend {
             .appendingPathComponent("Music/Audio Music Apps/Temp/Auto-Key.handoff")
     }
 
-    /// A key name as the analyzer writes it ("Cm", "Ebm", "F#", "Bb") to (pitch class, minor).
-    static func keyClass(_ name: String) -> (pitchClass: Int, minor: Bool)? {
-        var s = name.trimmingCharacters(in: .whitespaces)
-            .replacingOccurrences(of: "♯", with: "#").replacingOccurrences(of: "♭", with: "b")
-        var minor = false
-        if s.hasSuffix("m") { minor = true; s.removeLast() }
-        let pcs: [String: Int] = ["C": 0, "B#": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3, "E": 4, "Fb": 4,
-                                  "E#": 5, "F": 5, "F#": 6, "Gb": 6, "G": 7, "G#": 8, "Ab": 8, "A": 9,
-                                  "A#": 10, "Bb": 10, "B": 11, "Cb": 11]
-        guard let pc = pcs[s] else { return nil }
-        return (pc, minor)
-    }
-
     /// The file's text, byte for byte as Auto-Key writes it. `tempo` nil = -1 (no tempo).
     static func contents(pitchClass: Int, minor: Bool, referencePitch: Double, tempo: Double? = nil) -> String {
         func num(_ v: Double) -> String { v == v.rounded() ? String(Int(v)) : String(format: "%g", v) }
@@ -54,7 +41,7 @@ enum AutoTuneSend {
     /// Writes temp + rename in the same folder (the watcher never sees a half file).
     @discardableResult
     static func write(key: String, referencePitch: Double, to url: URL = handoffURL) -> Bool {
-        guard let k = keyClass(key) else {
+        guard let k = KeyNames.parse(key) else {
             AppLog.log("auto-tune hand-off: \"\(key)\" is not a key it can take; nothing written")
             return false
         }
@@ -102,6 +89,6 @@ struct SendToAutoTuneMenuItem: View {
             }
         }
         .keyboardShortcut(KeyEquivalent(AutoTuneSend.shortcutKey), modifiers: AutoTuneSend.shortcutModifiers)
-        .disabled(key.flatMap(AutoTuneSend.keyClass) == nil)
+        .disabled(key.flatMap(KeyNames.parse) == nil)
     }
 }

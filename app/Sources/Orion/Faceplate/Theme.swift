@@ -11,6 +11,8 @@ enum Theme {
     static let greenText = rgb(89, 225, 141)           // #59e18d
     static let red = rgb(226, 55, 44)
     static let redText = rgb(255, 106, 92)             // #ff6a5c
+    /// The small red line under a FAILED readout (the hint, Doctor's line): one opacity everywhere.
+    static func redHint(highContrast: Bool) -> Color { rgb(255, 106, 92, highContrast ? 1 : 0.75) }
     static let textHi = rgb(238, 238, 242, 0.9)
     static let textLo = rgb(235, 235, 240, 0.5)
     static let textFaint = rgb(235, 235, 240, 0.28)

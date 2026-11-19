@@ -63,9 +63,9 @@ struct RenameItem: Equatable {
         guard let bpm = r.bpm, r.readError == nil, !r.tagged, !r.keys.isEmpty else { return nil }
         let shown = r.respelled(choice: choice)
         guard let first = shown.keyInUse?.name else { return nil }
-        let firstClass = AutoTuneSend.keyClass(first)
+        let firstClass = KeyNames.parse(first)
         let others = shown.keys.map { $0.0 }.filter { name in
-            guard let c = AutoTuneSend.keyClass(name), let f = firstClass else { return name != first }
+            guard let c = KeyNames.parse(name), let f = firstClass else { return name != first }
             return !(c.pitchClass == f.pitchClass && c.minor == f.minor)
         }
         let text: String

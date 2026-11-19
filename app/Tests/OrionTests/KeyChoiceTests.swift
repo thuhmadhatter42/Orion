@@ -32,7 +32,7 @@ final class KeyChoiceTests: XCTestCase {
         XCTAssertEqual(Array(KeyChoice.allKeys.suffix(12)),
                        ["Cm", "C#m", "Dm", "Ebm", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "Bbm", "Bm"])
         for (i, k) in KeyChoice.allKeys.enumerated() {
-            let kc = AutoTuneSend.keyClass(k)
+            let kc = KeyNames.parse(k)
             XCTAssertEqual(kc?.pitchClass, i % 12, k)
             XCTAssertEqual(kc?.minor, i >= 12, k)
         }
@@ -76,5 +76,29 @@ final class KeyChoiceTests: XCTestCase {
         let s = SpellingSettings()
         s.setManualKey("G#", of: r, from: .topKeys)
         XCTAssertEqual(s.manualKey, KeyChoice(file: r.file, name: r.name, pitchClass: 8, minor: false, slot: 1))
+    }
+
+    /// The one key table feeds every surface: the pocket keyboard's black keys, the key signature
+    /// (a spelling no staff has reads as the key it equals) and the parser.
+    func testOneTableFeedsNamesSignaturesAndTheParser() {
+        XCTAssertEqual((0..<12).map { KeyNames.pitchName($0, sharps: true) },
+                       ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"])
+        XCTAssertEqual((0..<12).map { KeyNames.pitchName($0, sharps: false) },
+                       ["C", "D♭", "D", "E♭", "E", "F", "G♭", "G", "A♭", "A", "B♭", "B"])
+        XCTAssertEqual(KeyNames.parse("G#")?.sharps, 8)                  // the spelling's own signature
+        XCTAssertEqual(MidiExport.keySignature("G#")?.sharps, -4)        // the staff's: Ab
+        XCTAssertEqual(MidiExport.keySignature("D#")?.sharps, -3)
+        XCTAssertEqual(MidiExport.keySignature("Fb")?.sharps, 4)
+        XCTAssertEqual(KeyNames.parse("Ebm")?.pitchClass, 3)
+        XCTAssertEqual(KeyNames.parse("Ebm")?.minor, true)
+        XCTAssertNil(KeyNames.parse("H"))
+        XCTAssertNil(KeyNames.parse("Cmaj"))
+        for pc in 0..<12 {
+            for minor in [false, true] {
+                let name = KeyChoice.keyName(pc, minor: minor)
+                XCTAssertEqual(KeyNames.parse(name)?.pitchClass, pc, name)
+                XCTAssertEqual(KeyNames.parse(name)?.minor, minor, name)
+            }
+        }
     }
 }

@@ -597,7 +597,7 @@ private struct PocketLCD: View {
                     .fixedSize(horizontal: false, vertical: true)
                 RunningBar().padding(.top, Theme.S.m)
                 HStack(spacing: Theme.S.s) {
-                    ForEach(steps(stage, download), id: \.0) { name, step in
+                    ForEach(Faceplate.stepLights(stage: stage, download: download), id: \.0) { name, step in
                         Text(step == .done ? "✓ \(name)" : name).captionStyle()
                             .lineLimit(1).fixedSize()
                             .foregroundColor(step == .on ? palette.a1 : step == .done ? palette.a2 : palette.a3)
@@ -620,7 +620,7 @@ private struct PocketLCD: View {
                     .foregroundColor(Theme.redText)
                     .lineLimit(4).fixedSize(horizontal: false, vertical: true)
                 Text(hint ?? Faceplate.failureHint(download: download)).captionStyle()
-                    .foregroundColor(Theme.rgb(255, 106, 92, palette.highContrast ? 1 : 0.75)).lineLimit(2)
+                    .foregroundColor(Theme.redHint(highContrast: palette.highContrast)).lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .accessibilityElement(children: .ignore)
@@ -629,15 +629,15 @@ private struct PocketLCD: View {
             message(a, b)
         case .doctor(let r):
             message(r.title, r.line, red: r.outcome == .failed).helpTip(HelpText.doctorResult)
-        case .idle, .drop:
+        case .idle:
             // the empty state: an invitation, not a skeleton of missing numbers (F11)
             VStack(alignment: .leading, spacing: Theme.S.s) {
-                Text("Drop a beat").font(Theme.T.title).foregroundColor(palette.a2)
-                Text("or paste a YouTube link, open a file or listen").font(Theme.T.caption)
+                Text(Faceplate.idleTitle).font(Theme.T.title).foregroundColor(palette.a2)
+                Text(Faceplate.idleHint).font(Theme.T.caption)
                     .foregroundColor(palette.a3).fixedSize(horizontal: false, vertical: true)
             }
             .accessibilityElement(children: .ignore)
-            .accessibility(label: Text("No reading yet. Paste a link, analyze a file or listen."))
+            .accessibility(label: Text(Faceplate.idleLabel))
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             .contentShape(Rectangle())
             .helpTip(HelpText.readout)
@@ -653,11 +653,6 @@ private struct PocketLCD: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibility(label: Text("\(a.capitalized). \(b.lowercased())"))
-    }
-
-    private func steps(_ stage: String, _ download: Bool) -> [(String, Faceplate.Step)] {
-        if Faceplate.isDoctorStage(stage) { return Faceplate.doctorSteps(stage) }
-        return download ? Faceplate.steps(stage) : [("ANALYZE", .on)]
     }
 }
 

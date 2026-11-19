@@ -393,9 +393,9 @@ struct KeyWheel: View {
 
     /// How a slot is lit: 0 = the key in use, 1 = another of the detector's top 3, nil = neither.
     func rank(_ pc: Int, minor: Bool) -> Int? {
-        if let c = inUse.flatMap(AutoTuneSend.keyClass), c.pitchClass == pc, c.minor == minor { return 0 }
+        if let c = inUse.flatMap(KeyNames.parse), c.pitchClass == pc, c.minor == minor { return 0 }
         for k in keys.prefix(3) {
-            if let c = AutoTuneSend.keyClass(k.0), c.pitchClass == pc, c.minor == minor { return 1 }
+            if let c = KeyNames.parse(k.0), c.pitchClass == pc, c.minor == minor { return 1 }
         }
         return nil
     }
@@ -495,7 +495,7 @@ struct KeyWheel: View {
     /// not resolve is skipped and logged once (the fallback spelling stands).
     static func name(_ pc: Int, minor: Bool, keys: [(String, Int)]) -> String {
         for k in keys {
-            guard let c = AutoTuneSend.keyClass(k.0) else { logUnresolved(k.0); continue }
+            guard let c = KeyNames.parse(k.0) else { logUnresolved(k.0); continue }
             if c.pitchClass == pc && c.minor == minor { return k.0.trimmingCharacters(in: .whitespaces) }
         }
         return KeyChoice.keyName(pc, minor: minor)
@@ -521,7 +521,7 @@ struct KeyWheel: View {
         // the manual key: the analyzer's own %, never the 0 it sits at when it was not detected
         if let m = manual, m.isKey(pc, minor: minor) { return m.detected }
         for k in keys.prefix(3) {
-            if let c = AutoTuneSend.keyClass(k.0), c.pitchClass == pc, c.minor == minor { return k.1 }
+            if let c = KeyNames.parse(k.0), c.pitchClass == pc, c.minor == minor { return k.1 }
         }
         return nil
     }
@@ -534,7 +534,7 @@ struct KeyWheel: View {
             // Manual Key Selection (J 2026-11-09 15:19): the lock line, then what a click does
             return (title, "\(HelpText.manualLocked) \(HelpText.manualWheelReset)")
         }
-        guard let k = inUse, let t = AutoTuneSend.keyClass(k) else {
+        guard let k = inUse, let t = KeyNames.parse(k) else {
             return (title, "Click to use it as the key.")
         }
         if t.pitchClass == pc && t.minor == minor {
@@ -735,7 +735,7 @@ struct NotesHeard: View {
                         }
                     }
                     .padding(.horizontal, 1)
-                    Crossfade(scale?.name(pc) ?? Scale.sharpNames[pc]) { n in
+                    Crossfade(scale?.name(pc) ?? KeyNames.pitchName(pc, sharps: true)) { n in
                         Text(n).font(Theme.T.caption).fixedSize()
                             .foregroundColor(inScale ? palette.a2 : palette.a3)
                     }
@@ -753,7 +753,7 @@ struct NotesHeard: View {
 
     private func spoken(_ lv: [Double]) -> String {
         let order = (0..<12).filter { lv[$0] > 0.05 }.sorted { lv[$0] > lv[$1] }.prefix(7)
-        let names = order.map { scale?.name($0) ?? Scale.sharpNames[$0] }
+        let names = order.map { scale?.name($0) ?? KeyNames.pitchName($0, sharps: true) }
         return names.isEmpty ? "Notes heard: none" : "Notes heard, strongest first: " + names.joined(separator: ", ")
     }
 }

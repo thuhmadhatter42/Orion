@@ -37,8 +37,7 @@ struct AbletonDriver: DAWDriver {
         }
         if p.tonic != nil {
             if pong.hasScale, let root = reply.int(1), let scale = reply.string(2), root >= 0 {
-                let names = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"]
-                parts.append("Key \(names[root % 12]) \(scale)")
+                parts.append("Key \(KeyNames.roots(root, minor: scale.lowercased().hasPrefix("minor"))[0]) \(scale)")
             } else {
                 parts.append("key not sent: Live \(pong.liveMajor > 0 ? String(pong.liveMajor) : "11") has no song key (Live 12 does)")
             }

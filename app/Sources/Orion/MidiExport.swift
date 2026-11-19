@@ -10,20 +10,10 @@ enum MidiExport {
     /// A key name as the analyzer writes it ("Cm", "Ebm", "F#", "Bb", "C#m") to the key-signature
     /// bytes: sharps(+) / flats(-) -7...+7 and minor. nil = not a key name.
     static func keySignature(_ name: String) -> (sharps: Int, minor: Bool)? {
-        var s = name.trimmingCharacters(in: .whitespaces)
-            .replacingOccurrences(of: "♯", with: "#").replacingOccurrences(of: "♭", with: "b")
-        var minor = false
-        if s.hasSuffix("m") { minor = true; s.removeLast() }
-        let major: [String: Int] = ["C": 0, "G": 1, "D": 2, "A": 3, "E": 4, "B": 5, "F#": 6, "C#": 7,
-                                    "F": -1, "Bb": -2, "Eb": -3, "Ab": -4, "Db": -5, "Gb": -6, "Cb": -7]
-        let minors: [String: Int] = ["A": 0, "E": 1, "B": 2, "F#": 3, "C#": 4, "G#": 5, "D#": 6, "A#": 7,
-                                     "D": -1, "G": -2, "C": -3, "F": -4, "Bb": -5, "Eb": -6, "Ab": -7]
-        if let n = (minor ? minors : major)[s] { return (n, minor) }
-        // a spelling with no standard signature (G# major = 8 sharps): the key it equals (Ab)
-        guard let k = AutoTuneSend.keyClass(name) else { return nil }
-        let byPitchClass = minor ? [-3, 4, -1, -6, 1, -4, 3, -2, 5, 0, -5, 2]   // Cm ... Bm
-                                 : [0, -5, 2, -3, 4, -1, -6, 1, -4, 3, -2, 5]   // C ... B
-        return (byPitchClass[k.pitchClass], minor)
+        guard let k = KeyNames.parse(name) else { return nil }
+        // a spelling with no standard signature (G# major = 8 sharps): the key it equals (Ab = -4)
+        let sharps = (-7...7).contains(k.sharps) ? k.sharps : ((k.sharps + 6) % 12 + 12) % 12 - 6
+        return (sharps, k.minor)
     }
 
     /// The file's bytes. `bpm` outside 1...1000 or nil writes no tempo event; an unknown key

@@ -10,23 +10,6 @@ import AppKit
 // - Studio One / Studio Pro: no manual reachable; labels are the transport's ("Tempo", "Key") and
 //   Song › Song Setup…; unverified, so a miss is reported, nothing else sent.
 
-/// Key names as DAWs print them, preferred spelling first.
-enum AXKeyNames {
-    static let major = [["C"], ["Db", "C#"], ["D"], ["Eb", "D#"], ["E"], ["F"], ["F#", "Gb"], ["G"], ["Ab", "G#"], ["A"], ["Bb", "A#"], ["B", "Cb"]]
-    static let minor = [["C"], ["C#", "Db"], ["D"], ["Eb", "D#"], ["E"], ["F"], ["F#", "Gb"], ["G"], ["G#", "Ab"], ["A"], ["Bb", "A#"], ["B"]]
-
-    static func roots(_ pc: Int, minor m: Bool) -> [String] { (m ? minor : major)[((pc % 12) + 12) % 12] }
-
-    /// "Eb minor", "D# minor", plus the short forms some menus use ("Ebm", "Eb min").
-    static func names(_ pc: Int, minor m: Bool) -> [String] {
-        let r = roots(pc, minor: m)
-        return r.map { "\($0) \(m ? "minor" : "major")" } + r.map { m ? "\($0) min" : "\($0) maj" } + r.map { m ? "\($0)m" : $0 }
-    }
-
-    /// Unicode-accidental spellings (Logic prints ♭/♯); AXText.norm folds them, kept for clarity.
-    static func pretty(_ s: String) -> String { s.replacingOccurrences(of: "b", with: "♭").replacingOccurrences(of: "#", with: "♯") }
-}
-
 /// A DAW's routes: each an alternative list of steps.
 struct AXPlan {
     var tempo: [[AXStep]] = []
@@ -74,7 +57,7 @@ enum AXPlans {
                 .menu([["Event"], ["Add Key Change…", "Add Key Change"]]),
                 .window(["Key Change"]),
                 .choose([t.minor ? "Minor Keys" : "Major Keys"]),
-                .choose(AXKeyNames.names(t.pc, minor: t.minor)),
+                .choose(KeyNames.names(t.pc, minor: t.minor)),
                 .optional(.set(["From"], "1|1|000", .time)),
                 .optional(.check(["Edit Pitched Tracks"], false)),
                 .press(ok), .waitClosed,
@@ -92,7 +75,7 @@ enum AXPlans {
         if let bpm { p.tempo = [[.typeInto(tempo, bpmText(bpm))]] }
         if let t = tonic {
             let keyDisplay = AXMatch(labels: ["Key Signature", "Key Signature display", "Key"]).helped("Indicates the key signature of the project")
-            let names = AXKeyNames.names(t.pc, minor: t.minor)
+            let names = KeyNames.names(t.pc, minor: t.minor)
             p.key = [[
                 .optional(.press(AXMatch(roles: ["AXButton"], labels: ["Go to Beginning"]).helped("Move the playhead to the start of the project"))),
                 .popup(keyDisplay, names),
@@ -113,7 +96,7 @@ enum AXPlans {
             ]
         }
         if let t = tonic {
-            p.key = [[.popup(AXMatch(labels: ["Key", "Key Signature", "Song Key"]), AXKeyNames.names(t.pc, minor: t.minor))]]
+            p.key = [[.popup(AXMatch(labels: ["Key", "Key Signature", "Song Key"]), KeyNames.names(t.pc, minor: t.minor))]]
         }
         return p
     }

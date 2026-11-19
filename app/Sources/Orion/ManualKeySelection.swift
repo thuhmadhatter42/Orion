@@ -38,7 +38,7 @@ extension SpellingSettings {
     /// error (no alert: the click simply does nothing). False = not set.
     @discardableResult
     func setManualKey(_ key: String, of result: Result, from source: ManualKeySource) -> Bool {
-        guard let k = AutoTuneSend.keyClass(key) else {
+        guard let k = KeyNames.parse(key) else {
             AppLog.log("ERROR manual key selection: could not resolve \"\(key)\" (from \(source.rawValue)); unchanged")
             return false
         }
@@ -50,7 +50,7 @@ extension SpellingSettings {
         if let m = manualKey, m.matches(result), m.pitchClass == k.pitchClass, m.minor == k.minor {
             slot = m.slot
         } else {
-            slot = result.keys.prefix(3).firstIndex { AutoTuneSend.keyClass($0.0).map { $0.pitchClass == k.pitchClass && $0.minor == k.minor } ?? false }
+            slot = result.keys.prefix(3).firstIndex { KeyNames.parse($0.0).map { $0.pitchClass == k.pitchClass && $0.minor == k.minor } ?? false }
         }
         manualKey = KeyChoice(file: result.file, name: result.name, pitchClass: k.pitchClass, minor: k.minor, slot: slot)
         AppLog.log("manual key selection set: \(KeyChoice.keyName(k.pitchClass, minor: k.minor)) from \(source.rawValue)"
@@ -90,7 +90,7 @@ struct ManualKey: Equatable {
 
     /// This is key `name` (any spelling).
     func isKey(_ name: String) -> Bool {
-        AutoTuneSend.keyClass(name).map { $0.pitchClass == pitchClass && $0.minor == minor } ?? false
+        KeyNames.parse(name).map { $0.pitchClass == pitchClass && $0.minor == minor } ?? false
     }
 
     func isKey(_ pc: Int, minor m: Bool) -> Bool { pc == pitchClass && m == minor }

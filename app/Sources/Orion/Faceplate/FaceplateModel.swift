@@ -97,6 +97,18 @@ enum Faceplate {
 
     static func isDoctorStage(_ stage: String) -> Bool { stage.hasPrefix("doctor-") }
 
+    /// The lights under the working readout, window and pocket alike: the doctor's five, a
+    /// download's three, or the one ANALYZE light for a file that was dropped or opened.
+    static func stepLights(stage: String, download: Bool) -> [(String, Step)] {
+        if isDoctorStage(stage) { return doctorSteps(stage) }
+        return download ? steps(stage) : [("ANALYZE", .on)]
+    }
+
+    /// The empty readout, window and pocket: the invitation, and what VoiceOver says for it.
+    static let idleTitle = "Drop a beat"
+    static let idleHint = "or paste a YouTube link, open a file or listen"
+    static let idleLabel = "No reading yet. Paste a link, analyze a file or listen."
+
     /// macOS said no to the Downloads folder (the user clicked Don't Allow): EPERM.
     static func isPermissionError(_ message: String) -> Bool {
         let m = message.lowercased()

@@ -126,10 +126,10 @@ final class AXDriverTests: XCTestCase {
     }
 
     func testKeyNamesSpellLikeDAWLists() {
-        XCTAssertEqual(AXKeyNames.names(3, minor: true).prefix(2), ["Eb minor", "D# minor"])
-        XCTAssertEqual(AXKeyNames.names(1, minor: false).first, "Db major")
-        XCTAssertEqual(AXKeyNames.names(8, minor: true).first, "G# minor")
-        XCTAssertEqual(AXKeyNames.names(6, minor: false).prefix(2), ["F# major", "Gb major"])
+        XCTAssertEqual(KeyNames.names(3, minor: true).prefix(2), ["Eb minor", "D# minor"])
+        XCTAssertEqual(KeyNames.names(1, minor: false).first, "Db major")
+        XCTAssertEqual(KeyNames.names(8, minor: true).first, "G# minor")
+        XCTAssertEqual(KeyNames.names(6, minor: false).prefix(2), ["F# major", "Gb major"])
         XCTAssertEqual(AXPlans.bpmText(140.0), "140")
         XCTAssertEqual(AXPlans.bpmText(140.82), "140.82")
     }

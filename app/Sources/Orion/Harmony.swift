@@ -16,7 +16,7 @@ enum Camelot {
 
     /// The code for a key name as shown ("Ebm" → "2A"); nil = not a key name.
     static func code(_ key: String) -> String? {
-        guard let k = AutoTuneSend.keyClass(key) else { return nil }
+        guard let k = KeyNames.parse(key) else { return nil }
         return code(pitchClass: k.pitchClass, minor: k.minor)
     }
 
@@ -50,7 +50,7 @@ enum KeyFit {
 
     /// The fits for a key name as shown ("Cm"); empty = not a key name.
     static func keys(_ name: String) -> Set<WheelKey> {
-        guard let c = AutoTuneSend.keyClass(name) else { return [] }
+        guard let c = KeyNames.parse(name) else { return [] }
         return keys(WheelKey(c.pitchClass, minor: c.minor))
     }
 }
@@ -229,7 +229,7 @@ enum Transpose {
     /// Semitones (-5...+6) that move `from` onto `to`. A relative major / minor counts as a
     /// match: Cm onto Eb is 0. nil = a name that is not a key.
     static func shift(from: String, to: String) -> Int? {
-        guard let a = AutoTuneSend.keyClass(from), let b = AutoTuneSend.keyClass(to) else { return nil }
+        guard let a = KeyNames.parse(from), let b = KeyNames.parse(to) else { return nil }
         // compare in the target's mode: the detected key, or its relative
         var pc = a.pitchClass
         if a.minor != b.minor { pc = a.minor ? (pc + 3) % 12 : (pc + 9) % 12 }

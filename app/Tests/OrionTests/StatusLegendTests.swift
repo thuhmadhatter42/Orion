@@ -19,7 +19,6 @@ final class StatusLegendTests: XCTestCase {
         let red = AppStatus.Look(text: Theme.redText, lamp: Theme.red, glow: Theme.red.opacity(0.7))
         let table: [(String, Readout, Bool, AppStatus, String, Lamp, AppStatus.Look)] = [
             ("idle", .idle, false, .ready, "READY", .locked, ready),
-            ("drop", .drop, false, .ready, "READY", .locked, ready),
             ("working", .working(stage: "downloading", download: true), false, .working, "WORKING", .listening, working),
             ("result", .result(r, page: nil, download: true), false, .ready, "READY", .locked, ready),
             ("error", .error("x", download: true), false, .failed, "FAILED", .listening, red),
