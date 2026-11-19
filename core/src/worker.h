@@ -34,6 +34,7 @@ struct bk_analyzer {
 
     bk::Ring ring;                         // audio thread -> worker
     std::atomic<bool> new_song_request{false};
+    std::atomic<double> gap_request{0.0};  // bk_analyzer_set_silence_gap; 0 = nothing asked
 
     // the snapshot (seqlock: odd = being written)
     mutable std::atomic<uint64_t> seq{0};

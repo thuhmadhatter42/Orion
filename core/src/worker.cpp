@@ -102,10 +102,12 @@ void apply(bk_analyzer &a, const std::vector<LiveEvent> &events, bk_snapshot &s,
         }
         case LiveEvent::Reset:
             s.song++;
-            logf(a.id.c_str(), "new song: 3 s of silence, everything heard was dropped");
+            s.song_why = BK_SONG_SILENCE;
+            logf(a.id.c_str(), "new song: %g s of silence, everything heard was dropped", a.live.gap());
             break;
         case LiveEvent::Boundary:
             s.song++;
+            s.song_why = e.reason == "audio" ? BK_SONG_AUDIO : BK_SONG_ANNOUNCED;
             if (e.has_scores)
                 logf(a.id.c_str(), "new song: found in the audio (disappeared %.3f, harmonic %.3f, pulse %.2f BPM)",
                      e.scores.disappeared, e.scores.harmonic, e.scores.bpm_ref);
@@ -114,10 +116,12 @@ void apply(bk_analyzer &a, const std::vector<LiveEvent> &events, bk_snapshot &s,
             break;
         case LiveEvent::Silence:
             s.silent = 1;
-            logf(a.id.c_str(), "silence: 3 s under -50 dB (%.1f dB)", e.db);
+            s.silence_db = e.db;
+            logf(a.id.c_str(), "silence: %g s under -50 dB (%.1f dB)", a.live.gap(), e.db);
             break;
         case LiveEvent::Sound:
             s.silent = 0;
+            s.sound_after = e.after;
             logf(a.id.c_str(), "sound again at %.1f dB after %.1f s of silence", e.db, e.after);
             break;
         }
@@ -147,6 +151,11 @@ bool serve(bk_analyzer &a) {
     bool changed = false, worked = false;
     std::vector<LiveEvent> events;
     try {
+        const double gap = a.gap_request.exchange(0.0);
+        if (gap > 0 && gap != a.live.gap()) {
+            a.live.set_gap(gap);
+            logf(a.id.c_str(), "a new song after %g s of silence from now on", gap);
+        }
         if (a.new_song_request.exchange(false)) {
             a.live.new_song("title", events);
             apply(a, events, s, 0.0);

@@ -12,14 +12,12 @@ struct DoctorReport: Equatable {
 ///   1 yt-dlp: Runtime.repairYtDlp now (ignores the weekly stamp); the LCD line comes from its result
 ///   2 ffmpeg / ffprobe: `-version` from the bin dir the Runtime picks
 ///   3 JS: `deno --version`, the JavaScript runtime yt-dlp needs for YouTube (none on macOS 11)
-///   4 python + analyzer: the bundled python runs the bundled `bpm.py --check`, the analyzer's own
-///     readiness rule (essentia imports, tempo model on disk); exit 2 = analyzer incomplete,
-///     anything else = python or the script won't run
+///   4 analyzer + python: the analysis core loads its tempo weights (Core.load, the one readiness
+///     rule, in-process); then the bundled python runs `app_run.py --check` (the download helper
+///     and what it imports start)
 ///   5 the downloads folder is writable
 struct Doctor {
     static let stages = ["doctor-ytdlp", "doctor-ffmpeg", "doctor-js", "doctor-python", "doctor-downloads"]
-    /// bpm.py's EXIT_INCOMPLETE: the one code meaning "the analyzer ran and says it is incomplete".
-    static let analyzerIncompleteExit: Int32 = 2
     static let permissionHint = "Allow Downloads access in System Settings › Privacy & Security › Files and Folders"
 
     let runtime: Runtime
@@ -28,10 +26,13 @@ struct Doctor {
     var reseed: () throws -> Void
     /// Write and remove a probe file in the downloads folder.
     var downloadsWritable: () -> Bool
+    /// The core's readiness: nil = ready, else why not (Core.load).
+    var coreCheck: () -> String?
 
     init(runtime: Runtime, runner: CommandRunner = RealRunner(),
          reseed: (() throws -> Void)? = nil, downloadsWritable: (() -> Bool)? = nil,
-         downloads: URL = Doctor.downloadsFolder()) {
+         downloads: URL = Doctor.downloadsFolder(), coreCheck: @escaping () -> String? = { Core.load() }) {
+        self.coreCheck = coreCheck
         self.runtime = runtime
         self.runner = runner
         self.reseed = reseed ?? { try runtime.reseed() }
@@ -81,17 +82,17 @@ struct Doctor {
             if js.status != 0, problem == nil { problem = "JS RUNTIME WON'T RUN · REINSTALL \(Brand.wordmark)" }
         }
 
-        // 4 python + the analyzer: ask bpm.py itself whether it is complete (the rule lives in bpm.py)
+        // 4 the analyzer (the core's own rule: its weights load), then python (the download helper)
         progress(Doctor.stages[3])
-        let py = runner.run(runtime.python, [runtime.analyzer.path, "--check"],
+        if let why = coreCheck() {
+            AppLog.log("doctor: the analysis core is not ready: \(why)")
+            if problem == nil { problem = "ANALYZER IS INCOMPLETE · REINSTALL \(Brand.wordmark)" }
+        }
+        let py = runner.run(runtime.python, [runtime.script.path, "--check"],
                             environment: runtime.environment(), timeout: 120)
         if py.status != 0 {
-            AppLog.log("doctor: bpm.py --check exit \(py.status): \(py.output.trimmingCharacters(in: .whitespacesAndNewlines).suffix(300))")
-            if problem == nil {
-                problem = py.status == Doctor.analyzerIncompleteExit
-                    ? "ANALYZER IS INCOMPLETE · REINSTALL \(Brand.wordmark)"
-                    : "PYTHON WON'T START · REINSTALL \(Brand.wordmark)"
-            }
+            AppLog.log("doctor: app_run.py --check exit \(py.status): \(py.output.trimmingCharacters(in: .whitespacesAndNewlines).suffix(300))")
+            if problem == nil { problem = "PYTHON WON'T START · REINSTALL \(Brand.wordmark)" }
         }
 
         // 5 downloads folder

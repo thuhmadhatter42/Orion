@@ -13,6 +13,25 @@ final class FakeLauncher: ProcessLauncher {
     }
 }
 
+/// The same fake stands in for the in-process file jobs (FileJobs): each job is recorded as a
+/// launch ["<core>", job, args...] and answers the JSON lines a test sends, as the helper did.
+extension FakeLauncher: FileJobs {
+    private func job(_ args: [String], _ onEvent: @escaping (Event) -> Void, _ onExit: @escaping (Int32) -> Void) {
+        launches.append(["<core>"] + args)
+        lines.append { line in if let e = Event.parse(line: line) { onEvent(e) } }
+        exits.append(onExit)
+    }
+    func analyze(_ files: [URL], onEvent: @escaping (Event) -> Void, onExit: @escaping (Int32) -> Void) {
+        job(["analyze"] + files.map { $0.path }, onEvent, onExit)
+    }
+    func finishDownload(_ file: URL, url: String, onEvent: @escaping (Event) -> Void, onExit: @escaping (Int32) -> Void) {
+        job(["finish-download", file.path, url], onEvent, onExit)
+    }
+    func rename(_ item: RenameItem, onEvent: @escaping (Event) -> Void, onExit: @escaping (Int32) -> Void) {
+        job(["rename", item.file.path, item.bpm] + item.keys, onEvent, onExit)
+    }
+}
+
 final class EngineTests: XCTestCase {
     func rt(arch: String = "arm64", os: Int = 14) -> Runtime {
         Runtime(root: URL(fileURLWithPath: "/R/runtime"), arch: arch,
@@ -27,7 +46,7 @@ final class EngineTests: XCTestCase {
 
     func testBusyIgnoresSecondDownload() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f)
+        let e = Engine(runtime: rt(), launcher: f, jobs: f)
         e.download("https://a"); e.download("https://b"); e.analyze([URL(fileURLWithPath: "/x.mp3")])
         waitLaunch(f); spin()
         XCTAssertEqual(f.launches.count, 1)
@@ -37,7 +56,7 @@ final class EngineTests: XCTestCase {
 
     func testDoneFlow() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f)
+        let e = Engine(runtime: rt(), launcher: f, jobs: f)
         e.download("u"); waitLaunch(f)
         f.onLine?(#"{"stage":"analyzing"}"#); spin()
         XCTAssertEqual(e.state, .working(stage: "analyzing"))
@@ -48,7 +67,7 @@ final class EngineTests: XCTestCase {
 
     func testAnalyzeCollectsAll() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f)
+        let e = Engine(runtime: rt(), launcher: f, jobs: f)
         e.analyze([URL(fileURLWithPath: "/a.mp3"), URL(fileURLWithPath: "/b.mp3")]); waitLaunch(f)
         f.onLine?(#"{"stage":"analyzed","file":"/a.mp3","name":"a.mp3","bpm":null,"keys":[]}"#)
         f.onLine?(#"{"stage":"analyzed","file":"/b.mp3","name":"b.mp3","bpm":"100.0","keys":[]}"#)
@@ -61,7 +80,7 @@ final class EngineTests: XCTestCase {
         let f = FakeLauncher()
         let gate = DispatchSemaphore(value: 0)
         var allow = false
-        let e = Engine(runtime: rt(), launcher: f, downloadsProbe: { gate.wait(); return allow })
+        let e = Engine(runtime: rt(), launcher: f, jobs: f, downloadsProbe: { gate.wait(); return allow })
         e.download("https://a")
         XCTAssertEqual(e.state, .working(stage: "allow-downloads"))
         XCTAssertEqual(Faceplate.stageText("allow-downloads"), "ALLOW DOWNLOADS ACCESS")
@@ -79,7 +98,7 @@ final class EngineTests: XCTestCase {
 
     func testDownloadShowsUpdatingWhileWaitingBehindMaintenance() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f)
+        let e = Engine(runtime: rt(), launcher: f, jobs: f)
         let hold = DispatchSemaphore(value: 0), started = DispatchSemaphore(value: 0)
         Runtime.maintenanceQueue.async { started.signal(); hold.wait() }
         started.wait()
@@ -93,7 +112,7 @@ final class EngineTests: XCTestCase {
 
     func testPartialAnalyzeKeepsResultsAndCaptionsTheRest() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f)
+        let e = Engine(runtime: rt(), launcher: f, jobs: f)
         e.analyze(["a", "b", "c"].map { URL(fileURLWithPath: "/\($0).mp3") }); waitLaunch(f)
         f.onLine?(#"{"stage":"analyzed","file":"/a.mp3","name":"a.mp3","bpm":"90.0","keys":[]}"#)
         f.onExit?(9); spin()
@@ -104,7 +123,7 @@ final class EngineTests: XCTestCase {
 
     func testUnreadableByPermissionShowsThePermissionHint() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f)
+        let e = Engine(runtime: rt(), launcher: f, jobs: f)
         e.analyze([URL(fileURLWithPath: "/a.wav")]); waitLaunch(f)
         f.onLine?(#"{"stage":"analyzed","file":"/a.wav","name":"a.wav","bpm":null,"keys":[],"error":"permission"}"#)
         f.onExit?(0); spin()
@@ -115,7 +134,7 @@ final class EngineTests: XCTestCase {
 
     func testStaleExitDoesNotClobberNewRun() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f)
+        let e = Engine(runtime: rt(), launcher: f, jobs: f)
         e.download("a"); waitLaunch(f)
         f.lines[0](#"{"stage":"done","file":"/a.mp3","name":"a.mp3","bpm":null,"keys":[]}"#); spin()
         e.download("b"); waitLaunch(f, 2)
@@ -129,7 +148,7 @@ final class EngineTests: XCTestCase {
 
     func testCrashWithoutTerminalFails() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f)
+        let e = Engine(runtime: rt(), launcher: f, jobs: f)
         e.download("u"); waitLaunch(f); f.onExit?(9); spin()
         if case .failed = e.state {} else { XCTFail("\(e.state)") }
     }

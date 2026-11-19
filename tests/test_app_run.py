@@ -60,14 +60,6 @@ class Base(unittest.TestCase):
 
 
 class TestPure(unittest.TestCase):
-    def test_renamed_name_matches_run_sh(self):
-        self.assertEqual(
-            app_run.renamed_name("T", "mp3", "142.0", [("Cm", 73), ("Eb", 18), ("Gm", 9)]),
-            "T (142.0 BPM Cm Eb Gm).mp3")
-
-    def test_log_line(self):
-        self.assertEqual(app_run.log_line("u", "n"), "Input URL: u\nDownloaded: n\n\n")
-
     def test_cli_default_order_unchanged(self):
         self.assertEqual(downloader.strategies(False)[0], ["--cookies-from-browser", "firefox"])
 
@@ -92,27 +84,34 @@ class TestPure(unittest.TestCase):
 
 class TestDownload(Base):
     def test_download_ok(self):
+        """The helper downloads and stops: the app reads, tags and logs the file (FileJobs.swift)."""
         p, ev = run_cli(["download", "https://example.com/v"], "ok", self.dl, self.state)
         self.assertEqual(p.returncode, 0, p.stderr)
-        self.assertEqual(ev[-1]["stage"], "done")
-        self.assertEqual(ev[-1]["bpm"], "120.0")
-        self.assertEqual([e["stage"] for e in ev][:2], ["downloading", "analyzing"])
-        self.assertIn("renaming", [e["stage"] for e in ev])
+        self.assertEqual([e["stage"] for e in ev], ["downloading", "downloaded"])
         f = Path(ev[-1]["file"])
         self.assertTrue(f.is_file())
         self.assertEqual(f.parent.resolve(), self.dl.resolve())
         self.assertEqual(f.name, ev[-1]["name"])
-        self.assertRegex(f.name, r"^Test Beat \(120\.0 BPM \S+ \S+ \S+\)\.mp3$")
-        self.assertFalse((self.dl / "Test Beat.mp3").exists())
-        self.assertEqual(len(ev[-1]["keys"]), 3)
+        self.assertEqual(f.name, "Test Beat.mp3", "the helper never renames")
         d = date.today()
-        log = self.dl / f"({d.year % 100}-{d.month}-{d.day}) Youtube DL LINKS.txt"
-        self.assertTrue(log.is_file())
-        self.assertEqual(log.read_text(), app_run.log_line("https://example.com/v", f.name))
+        self.assertFalse((self.dl / f"({d.year % 100}-{d.month}-{d.day}) Youtube DL LINKS.txt").exists(),
+                         "the links log is the app's")
+
+    def test_check(self):
+        p, ev = run_cli(["--check"], "ok", self.dl, self.state)
+        self.assertEqual((p.returncode, ev), (0, []))
+
+    def test_the_analyzer_is_gone_from_the_helper(self):
+        for name in ("analyze_file", "cmd_analyze", "cmd_rename", "rename_file", "is_tagged", "renamed_name"):
+            self.assertFalse(hasattr(app_run, name), name)
+        self.assertNotIn("bpm", sys.modules.get("app_run").__dict__)
+        p, ev = run_cli(["analyze", str(WAV)], "ok", self.dl, self.state)
+        self.assertEqual(ev[-1]["stage"], "error")
+        self.assertIn("usage", ev[-1]["message"])
 
     def test_weird_title(self):
         p, ev = run_cli(["download", "https://example.com/v"], "ok-weird-title", self.dl, self.state)
-        self.assertEqual(ev[-1]["stage"], "done", ev)
+        self.assertEqual(ev[-1]["stage"], "downloaded", ev)
         self.assertTrue(Path(ev[-1]["file"]).is_file())
         self.assertNotIn("/", ev[-1]["name"])
 
@@ -141,7 +140,7 @@ class TestDownload(Base):
     def test_download_uses_the_strategy_whose_metadata_worked(self):
         log = self.tmp / "argv.log"
         p, ev = run_cli(["download", "https://example.com/v"], "ok", self.dl, self.state, argv_log=log)
-        self.assertEqual(ev[-1]["stage"], "done", ev)
+        self.assertEqual(ev[-1]["stage"], "downloaded", ev)
         lines = log.read_text().splitlines()
         self.assertEqual(len(lines), 2, lines)      # one metadata call, one download call
 
@@ -170,7 +169,7 @@ class TestDownload(Base):
         wrap.write_text('#!/bin/bash\necho used >> "%s"\nexec "%s" "$@"\n' % (self.tmp / "used.log", STUB_DIR / "yt-dlp"))
         wrap.chmod(0o755)
         p, ev = run_cli(["download", "https://example.com/v"], "ok", self.dl, self.state, ytdlp=wrap)
-        self.assertEqual(ev[-1]["stage"], "done", ev)
+        self.assertEqual(ev[-1]["stage"], "downloaded", ev)
         self.assertTrue((self.tmp / "used.log").read_text().count("used") >= 2)
 
     def test_cli_downloader_has_no_timeout_or_cookie_stop(self):
@@ -189,7 +188,7 @@ class TestDownload(Base):
         log = self.tmp / "argv.log"
         p, ev = run_cli(["download", "https://example.com/watch?v=x&list=PL123"], "ok",
                         self.dl, self.state, argv_log=log)
-        self.assertEqual(ev[-1]["stage"], "done")
+        self.assertEqual(ev[-1]["stage"], "downloaded")
         lines = log.read_text().splitlines()
         self.assertTrue(lines)
         self.assertTrue(all("--no-playlist" in l for l in lines), lines)
@@ -232,7 +231,7 @@ class TestLogin(Base):
         f = self._cookie_file()
         p, ev = run_cli(["download", self.URL, "--cookies-file", str(f)], "cookie-ok", self.dl, self.state,
                         argv_log=log)
-        self.assertEqual(ev[-1]["stage"], "done", ev)
+        self.assertEqual(ev[-1]["stage"], "downloaded", ev)
         lines = log.read_text().splitlines()
         self.assertTrue(lines)
         self.assertTrue(all(f"--cookies {f}" in l for l in lines), lines)
@@ -352,7 +351,7 @@ class TestJsRuntimeAndLog(Base):
         log = self.tmp / "argv.log"
         p, ev = run_cli(["download", self.URL], "ok", self.dl, self.state, argv_log=log,
                         extra_env={"ORION_DENO": str(deno)})
-        self.assertEqual(ev[-1]["stage"], "done", ev)
+        self.assertEqual(ev[-1]["stage"], "downloaded", ev)
         calls = log.read_text().splitlines()
         self.assertTrue(calls)
         self.assertTrue(all(f"--js-runtimes deno:{deno}" in l for l in calls), calls)
@@ -403,7 +402,7 @@ class TestJsRuntimeAndLog(Base):
         p, ev = run_cli(["download", self.URL], "ok", self.dl, self.state)
         text = f.read_text()
         self.assertNotIn("Requested format", text)
-        self.assertIn("outcome: done", text)
+        self.assertIn("outcome: downloaded", text)
 
     def test_last_run_log_redacts_secrets(self):
         line = "WARNING: x Cookie: SAPISID=abc123; token=zzz sig=AOq0 visitor_data=Cgt"
@@ -416,65 +415,10 @@ class TestJsRuntimeAndLog(Base):
         blocker.write_text("x")
         p, ev = run_cli(["download", self.URL], "ok", self.dl, self.state,
                         extra_env={"ORION_LOG_DIR": str(blocker / "logs")})
-        self.assertEqual(ev[-1]["stage"], "done", ev)
+        self.assertEqual(ev[-1]["stage"], "downloaded", ev)
 
 
-class TestAnalyze(Base):
-    def test_unreadable_file_reports_permission(self):
-        t = self.tmp / "locked.wav"
-        t.write_bytes(b"x")
-        t.chmod(0)
-        try:
-            p, ev = run_cli(["analyze", str(t)], "ok", self.dl, self.state)
-        finally:
-            t.chmod(0o600)
-        self.assertEqual(ev[-1]["stage"], "analyzed")
-        self.assertIsNone(ev[-1]["bpm"])
-        self.assertEqual(ev[-1].get("error"), "permission")
-
-    def test_plain_failure_has_no_error_flag(self):
-        t = self.tmp / "notes.txt"
-        t.write_text("not audio")
-        p, ev = run_cli(["analyze", str(t)], "ok", self.dl, self.state)
-        self.assertNotIn("error", ev[-1])
-
-    def test_analyze_text_file(self):
-        t = self.tmp / "notes.txt"
-        t.write_text("not audio")
-        p, ev = run_cli(["analyze", str(t)], "ok", self.dl, self.state)
-        self.assertEqual(ev[-1]["stage"], "analyzed")
-        self.assertIsNone(ev[-1]["bpm"])
-        self.assertEqual(ev[-1]["keys"], [])
-        self.assertEqual(ev[-1]["name"], "notes.txt")
-
-    def test_a_clip_too_short_to_measure_has_no_bpm(self):
-        # TempoCNN returns 0.0 under ~12 s: bpm.py exits non-zero, nobody names a file "(0.0 BPM ...)"
-        import wave
-        t = self.tmp / "short.wav"
-        with wave.open(str(t), "wb") as w:
-            w.setnchannels(1)
-            w.setsampwidth(2)
-            w.setframerate(44100)
-            w.writeframes(b"\x00\x10" * 44100 * 3)
-        r = subprocess.run([sys.executable, str(ROOT / "bpm.py"), str(t)], capture_output=True, text=True)
-        self.assertEqual(r.returncode, 1, r.stderr)
-        self.assertEqual(r.stdout, "")
-        self.assertIn("Could not measure a tempo", r.stderr)
-        p, ev = run_cli(["analyze", str(t)], "ok", self.dl, self.state)
-        self.assertIsNone(ev[-1]["bpm"])
-
-    def test_analyze_audio(self):
-        p, ev = run_cli(["analyze", str(WAV)], "ok", self.dl, self.state)
-        self.assertEqual(ev[-1]["bpm"], "120.0")
-        self.assertEqual(len(ev[-1]["keys"]), 3)
-        self.assertIsInstance(ev[-1]["keys"][0][1], int)
-        self.assertAlmostEqual(ev[-1]["bpm_exact"], 120.0, delta=0.1)   # decimal BPM rides along
-
-    def test_analysis_timeout(self):
-        self.assertEqual(app_run.analyze_file(WAV, timeout=0.01), (None, []))
-
-
-TERMINAL = ("done", "analyzed", "error")
+TERMINAL = ("downloaded", "error")
 
 
 class TestGuards(Base):
@@ -490,31 +434,11 @@ class TestGuards(Base):
         shutil.copy(WAV, f)
         return mock.patch.object(app_run, "_attempt", return_value=(f, ""))
 
-    def test_rename_failure_still_done(self):
-        with self._fake_download(), mock.patch.object(app_run.os, "replace", side_effect=OSError("denied")):
+    def test_a_download_ends_with_one_downloaded_event(self):
+        with self._fake_download():
             ev = self._run_inproc(app_run.cmd_download, "https://example.com/v")
         term = [e for e in ev if e["stage"] in TERMINAL]
-        self.assertEqual(len(term), 1, ev)
-        self.assertEqual(term[0]["stage"], "done")
-        self.assertEqual(term[0]["name"], "Test Beat.mp3")
-        self.assertEqual(term[0]["bpm"], "120.0")
-        self.assertTrue(Path(term[0]["file"]).is_file())
-
-    def test_log_failure_still_done(self):
-        with self._fake_download(), mock.patch.object(app_run, "log_path",
-                                                      return_value=self.dl / "nodir" / "x" / "log.txt"), \
-                mock.patch.object(app_run.Path, "mkdir", side_effect=OSError("denied")):
-            ev = self._run_inproc(app_run.cmd_download, "https://example.com/v")
-        term = [e for e in ev if e["stage"] in TERMINAL]
-        self.assertEqual(len(term), 1, ev)
-        self.assertEqual(term[0]["stage"], "done")
-
-    def test_analyze_exception_still_analyzed(self):
-        with mock.patch.object(app_run, "analyze_file", side_effect=RuntimeError("boom")):
-            ev = self._run_inproc(app_run.cmd_analyze, [str(WAV), str(WAV)])
-        term = [e for e in ev if e["stage"] in TERMINAL]
-        self.assertEqual(len(term), 2, ev)
-        self.assertTrue(all(e["stage"] == "analyzed" and e["bpm"] is None for e in term))
+        self.assertEqual(term, [{"stage": "downloaded", "file": str(self.dl / "Test Beat.mp3"), "name": "Test Beat.mp3"}])
 
     def test_main_top_level_guard(self):
         with mock.patch.object(app_run, "cmd_download", side_effect=RuntimeError("boom")):
@@ -531,34 +455,6 @@ class TestFailuresLogToStderr(Base):
         with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
             out = fn(*args)
         return out, err.getvalue()
-
-    def test_analyzer_exit_is_logged_with_its_stderr(self):
-        done = subprocess.CompletedProcess([], 3, stdout="", stderr="Traceback ...\nValueError: bad file\n")
-        with mock.patch.object(app_run.subprocess, "run", return_value=done):
-            out, err = self._stderr(app_run.analyze_file, "/x/song.wav")
-        self.assertEqual(out, (None, []))
-        self.assertIn("app_run: bpm.py [song.wav]: ValueError: bad file", err)
-        self.assertIn("app_run: bpm.py exit 3 on song.wav", err)
-
-    def test_analyzer_timeout_and_start_failure_are_logged(self):
-        with mock.patch.object(app_run.subprocess, "run", side_effect=subprocess.TimeoutExpired("bpm", 120)):
-            _, err = self._stderr(app_run.analyze_file, "/x/a.wav")
-        self.assertIn("bpm.py timed out after 120 s on a.wav", err)
-        with mock.patch.object(app_run.subprocess, "run", side_effect=OSError("no python")):
-            _, err = self._stderr(app_run.analyze_file, "/x/a.wav")
-        self.assertIn("bpm.py could not start for a.wav: no python", err)
-
-    def test_not_a_bpm_is_logged(self):
-        done = subprocess.CompletedProcess([], 0, stdout="Missing: numpy\n", stderr="")
-        with mock.patch.object(app_run.subprocess, "run", return_value=done):
-            _, err = self._stderr(app_run.analyze_file, "/x/a.wav")
-        self.assertIn("first line is not a BPM for a.wav", err)
-
-    def test_analysis_crash_is_logged(self):
-        with mock.patch.object(app_run, "analyze_file", side_effect=RuntimeError("boom")):
-            _, err = self._stderr(app_run.cmd_analyze, [str(WAV)])
-        self.assertIn("analysis crashed on", err)
-        self.assertIn("boom", err)
 
     def test_download_failure_points_at_last_run_log(self):
         p, ev = run_cli(["download", "https://example.com/v"], "fail-network", self.dl, self.state)

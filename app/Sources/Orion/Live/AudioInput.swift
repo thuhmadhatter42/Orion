@@ -88,7 +88,7 @@ final class Resampler {
     private let inFormat: AVAudioFormat
     private let outFormat: AVAudioFormat
 
-    init?(from rate: Double, to target: Double = Double(LiveProcess.sampleRate)) {
+    init?(from rate: Double, to target: Double = Double(CoreLive.sampleRate)) {
         guard let i = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: rate, channels: 1, interleaved: false),
               let o = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: target, channels: 1, interleaved: false)
         else { return nil }

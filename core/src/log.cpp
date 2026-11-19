@@ -23,6 +23,8 @@ std::mutex g_mu;
 std::string g_dir;                 // explicit override
 size_t g_roll = kDefaultRoll;
 bool g_warned_unwritable = false;  // once per distinct failure (reset when the folder changes)
+bk_log_sink g_sink = nullptr;      // set: lines go there instead of the file
+void *g_sink_ctx = nullptr;
 
 os_log_t os() {
     static os_log_t l = os_log_create("com.jshriver.orion", "core");
@@ -60,6 +62,12 @@ void log_set_dir(const char *dir) {
     g_warned_unwritable = false;
 }
 
+void log_set_sink(bk_log_sink sink, void *ctx) {
+    std::lock_guard<std::mutex> lock(g_mu);
+    g_sink = sink;
+    g_sink_ctx = ctx;
+}
+
 void log_set_roll_bytes(size_t bytes) {
     std::lock_guard<std::mutex> lock(g_mu);
     g_roll = bytes ? bytes : kDefaultRoll;
@@ -87,6 +95,18 @@ void logv(const char *area, const char *fmt, va_list ap) {
     if ((size_t)n >= sizeof line) { n = (int)sizeof line - 1; line[n - 1] = '\n'; }
 
     os_log(os(), "%{public}s", line);
+
+    bk_log_sink sink;
+    void *ctx;
+    {
+        std::lock_guard<std::mutex> lock(g_mu);
+        sink = g_sink;
+        ctx = g_sink_ctx;
+    }
+    if (sink) {
+        sink((area && area[0]) ? area : "-", msg, ctx);
+        return;
+    }
 
     std::lock_guard<std::mutex> lock(g_mu);
     std::string dir;

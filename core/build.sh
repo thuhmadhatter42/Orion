@@ -36,7 +36,7 @@ check_universal() {   # $1 = Mach-O file
 }
 
 echo "== core objects (version $VERSION)"
-for f in log fft resample hpcp key mel tempocnn refine boundary live file worker api; do
+for f in log fft resample hpcp key midi mel tempocnn refine boundary live file worker api; do
   [ -f "src/$f.cpp" ] || refuse "src/$f.cpp is missing"
   clang++ $CXXF -I"$HERE/include" -I"$LSR/include" "-DBK_VERSION=\"$VERSION\"" -c "src/$f.cpp" -o "$OBJ/$f.o"
   check_universal "$OBJ/$f.o"

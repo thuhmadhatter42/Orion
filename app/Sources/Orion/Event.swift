@@ -36,17 +36,19 @@ enum Event: Equatable {
     /// A YouTube login would fix this: reason "age" | "bot" | "members"; stale = the saved login
     /// was used and YouTube no longer takes it (the app deletes it and asks again).
     case needsLogin(reason: String, message: String, stale: Bool)
-    /// The helper's `rename`: the file is now at `to`.
+    /// The helper's download is on disk at `file`; the app reads, tags and logs it (FileJobs.finishDownload).
+    case downloaded(file: String)
+    /// The rename: the file is now at `to`.
     case renamed(from: String, to: String)
-    /// The helper's `rename` found Beat Key's own tag already there and did nothing.
+    /// The rename found Beat Key's own tag already there and did nothing.
     case renameSkipped(file: String)
-    /// The helper's `rename` could not rename (errno 0 = no code).
+    /// The rename could not rename (errno 0 = no code).
     case renameFailed(file: String, errno: Int, message: String)
 
     /// One JSON line from app_run.py. app_run.py puts the event kind in "stage"
     /// ("downloading"... are progress, "done"/"analyzed"/"error" are terminal).
     /// A line with "event" as the kind key is accepted too. Garbage or unknown -> nil.
-    /// `[["Cm", 80], ["Eb", 9], ...]` (app_run.py and bpm.py --stream). Missing = none; a
+    /// `[["Cm", 80], ["Eb", 9], ...]` (a reading line: the live stream, tests). Missing = none; a
     /// malformed entry = nil (the whole line is ignored).
     static func keyList(_ any: Any?) -> [(String, Int)]? {
         var keys: [(String, Int)] = []
@@ -78,8 +80,8 @@ enum Event: Equatable {
         return out
     }
 
-    /// The reading every analyzer line carries, from app_run.py's done / analyzed and from
-    /// `bpm.py --stream`'s `reading` (LiveEvent.parse): keys, bpm, bpm_exact, tuning_cents,
+    /// The reading every analyzer line carries, from a done / analyzed line and from the live
+    /// stream's `reading` (LiveEvent.parse, CoreLive.swift): keys, bpm, bpm_exact, tuning_cents,
     /// chroma, error. One parser for both, so a field added to one is read from both.
     /// nil = the keys are malformed (the whole line is ignored).
     static func reading(_ obj: [String: Any], file: URL, name: String) -> Result? {
@@ -104,6 +106,9 @@ enum Event: Equatable {
             return kind == "done" ? .done(r) : .analyzed(r)
         case "error":
             return .error((obj["message"] as? String) ?? "Unknown error.")
+        case "downloaded":
+            guard let file = obj["file"] as? String else { return nil }
+            return .downloaded(file: file)
         case "needs_login":
             return .needsLogin(reason: (obj["reason"] as? String) ?? "bot",
                                message: (obj["message"] as? String) ?? "",

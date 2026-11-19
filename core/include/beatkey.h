@@ -7,6 +7,7 @@
  *
  * Three ways in:
  *   bk_analyze_buffer   a whole clip at once (AudioSuite, a dropped file): bpm.py's analyze_full.
+ *   bk_analyze_midi     a Standard MIDI File (a dropped .mid): midi_analyze.py's analyze_midi.
  *   bk_analyzer_*       live: one analyzer per plug-in instance.  The audio thread pushes into a
  *                       lock-free ring; ONE worker thread per process serves every analyzer and
  *                       publishes snapshots.  bpm.py's LiveAnalyzer (Listen), same rules.
@@ -59,6 +60,12 @@ int bk_ready(void);                       /* 1 once the weights are loaded */
 void bk_log_set_dir(const char *dir);
 /* Path of the current log file, written into buf; returns buf ("" when no folder can be found). */
 const char *bk_log_path(char *buf, size_t cap);
+/* Where the lines go instead of plugin.log: the Mac app hands its own log writer here, so the core's
+ * lines land in beatkey.log beside the app's (os_log still gets every line).  sink(area, message,
+ * ctx) is called on whatever thread logged (the worker, an analysis queue), never the audio thread.
+ * NULL = back to the file.  Set it before the first analysis; it is not changed while one runs. */
+typedef void (*bk_log_sink)(const char *area, const char *message, void *ctx);
+void bk_log_set_sink(bk_log_sink sink, void *ctx);
 /* One line: "<local time> <offset> pid <p> <area> <message>".  NEVER from the audio thread. */
 void bk_log(const char *area, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
 
@@ -92,6 +99,14 @@ int bk_key_index(const char *name);
 int bk_analyze_buffer(const float *mono, size_t n, double sample_rate, bk_reading *out,
                       char *err, size_t err_cap);
 
+/* ---- a MIDI file (midi_analyze.py analyze_midi) ---- */
+
+/* data: the whole .mid / .midi file.  out: keys (0.1 steps; C / Am / G at 0 % when the file has
+ * under 4 pitched notes), bpm (0.1) and bpm_exact (0.01) from the tempo covering the most ticks
+ * (120 when none); no tuning, chroma all 0.  Needs no weights.  BK_ERR_BAD_ARG = not a MIDI file
+ * (the reason in `err` and the log). */
+int bk_analyze_midi(const uint8_t *data, size_t n, bk_reading *out, char *err, size_t err_cap);
+
 /* ---- live ---- */
 
 typedef struct bk_analyzer bk_analyzer;
@@ -117,7 +132,18 @@ typedef struct bk_snapshot {
                                   (not a number, or over +60 dB); they were heard as silence */
     double     last_reading_ms;/* worker time the newest reading cost */
     int        error;          /* 1 = analysis stopped for this analyzer after an error (see the log) */
+    int        song_why;       /* what began the newest song (BK_SONG_*): the gap, the audio, or new_song */
+    double     silence_db;     /* the level of the chunk that tripped the newest silence (0.1 dB) */
+    double     sound_after;    /* seconds of silence the newest return of sound ended (0.1 s) */
 } bk_snapshot;
+
+/* bk_snapshot.song_why */
+enum {
+    BK_SONG_NONE = 0,        /* still the first song */
+    BK_SONG_SILENCE = 1,     /* 3 s of silence: everything heard was dropped (bpm.py "reset") */
+    BK_SONG_AUDIO = 2,       /* a change found in the audio (bpm.py "boundary", reason "audio") */
+    BK_SONG_ANNOUNCED = 3    /* bk_analyzer_new_song (bpm.py "boundary", reason "title") */
+};
 
 /* NULL on refusal (no weights, bad rate, out of memory); the reason goes to `err` and the log. */
 bk_analyzer *bk_analyzer_create(const bk_analyzer_config *cfg, char *err, size_t err_cap);
@@ -132,6 +158,10 @@ size_t bk_analyzer_push_channels(bk_analyzer *a, const float *const *channels, i
 
 /* The newest snapshot.  Lock-free for the reader; safe from the UI thread at any rate. */
 void bk_analyzer_snapshot(const bk_analyzer *a, bk_snapshot *out);
+/* Seconds under -50 dB that mean a new song (bpm.py --gap): 1..30.  Default 3, what the goldens
+ * were made with; the app's Listen setting changes it, the plug-ins leave it.  Any non-audio thread;
+ * it takes effect from the next half-second the worker reads.  BK_ERR_BAD_ARG outside 1..30. */
+int bk_analyzer_set_silence_gap(bk_analyzer *a, double seconds);
 /* "New song, start over" (the user, or a host that knows): everything heard is dropped. */
 void bk_analyzer_new_song(bk_analyzer *a);
 

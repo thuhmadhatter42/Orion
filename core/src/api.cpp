@@ -16,6 +16,7 @@
 #include "file.h"
 #include "key.h"
 #include "log.h"
+#include "midi.h"
 #include "sane.h"
 #include "tempocnn.h"
 #include "worker.h"
@@ -68,6 +69,8 @@ const char *bk_log_path(char *buf, size_t cap) {
     return buf;
 }
 
+void bk_log_set_sink(bk_log_sink sink, void *ctx) { bk::log_set_sink(sink, ctx); }
+
 void bk_log(const char *area, const char *fmt, ...) {
     if (!fmt) return;
     va_list ap;
@@ -113,6 +116,33 @@ int bk_analyze_buffer(const float *mono, size_t n, double sample_rate, bk_readin
         return BK_OK;
     } catch (const std::exception &e) {
         bk::fail("file", err, err_cap, "the clip could not be analyzed: %s", e.what());
+        return BK_ERR_INTERNAL;
+    }
+}
+
+int bk_analyze_midi(const uint8_t *data, size_t n, bk_reading *out, char *err, size_t err_cap) {
+    if (err && err_cap) err[0] = 0;
+    if (!out || (!data && n)) {
+        bk::fail("midi", err, err_cap, "bk_analyze_midi was called without a file or without a place for the answer");
+        return BK_ERR_BAD_ARG;
+    }
+    try {
+        const bk::MidiAnalysis m = bk::analyze_midi(data, n);
+        *out = bk_reading{};
+        for (int i = 0; i < 3; i++) put_key(m.keys[i], out->keys[i]);
+        out->has_bpm = 1;
+        out->bpm = m.bpm;
+        out->has_bpm_exact = 1;
+        out->bpm_exact = m.bpm_exact;
+        bk::logf("midi", "MIDI file, %zu notes: %s %.1f%% / %s %.1f%% / %s %.1f%%, bpm %.1f (%.2f)", m.notes,
+                 out->keys[0].name, out->keys[0].percent, out->keys[1].name, out->keys[1].percent,
+                 out->keys[2].name, out->keys[2].percent, out->bpm, out->bpm_exact);
+        return BK_OK;
+    } catch (const bk::Error &e) {
+        bk::fail("midi", err, err_cap, "the MIDI file could not be read: %s", e.what());
+        return BK_ERR_BAD_ARG;
+    } catch (const std::exception &e) {
+        bk::fail("midi", err, err_cap, "the MIDI file could not be analyzed: %s", e.what());
         return BK_ERR_INTERNAL;
     }
 }
@@ -191,6 +221,15 @@ void bk_analyzer_snapshot(const bk_analyzer *a, bk_snapshot *out) {
         if (a->seq.load(std::memory_order_acquire) == before) break;
     }
     out->dropped_frames = a->ring.dropped();
+}
+
+int bk_analyzer_set_silence_gap(bk_analyzer *a, double seconds) {
+    if (!a || !std::isfinite(seconds) || seconds < 1.0 || seconds > 30.0) {
+        bk::logf(a ? a->id.c_str() : "live", "REFUSED: silence gap %.2f s is outside 1..30", seconds);
+        return BK_ERR_BAD_ARG;
+    }
+    a->gap_request.store(seconds);
+    return BK_OK;
 }
 
 void bk_analyzer_new_song(bk_analyzer *a) {

@@ -43,6 +43,10 @@ for f in "$APP/icon/Orion.icns" "$APP/icon/Assets.xcassets/AppIcon.appiconset/Co
 done
 echo "== $APP_NAME $VER"
 
+echo "== analysis core (core/build.sh: libbeatkey.a, what the app links)"
+sh "$ROOT/core/build.sh"
+[ -f "$ROOT/models/deeptemp-k16-3.bkw" ] || { echo "no core weights at models/deeptemp-k16-3.bkw"; exit 1; }
+
 echo "== swift build (universal)"
 (cd "$APP" && swift build -c release --arch arm64 --arch x86_64)
 PROD="$(cd "$APP" && swift build -c release --arch arm64 --arch x86_64 --show-bin-path)"
@@ -51,7 +55,7 @@ ARCHS="$(lipo -archs "$PROD/Orion")"
 case "$ARCHS" in *arm64*x86_64*|*x86_64*arm64*) ;; *) echo "binary is not universal: $ARCHS"; exit 1 ;; esac
 
 echo "== runtime"
-# The heavy part (python, essentia, ffmpeg, yt-dlp, deno) is rebuilt when what it is made from
+# The heavy part (python, ffmpeg, yt-dlp, deno) is rebuilt when what it is made from
 # changes, not merely when its folder is missing: the stamp is a hash of vendor/ and runtime.sh.
 RUNTIME_HASH="$(cd "$ROOT" && git ls-files -z vendor app/runtime.sh | xargs -0 shasum -a 256 | shasum -a 256 | cut -d' ' -f1)"
 [ -n "$RUNTIME_HASH" ] || { echo "could not hash the runtime inputs"; exit 1; }
@@ -61,7 +65,7 @@ if [ ! -d "$B/runtime/arm64" ] || [ ! -d "$B/runtime/x86_64" ] || [ ! -d "$B/run
   printf '%s\n' "$RUNTIME_HASH" > "$B/runtime/.inputs"
 fi
 # The scripts (downloader.py, app_run.py, ...) are refreshed on every build, so an edit never ships
-# stale behind an old runtime; only the heavy part (python, essentia, ffmpeg) is conditional.
+# stale behind an old runtime; only the heavy part (python, ffmpeg) is conditional.
 "$APP/runtime.sh" scripts
 "$APP/runtime.sh" sign
 
@@ -120,6 +124,8 @@ rm -rf "$FIX"
 [ -d "$PROD/Orion_Orion.bundle" ] || { echo "no Orion_Orion.bundle in $PROD"; exit 1; }
 ditto "$PROD/Orion_Orion.bundle" "$OUTAPP/Contents/Resources/Orion_Orion.bundle"
 ditto "$B/runtime" "$OUTAPP/Contents/Resources/runtime"
+# the core's tempo weights: a separate CC BY-NC-SA data file beside the binary, never inside it
+cp "$ROOT/models/deeptemp-k16-3.bkw" "$OUTAPP/Contents/Resources/deeptemp-k16-3.bkw"
 find "$OUTAPP" -name .DS_Store -delete
 xattr -cr "$OUTAPP"
 

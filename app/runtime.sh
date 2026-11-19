@@ -1,11 +1,13 @@
 #!/bin/bash
 # Builds and signs the bundled tool runtime: app/build/runtime/{arm64,x86_64}/
-#   python/  (python-build-standalone 3.11 + essentia + numpy, installed offline from vendor wheels)
+#   python/  (python-build-standalone 3.11, standard library only: it runs the download helper.
+#            The analyzer is the core inside the app since plug-in plan step 19, so essentia and
+#            numpy (vendor/*/wheels, still used by deps.sh for the command-line reference) stay out.)
 #   bin/     ffmpeg ffprobe yt-dlp deno   (arm64 also gets bin-legacy/ = ffmpeg 7.1.1 for macOS 11)
 #            deno = the JavaScript runtime yt-dlp needs for YouTube's JS challenges (EJS). Official
 #            denoland release zips, vendor/macos-<arch>/deno.zip, sha256-pinned below. Both are
 #            built for macOS 12.0 (LC_BUILD_VERSION minos), so bin-legacy/ (macOS 11) gets none.
-#   scripts/ downloader.py bpm.py midi_analyze.py tempocnn_np.py app_run.py models/
+#   scripts/ downloader.py app_run.py
 # Usage: app/runtime.sh build | scripts | sign | all
 #   scripts = refresh only scripts/ (+ their .pyc) in an already built runtime: fast; build.sh runs it every time
 set -euo pipefail
@@ -36,8 +38,6 @@ build_arch() {
   rm -rf "$d"; mkdir -p "$d/bin"
   tar -xzf "$v/python.tar.gz" -C "$d"
   [ -x "$d/python/bin/python3" ] || { echo "python/ not found after untar"; exit 1; }
-  run_arch "$a" "$d/python/bin/python3" -m pip install --no-user --no-index --find-links "$v/wheels" \
-    --disable-pip-version-check -q essentia numpy
   unzip -oq "$v/ffmpeg.zip" -d "$d/bin"; unzip -oq "$v/ffprobe.zip" -d "$d/bin"
   cp -f "$ROOT/vendor/yt-dlp" "$d/bin/yt-dlp"
   local want="DENO_SHA256_$a" got
@@ -57,17 +57,15 @@ build_arch() {
 
 build_scripts() {
   local s="$OUT/scripts" f
-  rm -rf "$s"; mkdir -p "$s/models"
-  for f in downloader.py bpm.py midi_analyze.py tempocnn_np.py; do cp -f "$ROOT/$f" "$s/"; done
-  if [ -f "$ROOT/app_run.py" ]; then cp -f "$ROOT/app_run.py" "$s/"; else echo "  (app_run.py not present yet: Task 2)"; fi
-  cp -f "$ROOT/models/deeptemp-k16-3.npz" "$s/models/"
+  rm -rf "$s"; mkdir -p "$s"
+  for f in downloader.py app_run.py; do cp -f "$ROOT/$f" "$s/"; done
 }
 
 precompile() {
   # Each arch's own python writes its .pyc; the signed tree is never written at run time.
   local a
   for a in $ARCHES; do
-    run_arch "$a" "$OUT/$a/python/bin/python3" -m compileall -q "$OUT/$a/python" >/dev/null || true  # essentia ships py2 example scripts that cannot compile
+    run_arch "$a" "$OUT/$a/python/bin/python3" -m compileall -q "$OUT/$a/python" >/dev/null || true  # the stdlib's own test fixtures include files that do not compile
   done
   "$OUT/arm64/python/bin/python3" -m compileall -q "$OUT/scripts"
   # pip is never run on a user's Mac: drop its bytecode

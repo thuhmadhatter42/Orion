@@ -2,10 +2,10 @@ import AppKit
 import Foundation
 
 // Live listening (plan §3): the mic / an input device / system audio, read as it plays.
-// Audio goes from the capture straight into one long-lived `bpm.py --stream` process as float32
-// PCM on its stdin; nothing is ever written to disk. That process answers with a reading every 2 s.
+// Audio goes from the capture straight into the analysis core (CoreLive.swift, the plug-ins' live
+// path); nothing is ever written to disk. It answers with a reading every 2 s, as stream lines.
 
-/// One line from `bpm.py --stream`.
+/// One line of the live stream (CoreLive: the lines `bpm.py --stream` printed).
 enum LiveEvent: Equatable {
     case ready
     case reading(Result)
@@ -343,92 +343,18 @@ final class LiveSettings: ObservableObject {
     }
 }
 
-// MARK: the analyzer process
+// MARK: the analyzer
 
-/// Where the capture's samples go. write is called from audio threads.
+/// Where the capture's samples go (CoreLive). write is called from audio threads.
 protocol LivePipe: AnyObject {
     func write(_ samples: [Float])
     func close()
 }
 
-/// Starts the analyzer; nil = could not start. onLine / onExit may arrive on any queue.
+/// Starts the analyzer; nil = could not start. onLine / onExit may arrive on any queue (onExit:
+/// the analyzer went away on its own; the core's never does, a test's fake may).
 typealias LiveLauncher = (_ gap: Double, _ onLine: @escaping (String) -> Void,
                           _ onExit: @escaping (Int32) -> Void) -> LivePipe?
-
-/// `python bpm.py --stream` with the bundle's runtime, float32 PCM written to its stdin.
-final class LiveProcess: LivePipe {
-    static let sampleRate = 44100
-    let process = Process()   // SongBoundary.swift signals it (newSong)
-    private let stdin = Pipe()
-    private let writes = DispatchQueue(label: "com.jshriver.orion.live-pipe")
-    private var closed = false   // writes queue only
-
-    static func launcher(runtime: Runtime) -> LiveLauncher {
-        return { gap, onLine, onExit in
-            LiveProcess(executable: runtime.python,
-                        arguments: [runtime.analyzer.path, "--stream", "--rate", String(sampleRate),
-                                    "--gap", String(gap)],
-                        environment: runtime.environment(), onLine: onLine, onExit: onExit)
-        }
-    }
-
-    init?(executable: URL, arguments: [String], environment: [String: String],
-          onLine: @escaping (String) -> Void, onExit: @escaping (Int32) -> Void) {
-        signal(SIGPIPE, SIG_IGN)   // a dead analyzer must fail a write, not kill the app
-        process.executableURL = executable
-        process.arguments = arguments
-        process.environment = environment.merging(["HOME": NSHomeDirectory()]) { a, _ in a }
-        let out = Pipe()
-        process.standardInput = stdin
-        process.standardOutput = out
-        process.standardError = AppLog.analyzerHandle(header: "bpm.py --stream") ?? FileHandle.nullDevice
-        AppLog.log("analyzer start: \(arguments.dropFirst().joined(separator: " "))")
-        do { try process.run() } catch { AppLog.log("analyzer failed to start: \(error)"); return nil }
-        DispatchQueue.global(qos: .userInitiated).async {
-            var buf = Data()
-            let h = out.fileHandleForReading
-            while true {
-                let chunk = h.availableData
-                if chunk.isEmpty { break }
-                buf.append(chunk)
-                while let nl = buf.firstIndex(of: 0x0A) {
-                    onLine(String(decoding: buf[buf.startIndex..<nl], as: UTF8.self))
-                    buf.removeSubrange(buf.startIndex...nl)
-                }
-            }
-            // exit only after every line is out
-            self.process.waitUntilExit()
-            AppLog.log("analyzer exited: status \(self.process.terminationStatus) reason \(self.process.terminationReason.rawValue)" + (self.process.terminationStatus == 0 ? "" : "; its stderr: analyzer.log"))
-            onExit(self.process.terminationStatus)
-        }
-    }
-
-    func write(_ samples: [Float]) {
-        guard !samples.isEmpty else { return }
-        let data = samples.withUnsafeBufferPointer { Data(buffer: $0) }   // little-endian on every Mac
-        writes.async { [self] in
-            guard !closed else { return }
-            do { try stdin.fileHandleForWriting.write(contentsOf: data) } catch {
-                closed = true
-                AppLog.log("analyzer pipe write failed (the analyzer is gone?): \(error)")
-            }
-        }
-    }
-
-    /// EOF on stdin ends the analyzer; it is stopped outright if it lingers past `grace` s
-    /// (Stop Listening wants it gone, not its last reading).
-    func close() { close(grace: 2) }
-
-    func close(grace: TimeInterval) {
-        writes.async { [self] in
-            guard !closed else { return }
-            closed = true
-            try? stdin.fileHandleForWriting.close()
-        }
-        let p = process
-        DispatchQueue.global().asyncAfter(deadline: .now() + grace) { if p.isRunning { p.terminate() } }
-    }
-}
 
 /// A capture that has gone quiet (system audio sends nothing while nothing plays) still has to
 /// read as silence, or the analyzer would never see the gap (nor say "silence" for NO SOUND).
@@ -438,7 +364,7 @@ struct SilenceFiller {
     let tick: TimeInterval
     private(set) var lastSamples: Date
 
-    init(rate: Int = LiveProcess.sampleRate, tick: TimeInterval = 0.5, now: Date = Date()) {
+    init(rate: Int = CoreLive.sampleRate, tick: TimeInterval = 0.5, now: Date = Date()) {
         self.rate = rate; self.tick = tick; lastSamples = now
     }
 
@@ -566,9 +492,8 @@ final class LiveController: ObservableObject {
 
     func toggle() { state.isActive ? stop(reason: "user stop") : start() }
 
-    /// New Song: drop everything heard and any lock, now, and keep listening to the same source.
-    /// The analyzer's stdin carries only samples (no control channel), so the stream is started
-    /// over: a fresh analyzer and capture, the lamp back to LISTENING (display colour). Off = nothing to do.
+    /// New Song: drop everything heard and any lock, now, and keep listening to the same source:
+    /// a fresh analyzer and capture, the lamp back to LISTENING (display colour). Off = nothing to do.
     func reset() {
         guard state.isActive else { return }
         start(why: "new song")

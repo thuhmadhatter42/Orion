@@ -27,7 +27,7 @@ enum Faceplate {
         return 60 / v
     }
 
-    /// The LCD line for a progress stage from app_run.py.
+    /// The LCD line for a progress stage (the download helper, the file jobs, Run Doctor).
     static func stageText(_ stage: String) -> String {
         switch stage {
         case "downloading": return "DOWNLOADING"
@@ -133,7 +133,7 @@ enum Faceplate {
     }
 
     /// Audio, the audio track of a video (ffmpeg decodes it; a .mov or .mp4 is not UTType .audio,
-    /// so it is listed here), and MIDI files (bpm.py reads those without ffmpeg).
+    /// so it is listed here), and MIDI files (the core reads those without ffmpeg).
     static let audioExtensions: Set<String> = ["mp3", "wav", "aif", "aiff", "flac", "m4a", "aac", "ogg", "caf",
                                                "mp4", "m4v", "mov", "mid", "midi"]
 
