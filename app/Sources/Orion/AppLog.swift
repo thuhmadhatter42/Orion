@@ -6,8 +6,19 @@ import os
 /// com.jshriver.orion). Every launch, quit, crash, engine and Listen state change lands here, and
 /// a run that ended without a clean quit (crash, force quit, kill) is named at the next launch.
 /// Rotates at 5 MB to beatkey.1.log. The analyzer's own stderr goes to analyzer.log beside it.
-enum AppLog {
-    static let dir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/Beat Key")
+///
+/// House kit (logging module): this stays Beat Key's own log, not the kit's AppLog.swift, because it
+/// carries what the kit's lacks (the crash catcher, the unclean-quit marker, analyzer.log, the test
+/// sink). `AppLog.shared` at the bottom gives the pasted house modules (Report, Uninstall, Quick Keys)
+/// the kit's calls (`info`, `error`, `log(level,...)`, `logFiles()`), all writing into this one file.
+/// `ORION_LOG_DIR` (House.logDirEnv) points the log folder elsewhere.
+struct AppLog {
+    private init() {}
+
+    static let dir: URL = {
+        if let o = ProcessInfo.processInfo.environment[House.logDirEnv], !o.isEmpty { return URL(fileURLWithPath: o) }
+        return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/\(House.logFolder)")
+    }()
     static let url = dir.appendingPathComponent("beatkey.log")
     static let analyzerURL = dir.appendingPathComponent("analyzer.log")
     private static let marker = dir.appendingPathComponent("running.marker")
@@ -49,10 +60,17 @@ enum AppLog {
 
     static func log(_ line: String, file: String = #fileID) {
         let tag = (file as NSString).lastPathComponent.replacingOccurrences(of: ".swift", with: "")
+        emit(tag: tag, line: line, toFile: true)
+    }
+
+    /// The one writer: the file line is "<time> [tag] text". `toFile: false` = the unified log only
+    /// (Uninstall after the log folder itself went to the Trash: a file write would recreate it).
+    fileprivate static func emit(tag: String, line: String, toFile: Bool) {
         sink?("[\(tag)] \(line)")
         guard !testing else { return }
         let text = "\(stamp.string(from: Date())) [\(tag)] \(line)\n"
         os.log("\(line, privacy: .public)")
+        guard toFile else { return }
         queue.async {
             let fm = FileManager.default
             try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -134,5 +152,32 @@ enum AppLog {
                 raise(s)
             }
         }
+    }
+}
+
+// MARK: - The house kit's AppLog calls (pasted modules use these; Beat Key's own code uses AppLog.log)
+
+extension AppLog {
+    static let shared = AppLog()
+
+    enum Level: String { case debug = "DEBUG", info = "INFO", warn = "WARN", error = "ERROR" }
+
+    /// `fileToo: false` = unified log only.
+    func log(_ level: Level, _ category: String, _ message: String, fileToo: Bool = true) {
+        // Errors and warnings are marked in the line; info reads like every other Beat Key line.
+        let line = level == .info || level == .debug ? message : "\(level.rawValue): \(message)"
+        AppLog.emit(tag: category, line: line, toFile: fileToo)
+    }
+    func debug(_ category: String, _ message: String) { log(.debug, category, message) }
+    func info(_ category: String, _ message: String) { log(.info, category, message) }
+    func warn(_ category: String, _ message: String) { log(.warn, category, message) }
+    func error(_ category: String, _ message: String) { log(.error, category, message) }
+
+    /// Every log file, live first: this launch's beatkey.log, the rotated beatkey.1.log, analyzer.log.
+    /// A Report attaches these (the live one always).
+    func logFiles() -> [URL] {
+        let fm = FileManager.default
+        let older = AppLog.dir.appendingPathComponent("beatkey.1.log")
+        return [AppLog.url, older, AppLog.analyzerURL].filter { fm.fileExists(atPath: $0.path) }
     }
 }

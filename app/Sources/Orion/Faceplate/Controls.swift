@@ -275,12 +275,12 @@ private struct CapBody<Label: View>: View {
             // one ring and one drop shadow (depth budget: chassis, wells, caps)
             .ring(radius: r, spread: SSLCapStyle.ring, Theme.hex(0x0a0a0b))
             .background(Group {
-                if lit {
-                    shape.fill(palette.amberGlow).padding(-2).blur(radius: 5.5)
-                } else {
+                if !lit {
                     shape.fill(Color.black.opacity(0.6)).padding(-SSLCapStyle.ring).offset(y: 2).blur(radius: 1.5)
                 }
             })
+            // a lit cap glows (the house glow module draws it; High Contrast: none)
+            .paletteGlow(HouseGlow.Full.litButton, palette, active: lit)
             .onHover { hover = $0 }
             .animation(.easeOut(duration: 0.12), value: hover)
     }
