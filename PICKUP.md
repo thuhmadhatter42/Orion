@@ -1,6 +1,20 @@
 # PICKUP — beat_dl
 
-## CURRENT STATE — 2026-11-18 18:59
+## CURRENT STATE — 2026-11-19 01:10
+
+J said "go" 00:50. The finish plan (docs/plans/finish-2026-11-19-TOC.md) is running with agents. Decisions are at the top of docs/plans/finish-2026-11-19.md; never re-ask them.
+- §2+§3 review fixes + KeyTeach rename + Board Talk count: agent running in worktree (branch worktree-agent-af793dcd5774a1422). On return: review, merge, run both suites on main.
+- §4 house kit: MERGED f0708a6 (config, glow 0.12/0.06, Quick Keys ⇧⌃K replaces Settings shortcut recorder, Report → contact@fourletterrecords.com, Uninstall + app/uninstall/). Kept Beat Key's AppLog + Accent (bridged). Swift 642 run / 10 skipped / 0 fail on the branch.
+- GAP before 0.1.78: house release gate (release.sh --check-only) fails on missing Manual.pdf|html, WhatsNew.html|txt, Licenses.html|txt. Build them (agent, T3) before §6.
+- §5 Pro Tools tooltips: J said "MP" (Mac Pro / Sofia; Pro Tools 2026.10, iLok plugged in). Capture agent running (read-only, close step in brief); apply the median to docs/BOARD-TALK.md + HelpTip.maxBody after merges.
+- §6 build 0.1.78 → §7 Sofia check (Sofia unlocked 00:54; click list = house-kit agent's 10 items: Quick Keys sheet, rebind sticks, chip listening blocks hot key, Settings "Open Quick Keys…", ⇧⌘A, REPORT chip fits, Send Report opens Mail with log, Uninstall sheet Cancel only, quieter glows, High Contrast no halo) → §8 J runs `! bash ~/dev/beat_dl/tools/publish.sh`.
+- Build folder cleanup DONE: 3.9 GB of old installers to the Trash (0.1.72-0.1.76; published ones sha-matched GitHub). Space returns when the Trash is emptied. Proposal (not applied): publish.sh trashes older published installers after "PUBLISHED".
+
+RENAME (J 00:50, decide D-77e65149cd): beat_dl → beatkey everywhere. J's answers: GitHub repo → **Orion** (name free; "if you know, you know"); keep Orion as internal code name; bundle id com.jshriver.orion never changes; Mac = MP for tooltips. Still open on the card: (1) archive or trash the retired vault folder 10-dev/beatkey (old friends page); (2) leave the beat_dl copy J's friend was using on Studio E as is (Studio E off limits). Do the rename AFTER agents merge and BEFORE the 0.1.78 build: repo rename on GitHub, Info.plist SUFeedURL + build.sh + publish.sh REPO, ~/dev/beat_dl → ~/dev/beatkey on MBP and Sofia, vault 10-dev/beat_dl → 10-dev/beatkey, Claude memory dir, FLR flr-store.py mention (FLR's file: handoff). Test the old beat_dl release URL redirects (curl -sIL) before building.
+
+PLUG-IN (J 00:50-01:02, decide D-2c2b436719, all answered): free + open source; no emails to JUCE/Avid (research instead, J: "look on the internet before we email somebody"); start C++ core + VST3 + AU now; still build it despite Antares Auto-Key. J's vision: "use it just the exact same as Auto-Key, where they just put it on a track and then it spits out the BPM and key. Except you can say send BPM and send Auto-Tune." Window = for Mixed In Key users, plug-in = for Auto-Key users. Learn from J's two shipped plug-ins: ~/dev/zeropoint (JUCE, PACE/iLok AAX) and (private path) (C core + AU/VST3/AAX shims). Desk recon: docs/research/plugin-recon-2026-11-19.md. Plan agent (fable, worktree) writing docs/plans/plugin-2026-11-19.md + -TOC.md; then build.
+
+## (previous) 2026-11-18 18:59 → 23:36
 
 **2026-11-18 23:36 — ON "go" (J, 23:21): FINISH THE JOB. Run docs/plans/finish-2026-11-19-TOC.md to the end; do not stop until no open items. Decisions are written at the top of docs/plans/finish-2026-11-19.md: never re-ask them (J was asked a 3rd time 23:23). Only open question: which Mac for Pro Tools tooltips (J to say "Studio D" or "MacBook" with go). Sofia must be unlocked. Publishing = J runs `! bash ~/dev/beat_dl/tools/publish.sh` after the check. Decide D-cdd8de029d is closed.**
 
