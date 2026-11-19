@@ -144,10 +144,18 @@ final class SpellingMenuBarTests: XCTestCase {
             .hasPrefix("menu-bar item: manual off; showing Ebm 142.0"))
     }
 
-    func testManualInkIsNeutral() {
-        let w = MenuBarImage.manualInk(dark: true, palette: Palette())
-        XCTAssertGreaterThan(w.redComponent, 0.94)
-        XCTAssertEqual(w.redComponent, w.blueComponent, accuracy: 0.02)
+    /// The menu-bar item draws its own colours (isTemplate = false), so the manual key's white is the
+    /// palette's: tinted toward the display colour (J 2026-11-19), pure white in High Contrast; on a
+    /// light bar it stays near-black ink.
+    func testManualInkFollowsTheDisplayColour() {
+        let amber = MenuBarImage.manualInk(dark: true, palette: Palette())
+        XCTAssertGreaterThan(amber.redComponent, 0.94)
+        XCTAssertLessThan(amber.blueComponent, amber.redComponent)               // leans amber
+        XCTAssertEqual(amber.redComponent - amber.blueComponent, 0.035, accuracy: 0.01)
+        let blue = MenuBarImage.manualInk(dark: true, palette: Palette(accent: Accent(80, 170, 255)))
+        XCTAssertLessThan(blue.redComponent, blue.blueComponent)                 // leans blue
+        let hc = MenuBarImage.manualInk(dark: true, palette: Palette(highContrast: true))
+        XCTAssertEqual([hc.redComponent, hc.greenComponent, hc.blueComponent], [1, 1, 1])
         let b = MenuBarImage.manualInk(dark: false, palette: Palette())
         XCTAssertLessThan(b.redComponent, 0.2)
     }
