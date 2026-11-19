@@ -2,6 +2,8 @@
 
 ## CURRENT STATE — 2026-11-18 18:59
 
+**ON "go" (J, 2026-11-18 23:21): FINISH THE JOB — run docs/plans/finish-2026-11-19-TOC.md to the end, no stopping until no open items. J's answers: Loops Live decide D-cdd8de029d ("Beat Key finish").**
+
 **2026-11-18 21:22 — CURRENT. Beat Key 0.1.77 PUBLIC (published 18:51 by J via tools/publish.sh: PUBLISHED 0.1.77; `gh release list` = 0.1.77 Latest; live appcast shortVersionString 0.1.77; Sofia beat-key-latest.json 0.1.77; download page 303).**
 - 0.1.77 = everything J asked for 2026-11-18 02:51 (spec docs/ideas/2026-11-18-J-dictation.md): pinned key keeps its slot (one accessor Result.keyInUse); MANUAL-menu pick pins only, teaches nothing (KeyTeach.teach, 74601be); Listen "Add App" submenu (Live/AudioApps.swift; playing-first on macOS 14.2+, hidden below 13); Broadcast to Artemis (Broadcast.swift, docs/protocol-beatkey-broadcast.md); one drop/open path + queue (Intake.receive → Engine.submit; window, menu bar icon, pocket, Mini, Dock, Open With); rename prompt + Pro Tools Audio Files guard (Rename.swift, app_run.py `rename`, Settings "File names"); Board Talk Help rewrite (docs/BOARD-TALK.md, 69 tips, cap 60 chars); one-window fix (`.handlesExternalEvents(matching: [])`, OrionApp.swift); publish tests fixed. Suites: Swift 588 / 0 failures, Python 175 OK.
 - Checks: 0.1.75 on Studio D 05:23 6/6 PASS (app/build/check-0.1.75-studiod/); 0.1.77 on Sofia 13:39 4/4 PASS (app/build/check-0.1.77/). Installed: Sofia 0.1.77, Studio D 0.1.75 (Sparkle will offer 0.1.77). 0.1.76 was built but never published (window bug). 0.1.74 and 0.1.75 were never published either (0.1.73 was the previous public release). The friends page is retired.
