@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Beat Key Manual</title>
+<style>
+  :root { color-scheme: dark; --bg: #121212; --fg: #e8e6e1; --dim: #9a968d; --accent: #ffb020; --rule: #2c2a26; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.4 -apple-system, "SF Pro Text", Helvetica, Arial, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 22px 24px 18px; }
+  h1 { margin: 0 0 2px; font-size: 20px; letter-spacing: .08em; color: var(--accent); }
+  .sub { margin: 0 0 12px; color: var(--dim); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; }
+  h2 { margin: 12px 0 3px; padding-bottom: 2px; border-bottom: 1px solid var(--rule); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+  p { margin: 0; }
+  dl { margin: 0; }
+  dt { float: left; clear: left; width: 102px; font-weight: 600; font-size: 12px; }
+  dd { margin: 0 0 1px 108px; }
+  kbd { font: 12px ui-monospace, "SF Mono", Menlo, monospace; color: var(--accent); white-space: nowrap; }
+  .foot { margin-top: 12px; padding-top: 6px; border-top: 1px solid var(--rule); color: var(--dim); font-size: 12px; }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+  @media print {
+    :root { --bg: #fff; --fg: #111; --dim: #555; --accent: #8a5a00; --rule: #bbb; }
+    @page { margin: 12mm; }
+    main { padding: 0; }
+  }
+</style>
+</head>
+<body>
+<main>
+<h1>BEAT KEY</h1>
+<p class="sub">Get the BPM and key of a beat. Send them where you work.</p>
+
+<div class="grid">
+<div>
+<h2>Get a reading</h2>
+<dl>
+  <dt>Link</dt><dd>Paste a YouTube link, press Return. MP3 lands in Downloads, BPM and key in the name.</dd>
+  <dt>Open audio</dt><dd>Choose or drop audio files, any number. Arrows page them.</dd>
+  <dt>Listen</dt><dd>Live BPM and key from what is playing. Nothing recorded or saved.</dd>
+  <dt>Hold</dt><dd>Freeze the reading. Click again to follow.</dd>
+  <dt>New song</dt><dd>Clear the listen reading, start fresh.</dd>
+</dl>
+
+<h2>Listen</h2>
+<dl>
+  <dt>Source</dt><dd>System audio or one input. Settings &rsaquo; Listen to.</dd>
+  <dt>Channel</dt><dd>One interface channel, or all.</dd>
+  <dt>Silence</dt><dd>The reading starts over after 2, 3, 5 or 10 s of silence. NO SOUND &middot; CHECK SOURCE shows until sound returns.</dd>
+</dl>
+
+<h2>Read the display</h2>
+<dl>
+  <dt>BPM</dt><dd>Click: normal, double or half time.</dd>
+  <dt>Key</dt><dd>Key heard. Ring and % show how sure.</dd>
+  <dt>Top keys</dt><dd>Three likeliest. Click to pin, click again to unpin.</dd>
+  <dt>Lights</dt><dd>Green octagon = locked. Amber triangle = unsure. Red circle = working.</dd>
+  <dt>Advanced</dt><dd>Adds key wheel, chords, MATCH TO. Click to hear a chord, drag it to a DAW as MIDI.</dd>
+</dl>
+</div>
+
+<div>
+<h2>Send</h2>
+<dl>
+  <dt>Send to DAW</dt><dd>BPM and key to the DAW you used last. Send to All DAWs: every open one.</dd>
+  <dt>Auto-Tune</dt><dd>Sets key and reference pitch in Auto-Tune and Tune Real-Time. In Tune Real-Time, load the Beat Key preset.</dd>
+  <dt>Export MIDI</dt><dd>A .mid with tempo and key, for any DAW.</dd>
+  <dt>Rename</dt><dd>Add key + BPM to file names: ask, always or never. Pro Tools files always ask.</dd>
+</dl>
+
+<h2>Shortcuts</h2>
+<dl>
+  <dt>Quick Keys</dt><dd><kbd>&#8963;&#8679;K</kbd> lists every shortcut. Click one, type new keys.</dd>
+  <dt>Listen</dt><dd><kbd>&#8963;&#8997;&#8984;K</kbd> start / stop, any app</dd>
+  <dt>Analyze a file</dt><dd><kbd>&#8963;&#8997;&#8984;F</kbd></dd>
+  <dt>New song / Hold</dt><dd><kbd>&#8963;&#8997;&#8984;R</kbd> &middot; <kbd>&#8963;&#8997;&#8984;H</kbd></dd>
+  <dt>Send to DAW</dt><dd><kbd>&#8963;&#8997;&#8984;S</kbd> &middot; all DAWs <kbd>&#8963;&#8997;&#8984;D</kbd></dd>
+  <dt>Auto-Tune</dt><dd><kbd>&#8963;&#8997;&#8984;A</kbd></dd>
+  <dt>Export MIDI</dt><dd><kbd>&#8963;&#8997;&#8984;E</kbd></dd>
+  <dt>Advanced</dt><dd><kbd>&#8997;&#8984;A</kbd> &middot; Help <kbd>&#8984;?</kbd></dd>
+</dl>
+
+<h2>Settings</h2>
+<dl>
+  <dt>Display</dt><dd>Advanced Mode, High Contrast.</dd>
+  <dt>Listen</dt><dd>Source, channel, start over after.</dd>
+  <dt>File names</dt><dd>Add key + BPM: ask, always, never.</dd>
+  <dt>General</dt><dd>Open at Login. Display colour: the COLOR chip.</dd>
+</dl>
+
+<h2>When it breaks</h2>
+<dl>
+  <dt>Run Doctor</dt><dd>Beat Key menu. Checks downloader, ffmpeg, analyzer.</dd>
+  <dt>Report</dt><dd>Help &rsaquo; Send Report. Mail opens with the log attached. No Mail: saved to the Desktop.</dd>
+  <dt>Uninstall</dt><dd>Beat Key menu &rsaquo; Uninstall Beat Key&hellip; Everything goes to the Trash. Tick Keep my settings to keep them.</dd>
+</dl>
+</div>
+</div>
+
+<p class="foot">Help Mode (Help menu, or the HELP chip): hover anything for a tip. Log: ~/Library/Logs/Beat Key/beatkey.log. Permissions are asked only when a feature needs one: Microphone, Screen &amp; System Audio Recording, Accessibility (typing into Pro Tools, Logic, Studio One).</p>
+</main>
+</body>
+</html>
