@@ -14,7 +14,6 @@ import numpy as np
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import app_run  # noqa: E402
 import bpm  # noqa: E402
 import midi_analyze  # noqa: E402
 
@@ -141,17 +140,6 @@ class TestMidi(unittest.TestCase):
         self.assertTrue(out[1].startswith("C ("))
         self.assertIn("bpm_exact: 140.19", out)
 
-    def test_app_run_analyze_midi(self):
-        with tempfile.TemporaryDirectory() as d:
-            p = Path(d) / "t.mid"
-            p.write_bytes(smf([(0, tempo_event(428000))] + notes(C_MAJOR_TUNE)))
-            extras = {}
-            b, keys = app_run.analyze_file(p, extras=extras)
-        self.assertEqual(b, "140.2")
-        self.assertEqual(keys[0][0], "C")
-        self.assertEqual(extras, {"bpm_exact": 140.19})
-
-
 # ---------------------------------------------------------------- decimal BPM + tuning
 
 def click_track(bpm_value, seconds=40, sr=11025):
@@ -248,60 +236,6 @@ class TestTuning(unittest.TestCase):
             out = []
             self.assertTrue(np.array_equal(plain, bpm.hpcp_frames(a_key, out)))
             self.assertEqual(len(out), len(plain))
-
-
-# ---------------------------------------------------------------- the app_run contract
-
-class TestExtrasLines(unittest.TestCase):
-    def run_with_stdout(self, stdout):
-        class P:
-            returncode = 0
-
-        P.stdout = stdout
-        from unittest import mock
-        with mock.patch.object(app_run.subprocess, "run", return_value=P):
-            extras = {}
-            r = app_run.analyze_file("x.wav", extras=extras)
-        return r, extras
-
-    def test_extras_parsed(self):
-        out = "140.0\nCm (80.0%)\nEb (10.0%)\nGm (5.0%)\nbpm_exact: 140.82\ntuning_cents: -12.0\n"
-        (b, keys), extras = self.run_with_stdout(out)
-        self.assertEqual(b, "140.0")
-        self.assertEqual(len(keys), 3)
-        self.assertEqual(extras, {"bpm_exact": 140.82, "tuning_cents": -12.0})
-
-    def test_old_output_still_parses(self):
-        (b, keys), extras = self.run_with_stdout("140.0\nCm (80.0%)\nEb (10.0%)\nGm (5.0%)\n")
-        self.assertEqual((b, len(keys), extras), ("140.0", 3, {}))
-
-    def test_junk_extras_ignored(self):
-        _r, extras = self.run_with_stdout("1.0\nCm (80%)\nA (1%)\nB (1%)\nbpm_exact: abc\nwhat: 3\n")
-        self.assertEqual(extras, {})
-
-    def test_chroma_parsed(self):
-        ch = [1.0, 0.0, 0.5, 0.25, 0.0, 0.7, 0.0, 0.9, 0.0, 0.6, 0.0, 0.3]
-        out = "140.0\nC (80.0%)\nAm (10.0%)\nG (5.0%)\nchroma: [" + ", ".join(map(str, ch)) + "]\n"
-        _r, extras = self.run_with_stdout(out)
-        self.assertEqual(extras, {"chroma": ch})
-
-    def test_junk_chroma_ignored(self):
-        for bad in ("chroma: [1, 2]", "chroma: nope", "chroma: [\"a\"" + ", 0" * 11 + "]"):
-            _r, extras = self.run_with_stdout("1.0\nCm (80%)\nA (1%)\nB (1%)\n" + bad + "\n")
-            self.assertEqual(extras, {}, bad)
-
-    @unittest.skipUnless(HAVE_ESSENTIA, "needs the bundled Python (essentia)")
-    def test_bpm_py_prints_chroma_and_tuning_app_run_reads_them(self):
-        with tempfile.TemporaryDirectory() as d:
-            p = Path(d) / "c.wav"
-            chord_wav(p, 20, seconds=14)
-            p_out = subprocess.run([sys.executable, str(ROOT / "bpm.py"), str(p)],
-                                   capture_output=True, text=True, timeout=120)
-        self.assertEqual(p_out.returncode, 0, p_out.stderr)
-        (_b, keys), extras = self.run_with_stdout(p_out.stdout)
-        self.assertEqual(len(keys), 3)
-        self.assertEqual(len(extras.get("chroma", [])), 12)
-        self.assertAlmostEqual(extras["tuning_cents"], 20, delta=3)
 
 
 class TestInputFormats(unittest.TestCase):

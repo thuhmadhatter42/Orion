@@ -20,7 +20,8 @@ struct LoginPrompt: Equatable {
     let reason: String      // "age" | "bot" | "members"
 }
 
-/// Launches a process and streams stdout lines. Injected so tests never spawn Python.
+/// Launches a process and streams stdout lines (the download helper, app_run.py). Injected so tests
+/// never spawn Python.
 protocol ProcessLauncher {
     /// onLine and onExit may be called from any queue; the Engine hops to main.
     func launch(executable: URL, arguments: [String], environment: [String: String],
@@ -36,7 +37,7 @@ final class RealLauncher: ProcessLauncher {
         p.environment = environment.merging(["HOME": NSHomeDirectory()]) { a, _ in a }
         let out = Pipe()
         p.standardOutput = out
-        // app_run.py's stderr (its failure lines, bpm.py's warnings and tracebacks) → analyzer.log
+        // app_run.py's stderr (its failure lines and tracebacks) → analyzer.log
         let what = arguments.dropFirst().first ?? "?"
         p.standardError = AppLog.analyzerHandle(header: "app_run.py \(what)") ?? FileHandle.nullDevice
         DispatchQueue.global(qos: .userInitiated).async {
@@ -79,6 +80,8 @@ final class Engine: ObservableObject {
     @Published var note: String?
     private let runtime: Runtime
     private let launcher: ProcessLauncher
+    /// Reading files with the core, the tag, the step after a download (FileJobs.swift).
+    private let jobs: FileJobs
     private var results: [Result] = []
     private var expected = 0
     /// Files that arrived while a job was running (Intake.receive, every surface): FIFO, no
@@ -125,6 +128,7 @@ final class Engine: ObservableObject {
     }
 
     init(runtime: Runtime = .appDefault(), launcher: ProcessLauncher = RealLauncher(),
+         jobs: FileJobs? = nil,
          doctor: ((Runtime) -> Doctor)? = nil,
          doctorQueue: DispatchQueue = .global(qos: .userInitiated),
          downloadsProbe: (() -> Bool)? = nil,
@@ -139,6 +143,7 @@ final class Engine: ObservableObject {
         self.dropLogin = dropLogin
         self.runtime = runtime
         self.launcher = launcher
+        self.jobs = jobs ?? CoreFileJobs(runtime: runtime)
         self.makeDoctor = doctor ?? { Doctor(runtime: $0) }
         self.doctorQueue = doctorQueue
     }
@@ -294,8 +299,17 @@ final class Engine: ObservableObject {
         }
     }
 
-    /// Starts the helper once yt-dlp is seeded and no maintenance (launch upgrade, doctor) is running.
+    /// An analysis runs in-process on the core at once (it needs no yt-dlp). A download starts the
+    /// helper once yt-dlp is seeded and no maintenance (launch upgrade, doctor) is running.
     private func launchHelper(_ args: [String], gen: Int) {
+        if args.first == "analyze" {
+            jobs.analyze(activeFiles, onEvent: { e in
+                DispatchQueue.main.async { if gen == self.generation { self.handle(e) } }
+            }, onExit: { code in
+                DispatchQueue.main.async { if gen == self.generation { self.finish(code) } }
+            })
+            return
+        }
         let rt = runtime
         let stage = state.stageName
         var launched = false   // main thread only
@@ -335,15 +349,15 @@ final class Engine: ObservableObject {
     static func failureNote(_ s: ViewState) -> String? {
         switch s {
         case .failed(let m):
-            return "engine FAILED: \(m) (yt-dlp runs: last-run.log; helper stderr: analyzer.log)"
+            return "engine FAILED: \(m) (yt-dlp runs: last-run.log; download helper stderr: analyzer.log; analysis: core lines in beatkey.log)"
         case .analyzed(let rs):
             let bad = rs.filter { $0.bpm == nil }
             guard !bad.isEmpty else { return nil }
             return "engine: no reading for \(bad.count) of \(rs.count) file(s): "
                 + bad.prefix(5).map { "\($0.name)\($0.readError.map { " [\($0)]" } ?? "")" }.joined(separator: ", ")
-                + " (why: analyzer.log)"
+                + " (why: the core's lines above)"
         case .done(let r) where r.bpm == nil:
-            return "engine: downloaded \(r.name) but no reading (why: analyzer.log)"
+            return "engine: downloaded \(r.name) but no reading (why: the core's lines above)"
         default:
             return nil
         }
@@ -367,6 +381,17 @@ final class Engine: ObservableObject {
             } else { state = .failed(m) }
         case .renamed, .renameSkipped, .renameFailed:
             handleRename(e)
+        case .downloaded(let path):
+            // the helper's part is over: read, tag and log the file here. A new generation, so the
+            // helper's own exit (which follows) is not taken as the end of the job.
+            generation += 1
+            let gen = generation
+            sawTerminal = false
+            jobs.finishDownload(URL(fileURLWithPath: path), url: pendingURL, onEvent: { e in
+                DispatchQueue.main.async { if gen == self.generation { self.handle(e) } }
+            }, onExit: { code in
+                DispatchQueue.main.async { if gen == self.generation { self.finish(code) } }
+            })
         case .needsLogin(let reason, _, let stale):
             sawTerminal = true
             if stale || usedLogin {
@@ -384,9 +409,9 @@ final class Engine: ObservableObject {
         }
     }
 
-    // MARK: rename (the helper's `rename`, one file at a time, quietly: the LCD is never busy)
+    // MARK: rename (FileTag, one file at a time, quietly: the LCD is never busy)
 
-    /// Tags each file's name through the helper's one renamer, then refreshes every place the old
+    /// Tags each file's name through the one renamer (FileTag), then refreshes every place the old
     /// path lived (the reading on show, Recent Readings, the pinned key).
     func rename(_ items: [RenameItem]) {
         runOnMain {
@@ -400,23 +425,14 @@ final class Engine: ObservableObject {
         renaming = true
         let item = renameQueue.removeFirst()
         var sawEvent = false   // main thread only
-        launcher.launch(
-            executable: runtime.python,
-            arguments: [runtime.script.path, "rename", item.file.path, item.bpm] + item.keys,
-            environment: runtime.environment(),
-            onLine: { line in
-                guard let e = Event.parse(line: line) else {
-                    if !line.trimmingCharacters(in: .whitespaces).isEmpty {
-                        AppLog.log("rename: helper printed a non-event line: \(line.prefix(200))")
-                    }
-                    return
-                }
+        jobs.rename(item,
+            onEvent: { e in
                 DispatchQueue.main.async { sawEvent = true; self.handleRename(e) }
             },
             onExit: { code in
                 DispatchQueue.main.async {
                     if !sawEvent {
-                        AppLog.log("rename: FAILED, the helper stopped without an answer (exit \(code); analyzer.log)")
+                        AppLog.log("rename: FAILED, the rename stopped without an answer (exit \(code))")
                         self.note = Faceplate.renameFailedNote("The helper stopped unexpectedly.")
                     }
                     self.renaming = false
@@ -430,7 +446,7 @@ final class Engine: ObservableObject {
         case .renamed(let from, let to):
             applyRenamed(from: URL(fileURLWithPath: from), to: URL(fileURLWithPath: to))
         case .renameSkipped:
-            AppLog.log("rename: skipped (already tagged) by the helper")
+            AppLog.log("rename: skipped (already tagged)")
         case .renameFailed(_, let errno, let message):
             AppLog.log("rename: FAILED errno \(errno): \(message)")
             note = Faceplate.renameFailedNote(message)

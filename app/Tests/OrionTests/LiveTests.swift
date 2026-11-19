@@ -1,5 +1,6 @@
 import AVFoundation
 import ScreenCaptureKit
+import CBeatKey
 import XCTest
 @testable import Orion
 
@@ -382,25 +383,16 @@ final class LiveTests: XCTestCase {
         c.stop()
     }
 
-    // MARK: 3.3 end to end: Swift's pipe into the real `bpm.py --stream`
+    // MARK: 3.3 end to end: Swift's pipe into the real core (CoreLive, the plug-ins' live path)
 
     func testRealAnalyzerReadsWhatThePipeWrites() throws {
-        let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .deletingLastPathComponent().deletingLastPathComponent()
-        let script = repo.appendingPathComponent("bpm.py")
-        let python = [repo.appendingPathComponent("bin/python/bin/python3"),
-                      URL(fileURLWithPath: "/Users/jshriver/dev/beat_dl/bin/python/bin/python3")]
-            .first { FileManager.default.isExecutableFile(atPath: $0.path) }
-        guard let py = python else { throw XCTSkip("no bundled Python (bin/python)") }
+        let weights = CoreTestSupport.weights
+        guard FileManager.default.fileExists(atPath: weights.path) else { throw XCTSkip("no core weights at \(weights.path)") }
         var lines: [String] = []
         let lock = NSLock()
-        let exited = expectation(description: "analyzer exits at EOF")
-        guard let p = LiveProcess(executable: py, arguments: [script.path, "--stream", "--hop", "2"],
-                                  environment: ["PATH": "/usr/bin:/bin"],
-                                  onLine: { l in lock.lock(); lines.append(l); lock.unlock() },
-                                  onExit: { _ in exited.fulfill() })
-        else { return XCTFail("did not start") }
-        // 14 s of a 120 BPM click over an A-minor drone, in 0.1 s pieces like a capture's
+        let p = CoreLive(gap: 3, onLine: { l in lock.lock(); lines.append(l); lock.unlock() }, weights: weights)
+        // 14 s of a 120 BPM click over an A-minor drone, in 0.1 s pieces like a capture's, a little
+        // faster than real time (the ring holds about 11 s; a capture is never faster than real time)
         let sr = 44100.0
         for piece in 0..<140 {
             let samples = (0..<4410).map { i -> Float in
@@ -410,16 +402,103 @@ final class LiveTests: XCTestCase {
                 return Float(click + drone)
             }
             p.write(samples)
+            Thread.sleep(forTimeInterval: 0.03)
         }
-        p.close(grace: 100)   // let it finish the backlog (the app's Stop gives it 2 s)
-        wait(for: [exited], timeout: 120)
+        func events() -> [LiveEvent] {
+            lock.lock(); let got = lines; lock.unlock()
+            return got.compactMap { LiveEvent.parse(line: $0, song: LiveSession.songFile(1)) }
+        }
+        func readings() -> [Result] {
+            events().compactMap { e -> Result? in if case .reading(let r) = e { return r } else { return nil } }
+        }
+        let deadline = Date().addingTimeInterval(60)
+        while Date() < deadline, readings().last?.bpm == nil { Thread.sleep(forTimeInterval: 0.1) }
+        p.close()
+        XCTAssertEqual(events().first, .ready)
         lock.lock(); let got = lines; lock.unlock()
-        let events = got.compactMap { LiveEvent.parse(line: $0, song: LiveSession.songFile(1)) }
-        XCTAssertEqual(events.first, .ready)
-        let readings = events.compactMap { e -> Result? in if case .reading(let r) = e { return r } else { return nil } }
-        XCTAssertFalse(readings.isEmpty, got.joined(separator: "\n"))
-        let last = try XCTUnwrap(readings.last)
+        let last = try XCTUnwrap(readings().last, got.joined(separator: "\n"))
         XCTAssertEqual(last.bpm.flatMap(Double.init).map { Int($0.rounded()) }, 120)
         XCTAssertTrue(last.keys.map(\.0).contains("Am"))
     }
+
+    func testNoWeightsIsTheIncompleteSentenceNeverSilence() {
+        var lines: [String] = []
+        let lock = NSLock()
+        let p = CoreLive(gap: 3, onLine: { l in lock.lock(); lines.append(l); lock.unlock() },
+                         weights: URL(fileURLWithPath: "/nonexistent/\(Core.weightsName)"))
+        let deadline = Date().addingTimeInterval(5)
+        while Date() < deadline {
+            lock.lock(); let n = lines.count; lock.unlock()
+            if n > 0 { break }
+            Thread.sleep(forTimeInterval: 0.02)
+        }
+        p.close()
+        lock.lock(); let got = lines; lock.unlock()
+        // weights already loaded in this process by another test = ready; otherwise the one sentence
+        let first = got.first.flatMap { LiveEvent.parse(line: $0, song: LiveSession.songFile(1)) }
+        XCTAssertTrue(first == .ready || first == .error(Core.incomplete), "\(got)")
+    }
+
+    // MARK: snapshot -> stream lines (SnapshotLines)
+
+    func snap(seq: UInt64, song: UInt64 = 0, why: Int32 = 0, readings: UInt64 = 0, readingSong: UInt64 = 0,
+              silent: Int32 = 0, error: Int32 = 0) -> bk_snapshot {
+        var s = bk_snapshot()
+        s.seq = seq; s.song = song; s.song_why = why; s.readings = readings; s.reading_song = readingSong
+        s.has_reading = readings > 0 ? 1 : 0; s.silent = silent; s.error = error
+        s.silence_db = -61.3; s.sound_after = 4.5; s.level_db = -14.24
+        s.reading.has_bpm = 1; s.reading.bpm = 128; s.reading.secs = 6
+        withUnsafeMutableBytes(of: &s.reading.keys.0.name) { $0.copyBytes(from: Array("Ebm".utf8) + [0]) }
+        s.reading.keys.0.percent = 82
+        return s
+    }
+
+    func kinds(_ lines: [String]) -> [String] {
+        lines.map { l in
+            let o = (try? JSONSerialization.jsonObject(with: Data(l.utf8))) as? [String: Any] ?? [:]
+            return [(o["event"] as? String) ?? "?", (o["reason"] as? String) ?? ""]
+                .filter { !$0.isEmpty }.joined(separator: ":")
+        }
+    }
+
+    func testSnapshotLinesFollowTheStreamOrder() {
+        var l = SnapshotLines()
+        XCTAssertEqual(kinds(l.next(snap(seq: 1, readings: 1))), ["reading"])
+        XCTAssertEqual(l.next(snap(seq: 1, readings: 1)), [], "same seq: nothing new")
+        // silence: its notice, the song's last reading, then the reset (bpm.py's order)
+        XCTAssertEqual(kinds(l.next(snap(seq: 2, song: 1, why: Int32(BK_SONG_SILENCE), readings: 2, readingSong: 0, silent: 1))),
+                       ["silence", "reading", "reset"])
+        XCTAssertEqual(kinds(l.next(snap(seq: 3, song: 1, why: Int32(BK_SONG_SILENCE), readings: 2, silent: 0))), ["sound"])
+        XCTAssertEqual(kinds(l.next(snap(seq: 4, song: 2, why: Int32(BK_SONG_AUDIO), readings: 3, readingSong: 2))),
+                       ["boundary:audio", "reading"], "a reading of the new song comes after its boundary")
+        XCTAssertEqual(kinds(l.next(snap(seq: 5, song: 3, why: Int32(BK_SONG_ANNOUNCED), readings: 3, readingSong: 2))),
+                       ["boundary:title"])
+        XCTAssertEqual(kinds(l.next(snap(seq: 6, song: 3, why: Int32(BK_SONG_ANNOUNCED), readings: 3, readingSong: 2, error: 1))),
+                       ["error"])
+    }
+
+    func testSnapshotLinesParseAsTheStreamDid() {
+        var l = SnapshotLines()
+        let lines = l.next(snap(seq: 1, readings: 1)) + l.next(snap(seq: 2, readings: 1, silent: 1))
+            + l.next(snap(seq: 3, readings: 1, silent: 0))
+        let song = LiveSession.songFile(4)
+        let events = lines.compactMap { LiveEvent.parse(line: $0, song: song) }
+        XCTAssertEqual(events.count, 3, "\(lines)")
+        guard case .reading(let r) = events[0] else { return XCTFail("\(events)") }
+        XCTAssertEqual(r.bpm, "128.0")
+        XCTAssertEqual(r.keys.first?.0, "Ebm")
+        XCTAssertEqual(r.keys.first?.1, 82)
+        XCTAssertNil(r.bpmExact)
+        XCTAssertNil(r.tuningCents)
+        XCTAssertEqual(r.file, song)
+        XCTAssertEqual(events[1], .silence(db: -61.3))
+        XCTAssertEqual(events[2], .sound(db: -14.2, after: 4.5))
+    }
+}
+
+/// Where the tests find the core's weights (the repo's models/), passed in explicitly.
+enum CoreTestSupport {
+    static let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent().deletingLastPathComponent()
+    static let weights = repo.appendingPathComponent("models/\(Core.weightsName)")
 }

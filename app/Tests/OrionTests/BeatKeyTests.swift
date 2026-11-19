@@ -91,7 +91,7 @@ final class BeatKeyTests: XCTestCase {
 
     final class Counter { var n = 0 }
     func doctor(_ r: FakeRunner, reseeds: Counter = Counter(), writable: Bool = true) -> Doctor {
-        Doctor(runtime: rt, runner: r, reseed: { reseeds.n += 1 }, downloadsWritable: { writable })
+        Doctor(runtime: rt, runner: r, reseed: { reseeds.n += 1 }, downloadsWritable: { writable }, coreCheck: { nil })
     }
 
     func testDoctorAllGood() {
@@ -102,9 +102,9 @@ final class BeatKeyTests: XCTestCase {
         XCTAssertEqual(stages, Doctor.stages)
         XCTAssertEqual(rep, DoctorReport(outcome: .ok, title: "DOCTOR OK", line: "YT-DLP 2026.10.26 · ALL CHECKS PASSED"))
         XCTAssertEqual(r.calls, ["yt-dlp --version", "yt-dlp -U", "yt-dlp --version",
-                                 "ffmpeg -version", "ffprobe -version", "deno --version", "python3 /R/runtime/scripts/bpm.py"])
+                                 "ffmpeg -version", "ffprobe -version", "deno --version", "python3 /R/runtime/scripts/app_run.py"])
         XCTAssertEqual(r.invocations.last!.exe, "/R/runtime/arm64/python/bin/python3")
-        XCTAssertEqual(r.invocations.last!.args, ["/R/runtime/scripts/bpm.py", "--check"])
+        XCTAssertEqual(r.invocations.last!.args, ["/R/runtime/scripts/app_run.py", "--check"])
     }
 
     func testDoctorJsRuntimeWontRun() {
@@ -123,7 +123,7 @@ final class BeatKeyTests: XCTestCase {
         let old = Runtime(root: URL(fileURLWithPath: "/R/runtime"), arch: "arm64",
                           support: URL(fileURLWithPath: "/nonexistent-orion-test/Orion"), osMajor: 11)
         var stages: [String] = []
-        let rep = Doctor(runtime: old, runner: r, reseed: {}, downloadsWritable: { true }).run { stages.append($0) }
+        let rep = Doctor(runtime: old, runner: r, reseed: {}, downloadsWritable: { true }, coreCheck: { nil }).run { stages.append($0) }
         XCTAssertEqual(stages, Doctor.stages)   // the light still steps through
         XCTAssertFalse(r.calls.contains("deno --version"))
         XCTAssertEqual(rep.outcome, .ok)
@@ -160,11 +160,12 @@ final class BeatKeyTests: XCTestCase {
     func testDoctorFfmpegPythonAndDownloadsFailures() {
         let ff = FakeRunner(); ff.answers["yt-dlp --version"] = [(0, "1")]; ff.answers["ffprobe -version"] = [(1, "")]
         XCTAssertEqual(doctor(ff).run { _ in }.line, "FFPROBE WON'T RUN · REINSTALL BEAT KEY")
-        let py = FakeRunner(); py.answers["yt-dlp --version"] = [(0, "1")]; py.answers["python3 /R/runtime/scripts/bpm.py"] = [(1, "Traceback")]
+        let py = FakeRunner(); py.answers["yt-dlp --version"] = [(0, "1")]; py.answers["python3 /R/runtime/scripts/app_run.py"] = [(1, "Traceback")]
         XCTAssertEqual(doctor(py).run { _ in }.line, "PYTHON WON'T START · REINSTALL BEAT KEY")
+        // the analyzer: the core's own rule (its weights load), asked in-process
         let inc = FakeRunner(); inc.answers["yt-dlp --version"] = [(0, "1")]
-        inc.answers["python3 /R/runtime/scripts/bpm.py"] = [(2, "The analyzer is incomplete. Run Doctor.\n")]
-        let rep2 = doctor(inc).run { _ in }
+        let rep2 = Doctor(runtime: rt, runner: inc, reseed: {}, downloadsWritable: { true },
+                          coreCheck: { "The analyzer is incomplete: the tempo weights are not loaded." }).run { _ in }
         XCTAssertEqual(rep2.outcome, .failed)
         XCTAssertEqual(rep2.line, "ANALYZER IS INCOMPLETE · REINSTALL BEAT KEY")
         let dl = FakeRunner(); dl.answers["yt-dlp --version"] = [(0, "1")]
@@ -187,8 +188,8 @@ final class BeatKeyTests: XCTestCase {
         let f = FakeLauncher()
         let gate = DispatchSemaphore(value: 0)
         let r = FakeRunner(); r.answers["yt-dlp --version"] = [(0, "2026.10.26")]
-        let e = Engine(runtime: rt, launcher: f, doctor: { rt in
-            Doctor(runtime: rt, runner: r, reseed: {}, downloadsWritable: { gate.wait(); return true })
+        let e = Engine(runtime: rt, launcher: f, jobs: f, doctor: { rt in
+            Doctor(runtime: rt, runner: r, reseed: {}, downloadsWritable: { gate.wait(); return true }, coreCheck: { nil })
         })
         e.runDoctor()
         XCTAssertTrue(e.state.isBusy)
@@ -209,8 +210,8 @@ final class BeatKeyTests: XCTestCase {
         var checks = 0
         var stateAtCheck: ViewState?
         var e: Engine!
-        e = Engine(runtime: rt, launcher: FakeLauncher(), doctor: { rt in
-            Doctor(runtime: rt, runner: r, reseed: {}, downloadsWritable: { true })
+        e = Engine(runtime: rt, launcher: FakeLauncher(), jobs: FakeLauncher(), doctor: { rt in
+            Doctor(runtime: rt, runner: r, reseed: {}, downloadsWritable: { true }, coreCheck: { nil })
         }, afterDoctor: { checks += 1; stateAtCheck = e.state })
         e.runDoctor()
         XCTAssertEqual(checks, 0)                  // not before the tools are checked
@@ -256,8 +257,8 @@ final class BeatKeyTests: XCTestCase {
         started.wait()
         let r = FakeRunner(); r.answers["yt-dlp --version"] = [(0, "2026.10.26")]
         let f = FakeLauncher()
-        let e = Engine(runtime: rt, launcher: f, doctor: { rt in
-            Doctor(runtime: rt, runner: r, reseed: {}, downloadsWritable: { true })
+        let e = Engine(runtime: rt, launcher: f, jobs: f, doctor: { rt in
+            Doctor(runtime: rt, runner: r, reseed: {}, downloadsWritable: { true }, coreCheck: { nil })
         })
         XCTAssertFalse(e.state.isBusy)             // the launch upgrade does not mark the Engine busy
         e.runDoctor()

@@ -21,7 +21,7 @@ const size_t kFrameLimit = (size_t)(kKeyWindowSecs * kKeyRate / kKeyFrame);   //
 
 }  // namespace
 
-LiveAnalyzer::LiveAnalyzer(double rate) : rate_(rate) { clear(); }
+LiveAnalyzer::LiveAnalyzer(double rate, double gap) : rate_(rate), gap_(gap > 0 ? gap : kGapSecs) { clear(); }
 
 void LiveAnalyzer::clear() {
     audio_.clear();
@@ -57,13 +57,13 @@ void LiveAnalyzer::push(const float *chunk, size_t n, std::vector<LiveEvent> &ev
     if (db < kSilenceDb) {
         const double was = silent_run_;
         silent_run_ += secs;
-        if (was < kGapSecs && kGapSecs <= silent_run_) {
+        if (was < gap_ && gap_ <= silent_run_) {
             LiveEvent e;
             e.type = LiveEvent::Silence;
             e.db = np::py_round(db, 1);
             events.push_back(e);
         }
-        if (silent_run_ >= kGapSecs && heard_ > 0) {
+        if (silent_run_ >= gap_ && heard_ > 0) {
             if (since_reading_ > 0) {             // a song's final word is never lost
                 LiveEvent r;
                 if (reading(&r)) events.push_back(r);
@@ -75,7 +75,7 @@ void LiveAnalyzer::push(const float *chunk, size_t n, std::vector<LiveEvent> &ev
         }
         return;
     }
-    if (silent_run_ >= kGapSecs) {
+    if (silent_run_ >= gap_) {
         LiveEvent e;
         e.type = LiveEvent::Sound;
         e.db = np::py_round(db, 1);

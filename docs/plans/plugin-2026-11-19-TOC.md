@@ -21,7 +21,7 @@ Steps 3-6 (core) and 7-8 (shims) can run side by side. Steps 9-11 and 16 touch `
 - [ ] 16. Installer and plug-in updates → §16
 - [ ] 17. Manual, What's New, licences → §17
 - [ ] 18. Ship gate, J publishes → §18
-- [ ] 19. App onto the core → §19
+- [x] 19. App onto the core → §19
 - [ ] 20. Close and save → §20
 
 ## Hand-offs (one per finished step: what it produced, what is next)
@@ -148,3 +148,22 @@ Next: §11.
 - An app older than this commit has no listener: the plug-in waits 8 s and says "Beat Key app didn't answer. Update it?" The installed Beat Key (0.1.77 on Sofia) is such an app; the end-to-end check needs an app built from this branch.
 - NOT done (§12): host checks Live 10 (Remote Script), Logic (Accessibility), Artemis (`reading` post). They need a Beat Key app built from this branch on the test Mac, the DAW open in J's session, and audio playing through the plug-in.
 For §12 (J's check, main session): build + install the app from this branch and both plug-ins (named install step) on the MacBook Pro and Sofia, then per format and host: the face opens (Live 10, Logic, Pro Tools later), key + BPM appear on a playing track, MORE works, SEND AUTO-TUNE changes Auto-Tune Pro's key (Auto Key Detection on), SEND BPM changes the session tempo and the face says "Session tempo …" (Live 10 with Beat Key's Remote Script chosen, Logic with Accessibility for Beat Key, Artemis' Beat Key button), the AU checked by auval from a GUI context on Sofia.
+
+**19 → 20 (2026-11-19).** The Mac app reads audio with the core; the Python analyzer is out of the app.
+- Link: `app/Sources/CBeatKey` (system-library module: `shim.h` → `core/include/beatkey.h`, links `beatkey`, `c++`, Accelerate). `Package.swift` adds `-L core/build.noindex`; the library is `core/build.sh`'s universal `libbeatkey.a`, the one the plug-ins link and the parity gate checked. `app/build.sh` (two small edits): runs `core/build.sh` before `swift build`, copies `models/deeptemp-k16-3.bkw` into `Contents/Resources`. Run `sh core/build.sh` before `swift build` / `swift test` by hand.
+- One owner each:
+  - `Core.swift`: bring-up (`Core.load`: weights once, the old sentence "The analyzer is incomplete. Run Doctor." on refusal; `bk_log_set_sink` routes every core line into beatkey.log as `[Core] core <area>: ...`), and `FileReader` = bpm.py `decode_ffmpeg` + MonoMixer + `bk_analyze_buffer` (audio) / `bk_analyze_midi` (.mid), building the row app_run.py built (bpm text as bpm.py printed it, half-to-even whole percentages, extras only with a BPM, `permission` read error, tag flag).
+  - `FileJobs.swift`: `FileTag` (the tag's format, recogniser and renamer; moved from app_run.py), `LinksLog`, `CoreFileJobs` (analyze job, the step after a download, the user's rename). Engine runs them exactly like helper runs (same Events, same exit), so the queue / pager / rename code is unchanged.
+  - `Live/CoreLive.swift`: Listen = `bk_analyzer_*` at 44.1 kHz (the plug-ins' live path), pushes from one serial queue, snapshot polled every 50 ms; `SnapshotLines` turns snapshots into the stream lines bpm.py printed, in its order. LiveController / SongTracker unchanged.
+  - Download: `app_run.py download` now stops at `{"stage":"downloaded"}`; the Engine chains `finishDownload` (read, tag with overwrite, links log, `done`).
+  - Doctor step 4: `Core.load` (analyzer) + `app_run.py --check` (Python for the download helper).
+- Core additions (all on the plug-in-safe side: new functions / trailing snapshot fields, no struct the plug-in initialises changed): `bk_analyze_midi` (`core/src/midi.cpp`, midi_analyze.py line for line; key scoring through key.cpp's own `key_scores` / winner / top3), `bk_log_set_sink`, `bk_analyzer_set_silence_gap` (Listen's 2/3/5/10 s setting; default 3 s = the goldens), `bk_snapshot.song_why` / `silence_db` / `sound_after`.
+- Parity (no tolerance touched):
+  - Core, re-run on this tree: `core/parity.sh` PARITY OK on arm64 and x86_64 (key 99/99, tempo 99/99, stream 20/20, refined BPM exact 98/98).
+  - The app's own path (`CoreParityTests`, bench audio + smoke clips rebuilt by ffmpeg): 100/100 clips; the mono samples the app hands the core are bit-identical to the goldens' PCM on 100/100, with the bundled arm64 ffmpeg (9.0.2) AND the bundled x86_64 ffmpeg (7.1.1, Sofia's); readings identical 100/100 (3 with no reading, as the reference), decimal BPM exact on all 96 that have one.
+  - MIDI: `tools/parity/midi_parity.py` 2012/2012 files identical to midi_analyze.py on both slices (18 refused by both).
+- Gates: `core/test.sh` PASS both slices (267 checks each); `swift test` 700 tests, 0 failures, 3 skipped (2 snapshot renders, the parity gate without its env); Python `tests/` green with the bundled Python.
+- Out of the app bundle: bpm.py, tempocnn_np.py, midi_analyze.py, models/*.npz from `runtime/scripts`; essentia + numpy (+ pyyaml, six) from each arch's Python, about 69 MB per arch. app_run.py lost analyze / rename / links log (its `import bpm` too); `tests/test_rename.py` moved to `CoreFileTests`. Still in the bundle: Python 3.11 stdlib (downloader.py + app_run.py), ffmpeg/ffprobe, yt-dlp, deno. The plan's "312 MB vendor/ leaves" is only half true until the downloader is Swift (a follow-up, not this step). vendor/*/wheels stay in git: deps.sh and the goldens still use the Python reference.
+- For others: `THIRD-PARTY-LICENSES.md` / Licenses.txt and the Manual still describe essentia + numpy in the app (step 17's files); app/pages untouched.
+- Not run: the built app (no `app/build.sh`, no install), Listen on a real input, Sofia. Those belong in §12 / §18 with a build from this branch.
+Next: §20.

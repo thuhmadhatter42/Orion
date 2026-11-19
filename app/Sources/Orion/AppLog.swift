@@ -5,7 +5,8 @@ import os
 /// Beat Key's own log: ~/Library/Logs/Beat Key/beatkey.log (also in Console under subsystem
 /// com.jshriver.orion). Every launch, quit, crash, engine and Listen state change lands here, and
 /// a run that ended without a clean quit (crash, force quit, kill) is named at the next launch.
-/// Rotates at 5 MB to beatkey.1.log. The analyzer's own stderr goes to analyzer.log beside it.
+/// Rotates at 5 MB to beatkey.1.log. The download helper's stderr goes to analyzer.log beside it; the
+/// analysis core's lines come here (Core.routeLog).
 ///
 /// House kit (logging module): this stays Beat Key's own log, not the kit's AppLog.swift, because it
 /// carries what the kit's lacks (the crash catcher, the unclean-quit marker, analyzer.log, the test

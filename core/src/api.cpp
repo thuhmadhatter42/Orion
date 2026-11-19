@@ -223,6 +223,15 @@ void bk_analyzer_snapshot(const bk_analyzer *a, bk_snapshot *out) {
     out->dropped_frames = a->ring.dropped();
 }
 
+int bk_analyzer_set_silence_gap(bk_analyzer *a, double seconds) {
+    if (!a || !std::isfinite(seconds) || seconds < 1.0 || seconds > 30.0) {
+        bk::logf(a ? a->id.c_str() : "live", "REFUSED: silence gap %.2f s is outside 1..30", seconds);
+        return BK_ERR_BAD_ARG;
+    }
+    a->gap_request.store(seconds);
+    return BK_OK;
+}
+
 void bk_analyzer_new_song(bk_analyzer *a) {
     if (a) a->new_song_request.store(true);
 }

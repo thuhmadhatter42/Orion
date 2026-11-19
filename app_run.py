@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-Orchestrator for the Orion app. The Swift app spawns this and renders its JSON-lines events.
+The Beat Key app's download helper. The Swift app spawns this and renders its JSON-lines events.
 
   app_run.py download <url> [--cookies-file <path>]
-  app_run.py analyze <file>...
-  app_run.py rename <file> <bpm> <key>...    (the app calls it after the user says yes; see rename_file)
+  app_run.py --check          (exit 0 = this helper and what it imports start; Run Doctor asks)
 
 One JSON object per stdout line, flushed. Exit code 0 unless the process itself crashed.
-Output matches run.sh: rename "<stem> (<bpm> BPM <k1> <k2> <k3>).<ext>", log entry
-"Input URL: <url>\\nDownloaded: <name>\\n\\n" in "<Downloads>/(YY-M-D) Youtube DL LINKS.txt".
-The Downloads folder comes from ORION_DOWNLOADS (default ~/Downloads).
+A good download ends with {"stage": "downloaded", "file": <path>}: the app then reads the file
+with its analysis core, tags its name and adds the entry to the links log (FileJobs.swift). Reading
+files, the tag and the rename moved into the app with the core (plug-in plan step 19); this helper
+only downloads. The Downloads folder comes from ORION_DOWNLOADS (default ~/Downloads).
 ORION_YTDLP = the yt-dlp to use (the app's copy in Application Support); unset or missing = the
 one on PATH. This script never upgrades it: the app does that at launch (weekly) and in Run Doctor.
 ORION_YTDLP_TIMEOUT = seconds allowed per yt-dlp call (default 600).
@@ -19,12 +19,10 @@ overrides the folder), overwritten each run.
 """
 
 import contextlib
-import errno
 import io
 import json
 import os
 import re
-import subprocess
 import sys
 from datetime import date
 from pathlib import Path
@@ -32,17 +30,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-import bpm as analyzer  # noqa: E402  (only its two constants: the refusal sentence and exit code)
 import downloader  # noqa: E402
-
-_KEY_RE = re.compile(r"^(.*?)\s*\((\d+(?:\.\d+)?)%\)\s*$")
-
-# The tag Beat Key writes into a file name: "<stem> (<bpm> BPM <k1> <k2> <k3>).<ext>". The ONE place
-# its shape lives: renamed_name writes it, is_tagged reads it. KEY_COUNT = how many keys it holds
-# (J may say "top key only": change this one number).
-KEY_COUNT = 3
-# Recognised with up to 3 keys whatever KEY_COUNT is now: files tagged before a change stay recognised.
-_TAG_RE = re.compile(r"(?:^|\s)\(\d+(?:\.\d+)? BPM(?: [A-G][#b]?m?){1,3}\)$")
 
 
 def log(msg):
@@ -56,119 +44,6 @@ def log(msg):
 def emit(**event):
     sys.stdout.write(json.dumps(event, ensure_ascii=False) + "\n")
     sys.stdout.flush()
-
-
-def downloads_dir():
-    return Path(os.environ.get("ORION_DOWNLOADS") or (Path.home() / "Downloads"))
-
-
-def log_path():
-    d = date.today()
-    return downloads_dir() / f"({d.year % 100}-{d.month}-{d.day}) Youtube DL LINKS.txt"
-
-
-def renamed_name(stem, ext, bpm, keys):
-    ks = " ".join(k for k, _ in keys[:KEY_COUNT])
-    return f"{stem} ({bpm} BPM {ks})" + (f".{ext}" if ext else "")
-
-
-def is_tagged(name):
-    """True when `name` (a file name or path) already carries Beat Key's own tag, written by
-    renamed_name. A producer's own "140 BPM" or "Cm" in a name is not the tag."""
-    return bool(_TAG_RE.search(Path(name).stem))
-
-
-def rename_file(path, bpm, keys, overwrite=False):
-    """The one renamer: `path` becomes renamed_name(...) in its own folder; returns the new Path.
-    Never replaces another file unless overwrite (a re-download does; the app's rename never)."""
-    path = Path(path)
-    try:
-        usable = float(bpm) > 0
-    except (TypeError, ValueError):
-        usable = False
-    if not usable:
-        raise ValueError(f"not renaming {path.name}: {bpm!r} is not a BPM")
-    if not keys:
-        raise ValueError(f"not renaming {path.name}: no key to put in the name")
-    new = path.with_name(renamed_name(path.stem, path.suffix.lstrip("."), bpm, keys))
-    if overwrite:
-        os.replace(path, new)
-    else:
-        if not path.exists():
-            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(path))
-        if new.exists():
-            raise FileExistsError(errno.EEXIST, "a file with that name already exists", str(new))
-        os.rename(path, new)
-    return new
-
-
-def log_line(url, name):
-    return f"Input URL: {url}\nDownloaded: {name}\n\n"
-
-
-class AnalyzerIncomplete(Exception):
-    """bpm.py refused: essentia or its tempo model is missing (a damaged install). str() is the
-    sentence the app shows. Not a failed file: callers report it as the one error, never as 'no BPM'."""
-
-
-def analyze_file(path, timeout=120, extras=None):
-    """Run bpm.py on a file. Returns (bpm_string | None, [(key, percent_int), ...]).
-    Raises AnalyzerIncomplete when bpm.py refuses because the install is damaged.
-    extras (a dict) receives bpm.py's "name: value" lines after the keys: bpm_exact, tuning_cents,
-    chroma (a list of 12 floats)."""
-    name = Path(path).name
-    try:
-        p = subprocess.run([sys.executable, str(HERE / "bpm.py"), str(path)],
-                           capture_output=True, text=True, timeout=timeout)
-    except subprocess.TimeoutExpired:
-        log(f"bpm.py timed out after {timeout} s on {name}")
-        return None, []
-    except OSError as exc:
-        log(f"bpm.py could not start for {name}: {exc}")
-        return None, []
-    stderr = (getattr(p, "stderr", "") or "").strip()
-    if stderr:
-        # warnings (decimal BPM skipped) and tracebacks, kept
-        for line in stderr.splitlines()[-20:]:
-            log(f"bpm.py [{name}]: {line}")
-    if p.returncode == analyzer.EXIT_INCOMPLETE and analyzer.ANALYZER_INCOMPLETE in stderr:
-        log(f"bpm.py refused {name}: {analyzer.ANALYZER_INCOMPLETE}")
-        raise AnalyzerIncomplete(analyzer.ANALYZER_INCOMPLETE)
-    if p.returncode != 0:
-        log(f"bpm.py exit {p.returncode} on {name}")
-        return None, []
-    lines = p.stdout.splitlines()
-    if not lines:
-        log(f"bpm.py printed nothing for {name}")
-        return None, []
-    bpm = lines[0].strip()
-    try:
-        float(bpm)
-    except ValueError:
-        log(f"bpm.py first line is not a BPM for {name}: {bpm[:80]!r}")
-        return None, []
-    keys = []
-    for line in lines[1:4]:
-        m = _KEY_RE.match(line.strip())
-        if m:
-            keys.append((m.group(1), int(round(float(m.group(2))))))
-    if extras is not None:
-        for line in lines[1:]:
-            name, sep, value = line.partition(": ")
-            if sep and name in ("bpm_exact", "tuning_cents"):
-                try:
-                    extras[name] = float(value)
-                except ValueError:
-                    pass
-            elif sep and name == "chroma":              # 12 floats C..B, 0..1 (notes heard)
-                try:
-                    v = [float(x) for x in json.loads(value)]
-                    if len(v) != 12:
-                        raise ValueError("not 12 values")
-                    extras[name] = v
-                except (ValueError, TypeError):
-                    log(f"Warning: chroma line ignored: {value[:80]}")
-    return bpm, keys
 
 
 YTDLP_TIMEOUT = 600
@@ -266,15 +141,6 @@ def cmd_download(url, cookies_file=None):
         write_last_run_log(url, cookies_file, outcome[0])
 
 
-def append_links_log(url, name):
-    try:
-        downloads_dir().mkdir(parents=True, exist_ok=True)
-        with open(log_path(), "a", encoding="utf-8") as f:
-            f.write(log_line(url, name))
-    except Exception as exc:
-        log(f"could not append to the links log {log_path()}: {exc}")  # must not lose the final event
-
-
 def _cmd_download(url, cookies_file, outcome):
     emit(stage="downloading")
     raw = []
@@ -297,100 +163,7 @@ def _cmd_download(url, cookies_file, outcome):
         emit(stage="error", message=msg)
         return
     outcome[0] = "downloaded"
-
-    emit(stage="analyzing")
-    extras = {}
-    try:
-        bpm, keys = analyze_file(path, extras=extras)
-    except AnalyzerIncomplete as exc:
-        # a damaged install: the download stands under its own name, and the user is told what to do
-        outcome[0] = f"error: {exc}"
-        append_links_log(url, path.name)
-        emit(stage="error", message=str(exc))
-        return
-    except Exception as exc:
-        log(f"analysis crashed on {path.name}: {exc!r}")
-        bpm, keys = None, []
-    if not bpm:
-        log(f"no BPM for the download {path.name}; kept under its own name")
-    final = path
-    if bpm:
-        try:
-            emit(stage="renaming")
-            final = rename_file(path, bpm, keys, overwrite=True)
-        except Exception as exc:
-            # Rename failed: keep the original file and its analysis.
-            log(f"rename failed for {path.name}: {exc}")
-            final = path
-            if not final.exists():
-                emit(stage="error", message="Could not rename the downloaded file.")
-                return
-    else:
-        keys = []
-
-    append_links_log(url, final.name)
-    outcome[0] = "done"
-    emit(stage="done", file=str(final), name=final.name, bpm=bpm or None,
-         keys=[[k, p] for k, p in keys], **(extras if bpm else {}))
-
-
-def read_error(path):
-    """'permission' when macOS refuses to let us read the file (EPERM/EACCES), else None."""
-    try:
-        with open(path, "rb") as f:
-            f.read(1)
-    except PermissionError:
-        return "permission"
-    except OSError:
-        return None
-    return None
-
-
-def cmd_analyze(files):
-    for raw in files:
-        path = Path(raw).expanduser()
-        emit(stage="analyzing")
-        extras = {}
-        try:
-            bpm, keys = analyze_file(path, extras=extras)
-        except AnalyzerIncomplete as exc:
-            emit(stage="error", message=str(exc))      # one error for the whole drop, not a row per file
-            return
-        except Exception as exc:
-            log(f"analysis crashed on {path.name}: {exc!r}")
-            bpm, keys = None, []
-        try:
-            full = str(path.resolve())
-        except Exception:
-            full = str(path)
-        extra = dict(extras) if bpm else {}
-        if not bpm and read_error(path):
-            extra["error"] = "permission"
-            log(f"macOS refused to let the helper read {path.name} (permission)")
-        emit(stage="analyzed", file=full, name=path.name, tagged=is_tagged(path.name),
-             bpm=bpm or None, keys=[[k, p] for k, p in keys], **extra)
-
-
-def cmd_rename(raw, bpm, key_names):
-    """The app's yes: add the tag to one file's name, in place. One event: `renamed` (file, to,
-    name), `rename_skipped` (already tagged by Beat Key) or `rename_failed` (errno, message): the
-    file is never left half-done, and a failure is reported, never swallowed."""
-    path = Path(raw).expanduser()
-    if is_tagged(path.name):
-        log(f"rename skipped: {path.name} already carries Beat Key's tag")
-        emit(stage="rename_skipped", file=str(path), reason="tagged")
-        return
-    try:
-        new = rename_file(path, bpm, [(k, 0) for k in key_names])
-    except OSError as exc:
-        log(f"rename failed for {path.name}: {exc!r}")
-        emit(stage="rename_failed", file=str(path), errno=exc.errno or 0, message=exc.strerror or str(exc))
-        return
-    except ValueError as exc:                   # no usable BPM or key: refused, the file stays as it is
-        log(f"rename refused: {exc}")
-        emit(stage="rename_failed", file=str(path), errno=0, message=str(exc))
-        return
-    emit(stage="renamed", file=str(path), to=str(new), name=new.name)
+    emit(stage="downloaded", file=str(path), name=path.name)
 
 
 def main(argv):
@@ -406,6 +179,8 @@ def main(argv):
 
 
 def _main(argv):
+    if len(argv) == 2 and argv[1] == "--check":
+        return 0                                    # imports done: python, downloader.py, this file
     if len(argv) >= 3 and argv[1] == "download":
         cookies_file = None
         if "--cookies-file" in argv[3:]:
@@ -416,13 +191,8 @@ def _main(argv):
                 needs_login("age", stale=True)
                 return 0
         cmd_download(argv[2].strip(), cookies_file)
-    elif len(argv) >= 3 and argv[1] == "analyze":
-        cmd_analyze(argv[2:])
-    elif len(argv) >= 5 and argv[1] == "rename":
-        cmd_rename(argv[2], argv[3], argv[4:])
     else:
-        emit(stage="error", message="usage: app_run.py download <url> [--cookies-file <path>] | analyze <file>... "
-                                    "| rename <file> <bpm> <key>...")
+        emit(stage="error", message="usage: app_run.py download <url> [--cookies-file <path>] | --check")
     return 0
 
 

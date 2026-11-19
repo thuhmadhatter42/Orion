@@ -499,6 +499,35 @@ void test_live() {
     bk_analyzer_destroy(a);
     CHECK(log_has_since(mark, "instance destroyed"), "no log line for the destroy");
 
+    {
+        // the app's Listen setting: another length of silence means a new song (bpm.py --gap)
+        a = bk_analyzer_create(&cfg, err, sizeof err);
+        CHECK(a != nullptr, "create: %s", err);
+        if (!a) return;
+        CHECK(bk_analyzer_set_silence_gap(a, 0.5) == BK_ERR_BAD_ARG, "a 0.5 s gap was taken");
+        CHECK(bk_analyzer_set_silence_gap(a, NAN) == BK_ERR_BAD_ARG, "a NaN gap was taken");
+        CHECK(bk_analyzer_set_silence_gap(a, 5.0) == BK_OK, "a 5 s gap was refused");
+        const std::vector<float> music = clip(rate, 2.0, 120);
+        const std::vector<float> quiet((size_t)rate * 4, 0.0f);
+        auto feed = [&](const std::vector<float> &v) {
+            for (size_t off = 0; off + chunk <= v.size(); off += chunk) {
+                bk_analyzer_push(a, v.data() + off, chunk);
+                for (int waited = 0; a->ring.available() != 0 && waited < 20000; waited += 2) sleep_ms(2);
+            }
+            sleep_ms(100);
+            bk_analyzer_snapshot(a, &s);
+        };
+        mark = log_mark();
+        feed(music);
+        feed(quiet);
+        CHECK(s.silent == 0, "4 s of silence tripped a 5 s gap");
+        feed(std::vector<float>((size_t)rate * 2, 0.0f));
+        CHECK(s.silent == 1, "6 s of silence did not trip a 5 s gap");
+        CHECK(log_has_since(mark, "a new song after 5 s of silence from now on"), "no log line for the gap");
+        CHECK(log_has_since(mark, "silence: 5 s under -50 dB"), "the silence line does not name the 5 s gap");
+        bk_analyzer_destroy(a);
+    }
+
     // any order, many times: nothing hangs, nothing crashes, the worker starts again each time
     for (int round = 0; round < 6; round++) {
         bk_analyzer *b[4];

@@ -159,7 +159,7 @@ final class LoginTests: XCTestCase {
 
     func testFirstBlockAsksForLogin() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f)
+        let e = Engine(runtime: rt(), launcher: f, jobs: f)
         e.download("https://a")
         wait(f, 1)
         XCTAssertFalse(f.launches[0].contains("--cookies-file"))
@@ -175,7 +175,7 @@ final class LoginTests: XCTestCase {
 
     func testAfterLoginRunsWithCookiesFile() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f, savedLogin: { URL(fileURLWithPath: "/S/Orion/youtube-cookies.txt") })
+        let e = Engine(runtime: rt(), launcher: f, jobs: f, savedLogin: { URL(fileURLWithPath: "/S/Orion/youtube-cookies.txt") })
         e.download("https://a", useLogin: true)
         wait(f, 1)
         XCTAssertEqual(Array(f.launches[0].suffix(4)), ["download", "https://a", "--cookies-file", "/S/Orion/youtube-cookies.txt"])
@@ -183,7 +183,7 @@ final class LoginTests: XCTestCase {
 
     func testUseLoginWithoutSavedLoginAsksAgain() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f)
+        let e = Engine(runtime: rt(), launcher: f, jobs: f)
         e.download("https://a", useLogin: true)
         RunLoop.main.run(until: Date().addingTimeInterval(0.2))
         XCTAssertEqual(f.launches.count, 0)
@@ -192,7 +192,7 @@ final class LoginTests: XCTestCase {
 
     func testLaterBlockUsesSavedLoginWithoutWindow() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f, savedLogin: { URL(fileURLWithPath: "/c.txt") })
+        let e = Engine(runtime: rt(), launcher: f, jobs: f, savedLogin: { URL(fileURLWithPath: "/c.txt") })
         e.download("https://b")
         wait(f, 1)
         XCTAssertFalse(f.launches[0].contains("--cookies-file"))   // a normal video never carries the login
@@ -212,7 +212,7 @@ final class LoginTests: XCTestCase {
         let f = FakeLauncher()
         var dropped = 0
         var saved: URL? = URL(fileURLWithPath: "/c.txt")
-        let e = Engine(runtime: rt(), launcher: f, savedLogin: { saved }, dropLogin: { dropped += 1; saved = nil })
+        let e = Engine(runtime: rt(), launcher: f, jobs: f, savedLogin: { saved }, dropLogin: { dropped += 1; saved = nil })
         e.download("https://a", useLogin: true)
         wait(f, 1)
         f.onLine?(#"{"stage":"needs_login","reason":"age","message":"m","stale":true}"#); f.onExit?(0)
@@ -226,7 +226,7 @@ final class LoginTests: XCTestCase {
         // the saved login ran and YouTube still asked: drop it, show the prompt, never re-run
         let f = FakeLauncher()
         var dropped = 0
-        let e = Engine(runtime: rt(), launcher: f, savedLogin: { URL(fileURLWithPath: "/c.txt") }, dropLogin: { dropped += 1 })
+        let e = Engine(runtime: rt(), launcher: f, jobs: f, savedLogin: { URL(fileURLWithPath: "/c.txt") }, dropLogin: { dropped += 1 })
         e.download("https://a")
         wait(f, 1)
         f.onLine?(#"{"stage":"needs_login","reason":"age","message":"m"}"#)
@@ -241,7 +241,7 @@ final class LoginTests: XCTestCase {
     func testSwitchOffNeverUsesLogin() {
         YouTubeLogin.inApp = false
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f, savedLogin: { URL(fileURLWithPath: "/c.txt") })
+        let e = Engine(runtime: rt(), launcher: f, jobs: f, savedLogin: { URL(fileURLWithPath: "/c.txt") })
         e.download("https://a")
         wait(f, 1)
         f.onLine?(#"{"stage":"needs_login","reason":"age","message":"m"}"#); f.onExit?(0)
@@ -251,13 +251,13 @@ final class LoginTests: XCTestCase {
     }
 
     func testClearLoginLeavesOtherStates() {
-        let e = Engine(runtime: rt(), launcher: FakeLauncher())
+        let e = Engine(runtime: rt(), launcher: FakeLauncher(), jobs: FakeLauncher())
         e.state = .failed("x"); e.clearLogin()
         XCTAssertEqual(e.state, .failed("x"))
     }
 
     func testSuccessfulDownloadClearsLogin() {
-        let e = Engine(runtime: rt(), launcher: FakeLauncher())
+        let e = Engine(runtime: rt(), launcher: FakeLauncher(), jobs: FakeLauncher())
         e.state = .needsLogin(LoginPrompt(url: "u", reason: "age"))
         e.handle(.done(Result(file: URL(fileURLWithPath: "/a.mp3"), name: "a.mp3", bpm: "90.0", keys: [])))
         if case .done = e.state {} else { XCTFail("\(e.state)") }

@@ -158,6 +158,10 @@ size_t bk_analyzer_push_channels(bk_analyzer *a, const float *const *channels, i
 
 /* The newest snapshot.  Lock-free for the reader; safe from the UI thread at any rate. */
 void bk_analyzer_snapshot(const bk_analyzer *a, bk_snapshot *out);
+/* Seconds under -50 dB that mean a new song (bpm.py --gap): 1..30.  Default 3, what the goldens
+ * were made with; the app's Listen setting changes it, the plug-ins leave it.  Any non-audio thread;
+ * it takes effect from the next half-second the worker reads.  BK_ERR_BAD_ARG outside 1..30. */
+int bk_analyzer_set_silence_gap(bk_analyzer *a, double seconds);
 /* "New song, start over" (the user, or a host that knows): everything heard is dropped. */
 void bk_analyzer_new_song(bk_analyzer *a);
 
