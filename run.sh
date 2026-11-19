@@ -2,6 +2,10 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_FILE="$HOME/Downloads/($(date +%-y-%-m-%-d)) Youtube DL LINKS.txt"
+# The analyzer's stderr (refusals, warnings) goes to the file the app uses for it
+# (ORION_LOG_DIR overrides the folder, as in app_run.py).
+ANALYZER_LOG="${ORION_LOG_DIR:-$HOME/Library/Logs/Beat Key}/analyzer.log"
+mkdir -p "$(dirname "$ANALYZER_LOG")"
 
 source "$SCRIPT_DIR/deps.sh"
 ensure_deps || exit 1
@@ -15,8 +19,16 @@ log_download() {
 # Detect BPM + key into $bpm $key1 $key2 $key3 (empty bpm = analysis failed)
 analyze() {
     echo "Analyzing..."
-    local analysis
-    analysis=$("$PY" "$SCRIPT_DIR/bpm.py" "$1" 2>/dev/null) || analysis=""
+    local analysis errs rc=0
+    errs=$(mktemp)
+    analysis=$("$PY" "$SCRIPT_DIR/bpm.py" "$1" 2>"$errs") || rc=$?
+    if [ -s "$errs" ]; then
+        { printf "%s run.sh: bpm.py exit %s on %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$rc" "$(basename "$1")"
+          cat "$errs"; } >> "$ANALYZER_LOG"
+        echo "The analyzer reported a problem; details in $ANALYZER_LOG"
+    fi
+    rm -f "$errs"
+    [ "$rc" -eq 0 ] || analysis=""
     bpm=$(echo "$analysis" | sed -n '1p')
     key1=$(echo "$analysis" | sed -n '2p')
     key2=$(echo "$analysis" | sed -n '3p')
