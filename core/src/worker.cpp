@@ -21,7 +21,18 @@ std::string make_id() {
     return b;
 }
 
-size_t ring_frames(double rate) { return (size_t)(rate * 4.0); }       // 4 s of audio between worker visits
+// The ring is the ONE place audio waits for the worker.  10 s (rounded up to a power of two: 11-12 s
+// at the usual rates, 2 MB at 44.1 / 48 kHz) rides out a worker that is starved for a few seconds
+// on a busy Mac; a 4 s ring lost audio to a 6 s stall in the soak (2026-11-19).
+size_t ring_frames(double rate) { return (size_t)(rate * 10.0); }
+
+// The worker's scheduling class.  UTILITY = the plan's "low priority": below the host's UI and far
+// below its real-time audio threads.  Measured cost of that choice (soak, 2026-11-19): on a Mac whose
+// load average was 20-30 (a Time Machine backup plus other builds) the worker was starved for up to
+// 8.6 s at a time; readings came late, none were lost (the ring holds ~11 s).
+#ifndef BK_WORKER_QOS
+#define BK_WORKER_QOS QOS_CLASS_UTILITY
+#endif
 
 const auto kPoll = std::chrono::milliseconds(20);
 const auto kLogEvery = std::chrono::seconds(60);
@@ -36,8 +47,7 @@ bk_analyzer::bk_analyzer(double rate_, const char *host_, const char *format_)
       id(make_id()),
       ring(ring_frames(rate_)),
       live(rate_) {
-    pending.reserve(chunk * 4);
-    scratch.resize(8192);
+    scratch.resize(chunk);
     snap.level_db = -120.0;
 }
 
@@ -114,17 +124,12 @@ void apply(bk_analyzer &a, const std::vector<LiveEvent> &events, bk_snapshot &s,
     }
 }
 
-// One visit to one analyzer.  Returns true when it had audio to work on.
+// One visit to one analyzer: ONE whole half-second from its ring goes through LiveAnalyzer and what
+// it caused is published.  One chunk a visit, so analyzers take turns and a backlog (the worker was
+// starved for a while) is worked off in order, each reading shown as it is made.
+// Returns true when it had a chunk to work on (the worker then comes straight back).
 bool serve(bk_analyzer &a) {
     const auto now = std::chrono::steady_clock::now();
-    // drain the ring first: it must never fill because a reading took long
-    bool got_any = false;
-    for (;;) {
-        const size_t got = a.ring.pop(a.scratch.data(), a.scratch.size());
-        if (!got) break;
-        got_any = true;
-        if (!a.failed) a.pending.insert(a.pending.end(), a.scratch.begin(), a.scratch.begin() + (long)got);
-    }
     const uint64_t dropped = a.ring.dropped();
     if (dropped > a.drops_logged && (a.drops_logged == 0 || now - a.last_drop_log >= kLogEvery)) {
         logf(a.id.c_str(), "ring full: %llu frames dropped so far (the worker fell behind, or an offline bounce ran faster than real time)",
@@ -132,10 +137,14 @@ bool serve(bk_analyzer &a) {
         a.drops_logged = dropped;
         a.last_drop_log = now;
     }
-    if (a.failed) return got_any;
+    if (a.failed) {                          // keep the ring from filling; nothing is analyzed any more
+        bool got = false;
+        while (a.ring.pop(a.scratch.data(), a.scratch.size())) got = true;
+        return got;
+    }
 
     bk_snapshot s = a.snap;                 // the worker is the only writer: a plain read is safe here
-    bool changed = false;
+    bool changed = false, worked = false;
     std::vector<LiveEvent> events;
     try {
         if (a.new_song_request.exchange(false)) {
@@ -144,9 +153,11 @@ bool serve(bk_analyzer &a) {
             events.clear();
             changed = true;
         }
-        size_t at = 0;
-        while (a.pending.size() - at >= a.chunk) {
-            float *x = &a.pending[at];
+        // a chunk leaves the ring only whole, so the ring alone holds whatever is waiting
+        float *x = a.scratch.data();
+        if (a.ring.available() >= a.chunk) {
+            a.ring.pop(x, a.chunk);
+            worked = true;
             if (first_bad_sample(x, a.chunk) != kAllAudio) {
                 // a refused chunk is heard as silence; counted and said in the log, never passed on
                 std::fill(x, x + a.chunk, 0.0f);
@@ -166,13 +177,9 @@ bool serve(bk_analyzer &a) {
             events.clear();
             s.level_db = a.live.last_level_db();
             changed = true;
-            at += a.chunk;
         }
-        if (at) a.pending.erase(a.pending.begin(), a.pending.begin() + (long)at);
     } catch (const std::exception &e) {
         a.failed = true;
-        a.pending.clear();
-        a.pending.shrink_to_fit();
         s.error = 1;
         changed = true;
         logf(a.id.c_str(), "REFUSED: analysis stopped for this instance after an error: %s", e.what());
@@ -181,12 +188,12 @@ bool serve(bk_analyzer &a) {
         s.seq = a.snap.seq + 1;
         publish(a, s);
     }
-    return got_any;
+    return worked;
 }
 
 void run(std::shared_ptr<std::atomic<bool>> stop) {
     pthread_setname_np("Beat Key analysis");
-    pthread_set_qos_class_self_np(QOS_CLASS_UTILITY, 0);        // below anything the host runs for audio or UI
+    pthread_set_qos_class_self_np(BK_WORKER_QOS, 0);
     for (;;) {
         std::vector<std::shared_ptr<bk_analyzer>> list;
         {

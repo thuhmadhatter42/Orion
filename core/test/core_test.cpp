@@ -442,11 +442,11 @@ void test_live() {
     // overflow: more than the ring holds in one go is dropped, counted, and said
     mark = log_mark();
     size_t took = 0;
-    for (int i = 0; i < 3; i++) took += bk_analyzer_push(a, x.data(), (size_t)rate * 4);
-    CHECK(took < (size_t)rate * 12, "12 s pushed at once all fitted in a 4 s ring");
+    for (int i = 0; i < 6; i++) took += bk_analyzer_push(a, x.data(), (size_t)rate * 4);
+    CHECK(took < (size_t)rate * 24, "24 s pushed at once all fitted in the ring (it holds about 11 s)");
     for (int waited = 0; waited < 20000 && !log_has_since(mark, "ring full"); waited += 20) sleep_ms(20);
     bk_analyzer_snapshot(a, &s);
-    CHECK(s.dropped_frames == (size_t)rate * 12 - took, "dropped %llu, expected %zu", (unsigned long long)s.dropped_frames, (size_t)rate * 12 - took);
+    CHECK(s.dropped_frames == (size_t)rate * 24 - took, "dropped %llu, expected %zu", (unsigned long long)s.dropped_frames, (size_t)rate * 24 - took);
     CHECK(log_has_since(mark, "ring full"), "no log line for the dropped audio");
 
     mark = log_mark();

@@ -4,9 +4,9 @@
  *                 worker runs, and the snapshot the face reads.
  *   Worker        ONE low-priority thread per process, serving every analyzer.  It starts with
  *                 the first analyzer and is joined when the last one is destroyed, so no thread of
- *                 ours outlives the plug-in's instances.  Every 20 ms it drains each ring, cuts the
- *                 audio into 0.5 s chunks (what `bpm.py --stream` feeds LiveAnalyzer) and publishes
- *                 what the chunk caused.
+ *                 ours outlives the plug-in's instances.  Every 20 ms it takes each whole 0.5 s
+ *                 chunk out of each ring (what `bpm.py --stream` feeds LiveAnalyzer) and publishes
+ *                 what the chunk caused.  Audio waits in the ring and nowhere else.
  *   snapshot      a seqlock: the worker is the only writer, readers never block and never lock.
  * Threads: push = audio thread (ring only).  snapshot = any thread.  create / destroy / new_song =
  * any non-audio thread.  Nothing here logs or allocates on the audio thread.
@@ -41,7 +41,7 @@ struct bk_analyzer {
 
     // worker-only state
     bk::LiveAnalyzer live;
-    std::vector<float> pending, scratch;
+    std::vector<float> scratch;            // one chunk, popped whole from the ring
     bool failed = false;                   // an analysis error stopped this analyzer (logged once)
     uint64_t bad_chunks = 0, drops_logged = 0, bad_logged = 0;
     std::chrono::steady_clock::time_point last_drop_log{}, last_bad_log{};

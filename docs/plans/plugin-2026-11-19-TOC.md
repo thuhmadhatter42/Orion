@@ -8,7 +8,7 @@ Steps 3-6 (core) and 7-8 (shims) can run side by side. Steps 9-11 and 16 touch `
 - [x] 3. Core skeleton and ring → §3
 - [x] 4. Core key parity → §4
 - [x] 5. Core BPM parity → §5
-- [ ] 6. Core streaming and worker → §6
+- [x] 6. Core streaming and worker → §6
 - [ ] 7. Plug-in instance layer → §7
 - [ ] 8. VST3 + AU, validator gate → §8
 - [ ] 9. SwiftUI face, house kit → §9
@@ -77,3 +77,22 @@ Next: §5 gates the tempo half and measures the time of a reading.
   Sofia ran a subset: 10 clips (3 bench, 7 smoke) copied to a scratch folder under `/tmp` there, the thin x86_64 test binary run over ssh, the answers copied back and judged here (`parity.py --no-run --ids ...`): key 10/10, tempo 10/10, stream 7/7, resampler bit-identical on 10/10. The scratch folder was removed and checked gone. Nothing was installed on Sofia.
 - Where the time goes in one live reading (MacBook Pro, profiled by stage): resampling the 12 s window 44.1 → 11.025 kHz with the reference's sinc converter is about 80 % (61 ms of ~75); the decimal BPM 9 ms; TempoCNN 1.5 ms; mel 1 ms; key under 1 ms. The resampler cannot be swapped without leaving parity.
 Next: §6 gates the streaming port and soaks the worker.
+
+**6 → 7 (2026-11-19).** The streaming port matches the Python events and the worker passed the soak.
+- **Streaming parity: 20/20 smoke clips = 100 % on the arm64 slice, 20/20 = 100 % on the x86_64 slice (Rosetta), 7/7 on Sofia's own Intel CPU (subset).** The same events (reading / reset / boundary / silence / sound) at the same half-second chunks, 398 readings; in every reading the same keys and whole-number percentages, the same BPM string, the same seconds; refined BPM and tuning identical on 398/398; the three audio boundaries carry identical scores. Chroma, which A5 does not name, is held to one unit of its 3-decimal rounding: identical on 397 of 398 readings, one unit off on the other.
+- `core/src/boundary.cpp` = `BoundaryDetector`, `core/src/live.cpp` = `LiveAnalyzer` (a rate other than 44.1 kHz is resampled chunk by chunk with a fresh converter, exactly as the reference does), `core/src/worker.cpp` = one thread per process for every analyzer + the snapshot (a seqlock: readers never block).
+- **Soak (`sh core/soak.sh <pcm folder> 10`): PASS** on the tree as committed (03:02-03:13, load average 5-6). Four analyzers (44.1 / 48 / 96 / 48 kHz) fed real music in real time for 10 minutes: 298 / 239 / 239 / 235 readings, each equal to what `LiveAnalyzer` gives for the same audio fed directly; 0 frames dropped; heap in use 117.02 MB → 117.11 MB (+0.09 MB; 81 MB of it is the test's own music, so about 9 MB per analyzer); CPU 4.7 % of one core per analyzer; never more than 0.97 s of audio waiting; slowest reading 0.35 s.
+- What the soak found first, and what changed (two failed runs before the pass):
+  1. With a 4 s ring the soak FAILED twice: the Mac was busy (first a second job on 4+ cores, then a Time Machine backup and other agents' builds, load average 20-33) and the low-priority worker was starved for up to 6 s, so audio was dropped. Fix at the source: the ring now holds about 11 s (10 s rounded up to a power of two: 2 MB at 44.1 / 48 kHz) and is the ONLY place audio waits. The worker's second buffer ("pending") is gone; it takes one whole half-second per analyzer per visit, so analyzers take turns and a backlog is worked off in order.
+  2. "No missed hop" is judged as: no audio dropped and every reading the audio calls for was made. How LATE the worker ever was is printed, not judged. An earlier passing 10-minute run (02:42, load average 33 at its start) was once 8.6 s behind and caught up; nothing was lost, same reading counts, heap +0.02 MB.
+  3. The worker runs at macOS "utility" priority, the plan's "low priority" (`BK_WORKER_QOS` in `worker.cpp`, one constant). Measured side by side on the same busy Mac for 4 minutes: utility = up to 2.4 s behind, slowest reading 1.2 s; default priority = up to 0.8 s behind, slowest reading 0.14 s; both lost nothing. Left at utility; raising it is J's or the main session's call.
+- `core/test.sh` covers the worker too (246 checks per slice): the snapshot equals what `LiveAnalyzer` says for the same chunks, the real `bk_analyzer_push_channels` path under the tripwire (0 allocations, 0 locks), new song, silence, garbage samples refused and counted (`refused_chunks`), overflow counted (`dropped_frames`) and logged, create / destroy in any order with the worker joined after the last instance.
+- For §7 (the instance layer), from the core's side:
+  1. The whole surface is `core/include/beatkey.h`. Link `core/build.noindex/libbeatkey.a` + `-framework Accelerate`. Call `bk_load_weights(<bundle>/Contents/Resources/deeptemp-k16-3.bkw)` once before the first `bk_analyzer_create`; without it create returns NULL with the sentence to show.
+  2. The audio function calls `bk_analyzer_push_channels` (or `bk_analyzer_push` with its own downmix) and nothing else of the core. The face polls `bk_analyzer_snapshot` (cheap, lock-free); `song` / `reading_song` tell a stale reading from a current one.
+  3. `bk_analyzer_destroy` of the LAST analyzer joins the worker thread (it can take as long as one reading, about 0.1-0.2 s). Each format's bundle links its own copy of the core, so a host with the AU and the VST3 both loaded has two workers; they share nothing but the log file.
+  4. AudioSuite (§14) calls `bk_analyze_buffer`; it refuses samples that are not numbers or sit over +60 dB.
+  5. Session state (pin, ×2 / ÷2, last reading) is the instance layer's: the core keeps none.
+- Nothing blocks §7. Two things for the main session to know (neither is a blocker):
+  1. At 48, 96 and 192 kHz a reading comes every 2.5 s, not 2 s: the reference's chunk arithmetic (each resampled half-second is 22049 samples, measured, so four of them fall just short of 2 s; at 44.1 and 88.2 kHz it is 22050 and the hop is 2 s). Parity keeps it.
+  2. At rates other than 44.1 kHz the live path resamples each half-second on its own, so the converter starts cold twice a second. That is the reference's behaviour (`LiveAnalyzer` with `rate` set) and the goldens hold the core to it. A continuous resampler would be cleaner for a plug-in at 48 kHz, but it is a change to the reference first (bpm.py + new goldens), not a core-only change.
