@@ -29,7 +29,7 @@ final class PaletteTests: XCTestCase {
         return [n.redComponent, n.greenComponent, n.blueComponent, n.alphaComponent].map { Int(($0 * 1000).rounded()) }
     }
 
-    /// Pinned from Theme.amber / amber(a) / amberGlow / A.a1-a5 / A.ink / amberNS / accent.litCap,
+    /// Pinned from Theme.amber / amber(a) / A.a1-a5 / A.ink / amberNS / accent.litCap,
     /// Lamp.unsure and ManualLook.white / glow with Theme.accent and Theme.highContrast set, before
     /// those statics went (2026-11-10). Every value must be the same through Palette.
     static let pinned: [(String, Bool, String, [Int])] = [
@@ -38,7 +38,6 @@ final class PaletteTests: XCTestCase {
             ("amber", false, "amber(0.35)", [1000, 690, 125, 350]),
             ("amber", false, "amber(0.4)", [1000, 690, 125, 400]),
             ("amber", false, "amber(0.7)", [1000, 690, 125, 700]),
-            ("amber", false, "amberGlow", [1000, 690, 125, 600]),
             ("amber", false, "a1", [1000, 690, 125, 1000]),
             ("amber", false, "a2", [1000, 690, 125, 750]),
             ("amber", false, "a3", [1000, 690, 125, 620]),
@@ -54,13 +53,11 @@ final class PaletteTests: XCTestCase {
             ("amber", false, "unsureText", [1000, 690, 125, 1000]),
             ("amber", false, "unsureNS", [1000, 690, 125, 1000]),
             ("amber", false, "manualWhite", [957, 957, 969, 1000]),
-            ("amber", false, "manualGlow", [1000, 1000, 1000, 550]),
             ("amber", true, "amber", [1000, 690, 125, 1000]),
             ("amber", true, "amber(0.12)", [1000, 690, 125, 300]),
             ("amber", true, "amber(0.35)", [1000, 690, 125, 350]),
             ("amber", true, "amber(0.4)", [1000, 690, 125, 1000]),
             ("amber", true, "amber(0.7)", [1000, 690, 125, 1000]),
-            ("amber", true, "amberGlow", [1000, 690, 125, 600]),
             ("amber", true, "a1", [1000, 690, 125, 1000]),
             ("amber", true, "a2", [1000, 690, 125, 1000]),
             ("amber", true, "a3", [1000, 690, 125, 1000]),
@@ -76,13 +73,11 @@ final class PaletteTests: XCTestCase {
             ("amber", true, "unsureText", [1000, 690, 125, 1000]),
             ("amber", true, "unsureNS", [1000, 690, 125, 1000]),
             ("amber", true, "manualWhite", [1000, 1000, 1000, 1000]),
-            ("amber", true, "manualGlow", [0, 0, 0, 0]),
             ("blue", false, "amber", [314, 667, 1000, 1000]),
             ("blue", false, "amber(0.12)", [314, 667, 1000, 120]),
             ("blue", false, "amber(0.35)", [314, 667, 1000, 350]),
             ("blue", false, "amber(0.4)", [314, 667, 1000, 400]),
             ("blue", false, "amber(0.7)", [314, 667, 1000, 700]),
-            ("blue", false, "amberGlow", [314, 667, 1000, 600]),
             ("blue", false, "a1", [314, 667, 1000, 1000]),
             ("blue", false, "a2", [314, 667, 1000, 750]),
             ("blue", false, "a3", [314, 667, 1000, 620]),
@@ -98,13 +93,11 @@ final class PaletteTests: XCTestCase {
             ("blue", false, "unsureText", [314, 667, 1000, 1000]),
             ("blue", false, "unsureNS", [314, 667, 1000, 1000]),
             ("blue", false, "manualWhite", [957, 957, 969, 1000]),
-            ("blue", false, "manualGlow", [1000, 1000, 1000, 550]),
             ("blue", true, "amber", [314, 667, 1000, 1000]),
             ("blue", true, "amber(0.12)", [314, 667, 1000, 300]),
             ("blue", true, "amber(0.35)", [314, 667, 1000, 350]),
             ("blue", true, "amber(0.4)", [314, 667, 1000, 1000]),
             ("blue", true, "amber(0.7)", [314, 667, 1000, 1000]),
-            ("blue", true, "amberGlow", [314, 667, 1000, 600]),
             ("blue", true, "a1", [314, 667, 1000, 1000]),
             ("blue", true, "a2", [314, 667, 1000, 1000]),
             ("blue", true, "a3", [314, 667, 1000, 1000]),
@@ -120,13 +113,11 @@ final class PaletteTests: XCTestCase {
             ("blue", true, "unsureText", [314, 667, 1000, 1000]),
             ("blue", true, "unsureNS", [314, 667, 1000, 1000]),
             ("blue", true, "manualWhite", [1000, 1000, 1000, 1000]),
-            ("blue", true, "manualGlow", [0, 0, 0, 0]),
             ("green", false, "amber", [235, 882, 471, 1000]),
             ("green", false, "amber(0.12)", [235, 882, 471, 120]),
             ("green", false, "amber(0.35)", [235, 882, 471, 350]),
             ("green", false, "amber(0.4)", [235, 882, 471, 400]),
             ("green", false, "amber(0.7)", [235, 882, 471, 700]),
-            ("green", false, "amberGlow", [235, 882, 471, 600]),
             ("green", false, "a1", [235, 882, 471, 1000]),
             ("green", false, "a2", [235, 882, 471, 750]),
             ("green", false, "a3", [235, 882, 471, 620]),
@@ -142,13 +133,11 @@ final class PaletteTests: XCTestCase {
             ("green", false, "unsureText", [235, 882, 471, 1000]),
             ("green", false, "unsureNS", [235, 882, 471, 1000]),
             ("green", false, "manualWhite", [957, 957, 969, 1000]),
-            ("green", false, "manualGlow", [1000, 1000, 1000, 550]),
             ("green", true, "amber", [235, 882, 471, 1000]),
             ("green", true, "amber(0.12)", [235, 882, 471, 300]),
             ("green", true, "amber(0.35)", [235, 882, 471, 350]),
             ("green", true, "amber(0.4)", [235, 882, 471, 1000]),
             ("green", true, "amber(0.7)", [235, 882, 471, 1000]),
-            ("green", true, "amberGlow", [235, 882, 471, 600]),
             ("green", true, "a1", [235, 882, 471, 1000]),
             ("green", true, "a2", [235, 882, 471, 1000]),
             ("green", true, "a3", [235, 882, 471, 1000]),
@@ -164,13 +153,11 @@ final class PaletteTests: XCTestCase {
             ("green", true, "unsureText", [235, 882, 471, 1000]),
             ("green", true, "unsureNS", [235, 882, 471, 1000]),
             ("green", true, "manualWhite", [1000, 1000, 1000, 1000]),
-            ("green", true, "manualGlow", [0, 0, 0, 0]),
             ("light", false, "amber", [1000, 1000, 471, 1000]),
             ("light", false, "amber(0.12)", [1000, 1000, 471, 120]),
             ("light", false, "amber(0.35)", [1000, 1000, 471, 350]),
             ("light", false, "amber(0.4)", [1000, 1000, 471, 400]),
             ("light", false, "amber(0.7)", [1000, 1000, 471, 700]),
-            ("light", false, "amberGlow", [1000, 1000, 471, 600]),
             ("light", false, "a1", [1000, 1000, 471, 1000]),
             ("light", false, "a2", [1000, 1000, 471, 750]),
             ("light", false, "a3", [1000, 1000, 471, 620]),
@@ -186,13 +173,11 @@ final class PaletteTests: XCTestCase {
             ("light", false, "unsureText", [1000, 1000, 471, 1000]),
             ("light", false, "unsureNS", [1000, 1000, 471, 1000]),
             ("light", false, "manualWhite", [957, 957, 969, 1000]),
-            ("light", false, "manualGlow", [1000, 1000, 1000, 550]),
             ("light", true, "amber", [1000, 1000, 471, 1000]),
             ("light", true, "amber(0.12)", [1000, 1000, 471, 300]),
             ("light", true, "amber(0.35)", [1000, 1000, 471, 350]),
             ("light", true, "amber(0.4)", [1000, 1000, 471, 1000]),
             ("light", true, "amber(0.7)", [1000, 1000, 471, 1000]),
-            ("light", true, "amberGlow", [1000, 1000, 471, 600]),
             ("light", true, "a1", [1000, 1000, 471, 1000]),
             ("light", true, "a2", [1000, 1000, 471, 1000]),
             ("light", true, "a3", [1000, 1000, 471, 1000]),
@@ -208,13 +193,11 @@ final class PaletteTests: XCTestCase {
             ("light", true, "unsureText", [1000, 1000, 471, 1000]),
             ("light", true, "unsureNS", [1000, 1000, 471, 1000]),
             ("light", true, "manualWhite", [1000, 1000, 1000, 1000]),
-            ("light", true, "manualGlow", [0, 0, 0, 0]),
             ("navyLifted", false, "amber", [507, 569, 1000, 1000]),
             ("navyLifted", false, "amber(0.12)", [507, 569, 1000, 120]),
             ("navyLifted", false, "amber(0.35)", [507, 569, 1000, 350]),
             ("navyLifted", false, "amber(0.4)", [507, 569, 1000, 400]),
             ("navyLifted", false, "amber(0.7)", [507, 569, 1000, 700]),
-            ("navyLifted", false, "amberGlow", [507, 569, 1000, 600]),
             ("navyLifted", false, "a1", [507, 569, 1000, 1000]),
             ("navyLifted", false, "a2", [507, 569, 1000, 750]),
             ("navyLifted", false, "a3", [507, 569, 1000, 620]),
@@ -230,13 +213,11 @@ final class PaletteTests: XCTestCase {
             ("navyLifted", false, "unsureText", [507, 569, 1000, 1000]),
             ("navyLifted", false, "unsureNS", [507, 569, 1000, 1000]),
             ("navyLifted", false, "manualWhite", [957, 957, 969, 1000]),
-            ("navyLifted", false, "manualGlow", [1000, 1000, 1000, 550]),
             ("navyLifted", true, "amber", [507, 569, 1000, 1000]),
             ("navyLifted", true, "amber(0.12)", [507, 569, 1000, 300]),
             ("navyLifted", true, "amber(0.35)", [507, 569, 1000, 350]),
             ("navyLifted", true, "amber(0.4)", [507, 569, 1000, 1000]),
             ("navyLifted", true, "amber(0.7)", [507, 569, 1000, 1000]),
-            ("navyLifted", true, "amberGlow", [507, 569, 1000, 600]),
             ("navyLifted", true, "a1", [507, 569, 1000, 1000]),
             ("navyLifted", true, "a2", [507, 569, 1000, 1000]),
             ("navyLifted", true, "a3", [507, 569, 1000, 1000]),
@@ -252,13 +233,11 @@ final class PaletteTests: XCTestCase {
             ("navyLifted", true, "unsureText", [507, 569, 1000, 1000]),
             ("navyLifted", true, "unsureNS", [507, 569, 1000, 1000]),
             ("navyLifted", true, "manualWhite", [1000, 1000, 1000, 1000]),
-            ("navyLifted", true, "manualGlow", [0, 0, 0, 0]),
             ("dark", false, "amber", [78, 78, 549, 1000]),
             ("dark", false, "amber(0.12)", [78, 78, 549, 120]),
             ("dark", false, "amber(0.35)", [78, 78, 549, 350]),
             ("dark", false, "amber(0.4)", [78, 78, 549, 400]),
             ("dark", false, "amber(0.7)", [78, 78, 549, 700]),
-            ("dark", false, "amberGlow", [78, 78, 549, 600]),
             ("dark", false, "a1", [78, 78, 549, 1000]),
             ("dark", false, "a2", [78, 78, 549, 750]),
             ("dark", false, "a3", [78, 78, 549, 620]),
@@ -274,13 +253,11 @@ final class PaletteTests: XCTestCase {
             ("dark", false, "unsureText", [78, 78, 549, 1000]),
             ("dark", false, "unsureNS", [78, 78, 549, 1000]),
             ("dark", false, "manualWhite", [957, 957, 969, 1000]),
-            ("dark", false, "manualGlow", [1000, 1000, 1000, 550]),
             ("dark", true, "amber", [78, 78, 549, 1000]),
             ("dark", true, "amber(0.12)", [78, 78, 549, 300]),
             ("dark", true, "amber(0.35)", [78, 78, 549, 350]),
             ("dark", true, "amber(0.4)", [78, 78, 549, 1000]),
             ("dark", true, "amber(0.7)", [78, 78, 549, 1000]),
-            ("dark", true, "amberGlow", [78, 78, 549, 600]),
             ("dark", true, "a1", [78, 78, 549, 1000]),
             ("dark", true, "a2", [78, 78, 549, 1000]),
             ("dark", true, "a3", [78, 78, 549, 1000]),
@@ -296,7 +273,6 @@ final class PaletteTests: XCTestCase {
             ("dark", true, "unsureText", [78, 78, 549, 1000]),
             ("dark", true, "unsureNS", [78, 78, 549, 1000]),
             ("dark", true, "manualWhite", [1000, 1000, 1000, 1000]),
-            ("dark", true, "manualGlow", [0, 0, 0, 0]),
     ]
 
     static let accents: [String: Accent] = [
@@ -305,7 +281,7 @@ final class PaletteTests: XCTestCase {
     ]
 
     func testColoursMatchTheValuesPinnedBeforeTheChange() {
-        XCTAssertEqual(PaletteTests.pinned.count, 264)
+        XCTAssertEqual(PaletteTests.pinned.count, 240)
         for (name, hc, what, want) in PaletteTests.pinned {
             let a = PaletteTests.accents[name]!
             let p = Palette(accent: a, highContrast: hc)
@@ -316,7 +292,6 @@ final class PaletteTests: XCTestCase {
             case "amber(0.35)": got = p.amber(0.35)
             case "amber(0.4)": got = p.amber(0.4)
             case "amber(0.7)": got = p.amber(0.7)
-            case "amberGlow": got = p.amberGlow
             case "a1": got = p.a1
             case "a2": got = p.a2
             case "a3": got = p.a3
@@ -332,7 +307,6 @@ final class PaletteTests: XCTestCase {
             case "unsureText": got = Lamp.unsure.textColor(p.accent)
             case "unsureNS": got = Color(Lamp.unsure.nsColor(p.accent))
             case "manualWhite": got = p.manualWhite
-            case "manualGlow": got = p.manualGlow
             default: XCTFail("unknown pinned value \(what)"); continue
             }
             XCTAssertEqual(q(got), want, "\(name) hc=\(hc) \(what)")

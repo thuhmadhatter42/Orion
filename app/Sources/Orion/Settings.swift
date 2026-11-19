@@ -1,9 +1,8 @@
 import AppKit
 import SwiftUI
 
-/// Beat Key › Settings… (⌘,): global shortcuts, Open at Login, listening, display.
+/// Beat Key › Settings… (⌘,): shortcuts (a door to Quick Keys), Open at Login, listening, display.
 struct SettingsView: View {
-    @ObservedObject var shortcuts: ShortcutStore
     @ObservedObject var loginItem: LoginItemSettings
     @ObservedObject var live: LiveSettings
     @ObservedObject var display: DisplaySettings
@@ -80,15 +79,11 @@ struct SettingsView: View {
             }
             .onAppear { loginItem.refresh() }
             Divider().padding(.vertical, 6)
-            Section(header: Text("Global shortcuts").font(.headline)) {
-                ForEach(HotkeyAction.allCases) { a in
-                    HStack {
-                        Text(a.title).frame(width: 170, alignment: .leading)
-                        ShortcutRecorder(action: a, store: shortcuts)
-                    }
+            Section(header: Text("Shortcuts").font(.headline)) {
+                // ONE list: Quick Keys (⇧⌃K) holds every shortcut, the system-wide ones included.
+                Button("Open Quick Keys…") { QuickKeys.openFromElsewhere() }
                     .helpTip(HelpText.settingsShortcuts)
-                }
-                Text("Work in any app. Click a shortcut, then type the new keys (with ⌘, ⌃ or ⌥). Delete turns it off, Esc cancels.")
+                Text("Every shortcut in one list (\(QuickKeys.tipDisplay(QuickKeys.quickKeysID))). Click one, then type the new keys. The ones under Anywhere work in every app.")
                     .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -124,63 +119,6 @@ struct SettingsView: View {
         }, set: { ch in
             if case .input(let uid, _) = live.source { live.source = .input(uid: uid, channel: ch) }
         })
-    }
-}
-
-/// One shortcut: shows the keys; click, then type new ones.
-struct ShortcutRecorder: View {
-    let action: HotkeyAction
-    @ObservedObject var store: ShortcutStore
-    @State private var recording = false
-    @State private var monitor: Any?
-    @State private var note: String?
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Button(action: toggle) {
-                Text(recording ? "Type the keys…" : (store.shortcut(action)?.display ?? "Off"))
-                    .frame(width: 110)
-            }
-            .accessibility(label: Text("\(action.title) shortcut, \(store.shortcut(action)?.display ?? "off")"))
-            Button("Default") { store.reset(action); HotkeyCenter.shared.apply(store); note = nil }
-                .disabled(store.shortcut(action) == action.defaultShortcut)
-            if let n = note ?? (HotkeyCenter.shared.failed.contains(action) ? "In use by another app" : nil) {
-                Text(n).font(.caption).foregroundColor(.red)
-            }
-        }
-        .onDisappear(perform: stop)
-    }
-
-    private func toggle() { recording ? stop() : start() }
-
-    private func start() {
-        note = nil
-        recording = true
-        HotkeyCenter.shared.unregisterAll()
-        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
-            switch Int(e.keyCode) {
-            case 53:                       // Esc
-                stop()
-            case 51, 117:                  // Delete, Forward Delete
-                store.set(nil, for: action); stop()
-            default:
-                guard let s = Shortcut.recorded(keyCode: e.keyCode, flags: e.modifierFlags,
-                                                characters: e.charactersIgnoringModifiers) else {
-                    note = "Add ⌘, ⌃ or ⌥"; NSSound.beep(); return nil
-                }
-                if let other = store.conflict(s, for: action) {
-                    note = "Used by \(other.title)"; NSSound.beep(); return nil
-                }
-                store.set(s, for: action); stop()
-            }
-            return nil
-        }
-    }
-
-    private func stop() {
-        if let m = monitor { NSEvent.removeMonitor(m) }
-        monitor = nil
-        if recording { recording = false; HotkeyCenter.shared.apply(store) }
     }
 }
 

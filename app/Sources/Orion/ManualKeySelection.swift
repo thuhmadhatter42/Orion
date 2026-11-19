@@ -124,7 +124,7 @@ struct ManualKey: Equatable {
 
 /// The colours of a Manual Key Selection: white instead of the display colour, the same in every
 /// accent. High Contrast: pure white, no glow (white is already the most contrast the LCD has):
-/// that white and glow are the palette's (`palette.manualWhite`, `palette.manualGlow`).
+/// that white is the palette's (`palette.manualWhite`); its glow is the house glow module's (`paletteGlow`).
 enum ManualLook {
     /// Ink on a white fill (the wheel's lit section): near black in every accent.
     static let ink = Theme.hex(0x111113)

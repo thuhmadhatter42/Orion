@@ -100,6 +100,7 @@ enum HelpText {
     static let recent = HelpTip(title: "RECENT", body: "Past readings. Pick one to bring it back.")
     static let settings = HelpTip(title: "SETTINGS", body: "Display, listen source, shortcuts, login.")
     static let color = HelpTip(title: "COLOR", body: "Pick the display colour. Reset to Amber.")
+    static let report = HelpTip(title: "REPORT", body: "Send a report, log attached.")
     static let advanced = HelpTip(title: "ADVANCED", body: "Add key wheel, chords, MATCH TO.")
     static let window = HelpTip(title: "WINDOW", body: "Open the full window.")
     static let quit = HelpTip(title: "QUIT", body: "Quit Beat Key.")
@@ -133,7 +134,7 @@ enum HelpText {
     static let settingsStartOver = HelpTip(title: "START OVER AFTER", body: "Silence length that ends a song.")
     static let settingsRename = HelpTip(title: "FILE NAMES", body: "Add key + BPM to names. Pro Tools files always ask.")
     static let settingsOpenAtLogin = HelpTip(title: "OPEN AT LOGIN", body: "Start Beat Key at login.")
-    static let settingsShortcuts = HelpTip(title: "GLOBAL SHORTCUTS", body: "Work in any app. Click, type keys. Delete clears.")
+    static let settingsShortcuts = HelpTip(title: "SHORTCUTS", body: "Quick Keys: every shortcut. Click one, type new keys.")
 
     // Permissions guide
     static let permissionGuide = HelpTip(title: "SET UP PERMISSIONS", body: "Checks each permission. Menu: \(Brand.setUpPermissions)")
@@ -160,7 +161,7 @@ enum HelpText {
     static let keysMode = HelpTip(title: "MAJOR / MINOR · SPACE", body: "Space flips the keyboard major/minor.")
     static let keysPaging = HelpTip(title: "PAGE FILES · ← →", body: "Arrows page files. Link field empty.")
     static let keysAutoTune = HelpTip(title: "AUTO-TUNE SHORTCUT", body: "Send key to Auto-Tune (\(AutoTuneSend.shortcutDisplay))")
-    static let keysAdvanced = HelpTip(title: "ADVANCED SHORTCUT", body: "Advanced on/off (⌥⌘A)")
+    static let keysAdvanced = HelpTip(title: "ADVANCED SHORTCUT", body: "Advanced on/off (\(QuickKeys.tipDisplay("advancedMode")))")
     static let keysHelp = HelpTip(title: "HELP WINDOW · ⌘?", body: "Help › Beat Key Help. Help Mode: hover tips.")
 
     /// The help window's contents, in order. THE one list: the window draws it, the launch check
@@ -173,7 +174,7 @@ enum HelpText {
                     tips: [linkField, download, login, openAudio, findKey, source, listen, hold, reset]),
         HelpSection(title: "Window and pocket: sending", tips: [sendDAW, autoTune, exportMidi]),
         HelpSection(title: "Menu bar pocket only", tips: [analyzeFile, window, quit]),
-        HelpSection(title: "Footer", tips: [recent, settings, color, advanced, help]),
+        HelpSection(title: "Footer", tips: [recent, settings, color, report, advanced, help]),
         HelpSection(title: "Advanced mode",
                     tips: [pitchToFit, keyWheel, notesHeard, chords, quality, voicing, bars, borrowed, matchTo, matchShift, mini]),
         HelpSection(title: "Beat Key Mini", tips: [miniPanel, miniSound]),

@@ -7,7 +7,6 @@ enum Theme {
     // The display colour ("amber") and High Contrast are not here: they come through the
     // environment as a `Palette` (below), so the views that use them redraw when they change.
     static let green = rgb(61, 220, 122)
-    static let greenGlow = rgb(61, 220, 122, 0.7)
     static let greenText = rgb(89, 225, 141)           // #59e18d
     static let red = rgb(226, 55, 44)
     static let redText = rgb(255, 106, 92)             // #ff6a5c
@@ -218,7 +217,6 @@ struct Palette: Equatable {
     func amber(_ a: Double) -> Color { Theme.rgb(accent.r, accent.g, accent.b, contrast(a)) }
     /// The accent for AppKit (the link field's caret).
     var amberNS: NSColor { accent.nsColor }
-    var amberGlow: Color { Theme.rgb(accent.r, accent.g, accent.b, 0.6) }   // a glow, not text: High Contrast leaves it
 
     /// An amber alpha under High Contrast: text (0.4 and up) full, faint (under 0.2) to 0.3.
     func contrast(_ a: Double) -> Double {
@@ -244,7 +242,6 @@ struct Palette: Equatable {
 
     /// A Manual Key Selection's white (ManualLook): High Contrast pure white, no glow.
     var manualWhite: Color { highContrast ? Theme.rgb(255, 255, 255) : Theme.rgb(244, 244, 247) }
-    var manualGlow: Color { highContrast ? .clear : Theme.rgb(255, 255, 255, 0.55) }
 }
 
 private struct PaletteKey: EnvironmentKey { static let defaultValue = Palette() }
@@ -335,17 +332,17 @@ extension View {
         fixedSize().frame(height: size * lh)
     }
 
-    /// The amber glow: `0 0 6px amber-glow, 0 0 16px rgba(amber,.4)`.
+    /// The lit reading's glow (Artemis `0 0 6px amber-glow, 0 0 16px rgba(amber,.4)`), drawn by the house glow
+    /// module (House/Glow.swift: its two constants set the strength) in the palette's colour.
+    /// High Contrast: crisp edges, no halo.
     func amberGlow() -> some View { modifier(AmberGlow()) }
 }
 
-/// The amber glow in the palette's colour; High Contrast: crisp edges, no halo.
 private struct AmberGlow: ViewModifier {
     @Environment(\.palette) private var palette
 
     func body(content: Content) -> some View {
-        content.shadow(color: palette.highContrast ? .clear : palette.amberGlow, radius: 3)
-            .shadow(color: palette.highContrast ? .clear : palette.amber(0.4), radius: 8)
+        content.paletteGlow(HouseGlow.Full.litText, palette)
     }
 }
 

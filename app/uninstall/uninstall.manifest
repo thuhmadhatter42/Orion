@@ -1,0 +1,38 @@
+# uninstall.manifest: everything Beat Key puts on a Mac, and nothing else.
+# The per-app file of the house kit's Uninstall module (app menu > Uninstall Beat Key…; the Terminal form is
+# `sh "/Applications/Beat Key.app/Contents/Resources/uninstall.sh"`). The script moves each path to the Trash and
+# never deletes. Bundle id com.jshriver.orion, public name Beat Key, internal name Orion (Brand.swift).
+# `user` and `data` paths are inside the home folder, written without the leading ~/.
+
+name     Beat Key
+
+# The tools Beat Key downloaded and the copy of them it keeps: the yt-dlp it seeds from the app's bundled runtime
+# and updates weekly (Runtime.swift: bin/, .last-ytdlp-upgrade). Always removed.
+user     Library/Application Support/Orion/bin
+user     Library/Application Support/Orion/.last-ytdlp-upgrade
+
+# The login item (Settings > Open at Login). macOS 12 writes this LaunchAgent (LoginItem.swift); on macOS 13 and
+# later the app itself is the login item and goes with the app. Always removed.
+user     Library/LaunchAgents/com.jshriver.orion.open-at-login.plist
+
+# Logs, caches, window state. No user data.
+user     Library/Logs/Beat Key
+user     Library/Caches/com.jshriver.orion
+user     Library/HTTPStorages/com.jshriver.orion
+user     Library/WebKit/com.jshriver.orion
+user     Library/Saved Application State/com.jshriver.orion.savedState
+
+# Kept when the user ticks "Keep my settings": the YouTube sign-in (youtube-cookies.txt) and what is left of
+# Application Support/Orion, the MIDI and script hand-offs for the DAWs, and the preferences (colour, shortcuts).
+data     Library/Application Support/Orion
+data     Library/Application Support/Beat Key
+data     Library/Preferences/com.jshriver.orion.plist
+
+# The .pkg installer's receipt (the download is a .pkg). This is what makes the run ask for the password.
+receipt  com.jshriver.orion.pkg
+
+# The app itself, moved last.
+app      /Applications/Beat Key.app
+
+# Printed after a clean run.
+note     If Beat Key is still listed under System Settings > General > Login Items, remove it there.

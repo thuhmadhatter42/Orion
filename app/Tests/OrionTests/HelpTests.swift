@@ -218,8 +218,9 @@ final class HelpTests: XCTestCase {
         XCTAssertTrue(HelpText.keysAutoTune.body.contains(AutoTuneSend.shortcutDisplay))
         XCTAssertFalse(HelpText.autoTune.body.contains("⇧⌘A"))
         let menu = try source("AutoTuneSend.swift")
-        XCTAssertTrue(menu.contains(".keyboardShortcut(KeyEquivalent(AutoTuneSend.shortcutKey), modifiers: AutoTuneSend.shortcutModifiers)"),
-                      "the menu item must take its shortcut from the same constants as the tip")
+        XCTAssertTrue(menu.contains(".quickKey(\"sendAutoTune\")"),
+                      "the menu item must take its shortcut from the same Quick Keys row as the tip")
+        XCTAssertFalse(menu.contains(".keyboardShortcut("), "no literal shortcut: the row is the only copy")
     }
 
     func testLoginHasItsOwnTip() throws {

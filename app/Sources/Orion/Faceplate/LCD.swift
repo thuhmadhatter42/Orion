@@ -460,7 +460,7 @@ struct StateLamp: View {
         HStack(spacing: Theme.S.s) {
             // the shape says the state without the colour (octagon / triangle / circle)
             LampShape(lamp: lamp).fill(lamp.color(palette.accent)).frame(width: 8, height: 8)
-                .shadow(color: palette.highContrast ? .clear : lamp.color(palette.accent).opacity(0.8), radius: 3)
+                .paletteGlow(HouseGlow.Full.led, palette, color: lamp.color(palette.accent))
             Text(text).captionStyle().foregroundColor(lamp.textColor(palette.accent)).lineLimit(1)
         }
     }
@@ -486,7 +486,7 @@ struct TempoLight: View {
     var body: some View {
         Circle().fill(palette.amber)
             .frame(width: 7, height: 7)
-            .shadow(color: palette.amberGlow, radius: 4)
+            .paletteGlow(HouseGlow.Full.led, palette)
             .opacity(lit ? 1 : 0.15)
             .onAppear(perform: restart)
             .onDisappear(perform: stop)

@@ -79,6 +79,18 @@ rm -rf "$ACT"
 plutil -replace CFBundleIconName -string AppIcon "$OUTAPP/Contents/Info.plist"
 [ -f "$ROOT/THIRD-PARTY-LICENSES.md" ] || { echo "missing THIRD-PARTY-LICENSES.md"; exit 1; }
 cp "$ROOT/THIRD-PARTY-LICENSES.md" "$OUTAPP/Contents/Resources/THIRD-PARTY-LICENSES.md"
+# House kit, Uninstall: App menu > Uninstall Beat Key… runs this script on this manifest (app/uninstall/)
+for f in uninstall.sh uninstall.manifest; do
+  [ -f "$APP/uninstall/$f" ] || { echo "missing $APP/uninstall/$f"; exit 1; }
+  cp "$APP/uninstall/$f" "$OUTAPP/Contents/Resources/$f"
+done
+# the bundled script reads its own manifest (a dry run on an empty fixture home: nothing is moved)
+FIX="$(mktemp -d)"; mkdir -p "$FIX/home" "$FIX/root"
+sh "$OUTAPP/Contents/Resources/uninstall.sh" --dry-run --home "$FIX/home" --root "$FIX/root" >/dev/null \
+  || { echo "the bundled uninstall.sh refused its uninstall.manifest"; exit 1; }
+sh "$OUTAPP/Contents/Resources/uninstall.sh" --needs-admin --home "$FIX/home" --root "$FIX/root" >/dev/null \
+  || { echo "the bundled uninstall.sh could not answer --needs-admin"; exit 1; }
+rm -rf "$FIX"
 [ -d "$PROD/Orion_Orion.bundle" ] || { echo "no Orion_Orion.bundle in $PROD"; exit 1; }
 ditto "$PROD/Orion_Orion.bundle" "$OUTAPP/Contents/Resources/Orion_Orion.bundle"
 ditto "$B/runtime" "$OUTAPP/Contents/Resources/runtime"

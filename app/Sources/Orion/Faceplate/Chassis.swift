@@ -153,10 +153,10 @@ enum AppStatus: Equatable {
     func look(_ palette: Palette) -> Look {
         let l: Look = {
             switch self {
-            case .ready: return Look(text: Theme.greenText, lamp: Theme.green, glow: Theme.greenGlow)
+            case .ready: return Look(text: Theme.greenText, lamp: Theme.green, glow: Theme.green)
             // WORKING and LIVE are the display colour J picked (COLOR); only FAILED is red
-            case .working, .live: return Look(text: palette.amber, lamp: palette.amber, glow: palette.amberGlow)
-            case .failed: return Look(text: Theme.redText, lamp: Theme.red, glow: Theme.red.opacity(0.7))
+            case .working, .live: return Look(text: palette.amber, lamp: palette.amber, glow: palette.amber)
+            case .failed: return Look(text: Theme.redText, lamp: Theme.red, glow: Theme.red)
             }
         }()
         return palette.highContrast ? Look(text: l.text, lamp: l.lamp, glow: .clear) : l
@@ -191,7 +191,7 @@ struct StatusLegend: View {
             shape.fill(look.lamp)
                 .overlay(shape.stroke(Color.white.opacity(0.6), lineWidth: 0.5).blur(radius: 0.5).clipShape(shape))
                 .frame(width: metrics.lampSide, height: metrics.lampSide)
-                .shadow(color: look.glow, radius: metrics.glowRadius)
+                .accentGlow(HouseGlow.Full.led, active: look.glow != .clear, color: look.glow)
             Text(status.word).labelStyle().foregroundColor(look.text)
                 .lineLimit(1).truncationMode(.middle).frame(maxWidth: metrics.maxWidth, alignment: .trailing)
                 .fixedSize(horizontal: true, vertical: false)

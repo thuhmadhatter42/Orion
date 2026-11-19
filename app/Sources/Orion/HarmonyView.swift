@@ -643,7 +643,6 @@ private struct KeyWheelSection: View {
         let mid = Double(index) * .pi / 6, r = (inner + outer) / 2
         let ink: Color = manual ? ManualLook.ink
             : rank == 0 ? palette.ink : (rank == 1 || hover) ? palette.a1 : fit ? palette.a2 : palette.a3
-        let glow: Color = manual ? palette.manualGlow : rank == 0 && !palette.highContrast ? palette.amberGlow : .clear
         // Manual Key Selection hovered: the name gives way to the reset arrow (Motion.hover)
         let resetting = manual && hover && onClear != nil
         let label = ZStack {
@@ -660,7 +659,10 @@ private struct KeyWheelSection: View {
             .animation(Theme.Motion.hover, value: resetting)
         let body = ZStack {
             shape.fill(fill)
-                .shadow(color: glow, radius: 5)
+                // the key's section glows in the palette's colour, a Manual Key Selection in white (house glow
+                // module; High Contrast: none)
+                .paletteGlow(HouseGlow.Full.litButton, palette, active: manual || rank == 0,
+                             color: manual ? palette.manualWhite : nil)
             if fit && rank == nil {
                 RingSector(index: index, inner: inner, outer: outer, inset: 2.5)
                     .stroke(palette.a3, lineWidth: 1)

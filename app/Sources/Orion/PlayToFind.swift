@@ -171,7 +171,12 @@ final class PlayToFind {
     private var lastIgnore: String?
 
     private func handle(_ e: NSEvent) -> NSEvent? {
-        guard let act = MusicalTyping.action(keyCode: e.keyCode, modifiers: e.modifierFlags) else { return e }
+        // Send to Auto-Tune is the Quick Keys row "playSendAutoTune" (⇧⌘A by default, rebindable, can be cleared):
+        // the table decides, so MusicalTyping's own fixed ⇧⌘A is ignored.
+        let sendKeys = MainActor.assumeIsolated { QuickKeys.shared.matches(e, "playSendAutoTune") }
+        var found = sendKeys ? MusicalTyping.Action.sendAutoTune : MusicalTyping.action(keyCode: e.keyCode, modifiers: e.modifierFlags)
+        if !sendKeys && found == .sendAutoTune { found = nil }
+        guard let act = found else { return e }
         let d = PlayToFind.decide(action: act, ourWindow: PlayToFind.isOurWindow(e.window),
                                   windowIsKey: e.window?.isKeyWindow ?? false, editingText: PlayToFind.editingText(e.window))
         if case .ignore(let why) = d {
@@ -184,7 +189,7 @@ final class PlayToFind {
         if let r { state.show(r) }
         switch act {
         case .sendAutoTune:
-            AppLog.log("play-to-find: ⇧⌘A send to auto-tune")
+            AppLog.log("play-to-find: send to auto-tune (\(QuickKeys.tipDisplay("playSendAutoTune")))")
             if !sendAutoTune() { NSSound.beep() }
         case .octaveDown, .octaveUp:
             if e.isARepeat { return nil }

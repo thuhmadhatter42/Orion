@@ -252,7 +252,7 @@ struct ListenCap: View {
             HStack(spacing: 6) {
                 if state.listening {
                     LampShape(lamp: .listening).fill(Lamp.listening.color(palette.accent)).frame(width: 7, height: 7)
-                        .shadow(color: palette.highContrast ? .clear : palette.amberGlow, radius: 3)
+                        .paletteGlow(HouseGlow.Full.led, palette)
                 }
                 SSLCapStyle.label(state.listening ? "STOP" : "LISTEN")
             }
@@ -906,7 +906,7 @@ struct Dial: View {
                     .animation(Theme.Motion.swap, value: manual)
                     .rotationEffect(.degrees(-90))
                     .padding(12)
-                    .shadow(color: palette.highContrast ? .clear : color.opacity(manual ? 0.45 : 0.7), radius: 4)
+                    .paletteGlow(HouseGlow.Full.litChip, palette, color: color)
                     .animation(Theme.Motion.value, value: c)
             } else if lamp == .listening {
                 // listening / working with no key yet: a short arc going round
@@ -915,7 +915,7 @@ struct Dial: View {
                     .rotationEffect(.degrees(spin ? 270 : -90))
                     .animation(spin ? Animation.linear(duration: 1.6).repeatForever(autoreverses: false) : nil, value: spin)
                     .padding(12)
-                    .shadow(color: palette.highContrast ? .clear : color.opacity(0.7), radius: 4)
+                    .paletteGlow(HouseGlow.Full.litChip, palette, color: color)
                     .onAppear { if !reduceMotion && !Pocket.snapshot { DispatchQueue.main.async { spin = true } } }
             }
             VStack(spacing: Theme.S.xs) {
@@ -1000,7 +1000,7 @@ struct Dial: View {
                 .foregroundColor(key == nil ? palette.a4 : manual ? palette.manualWhite : palette.a1)
                 .lineLimit(1).minimumScaleFactor(0.6)
                 .modifier(PocketGlow(on: key != nil && !manual))
-                .shadow(color: manual ? palette.manualGlow : .clear, radius: 3)
+                .paletteGlow(HouseGlow.Full.litText, palette, active: manual, color: palette.manualWhite)
         }
         if manual {
             // hovered: the name crossfades to the reset arrow (Motion.hover); the dial takes the click
@@ -1009,7 +1009,7 @@ struct Dial: View {
                 Image(systemName: ManualLook.resetSymbol)
                     .font(.system(size: keySize * 0.7, weight: .bold))
                     .foregroundColor(palette.manualWhite)
-                    .shadow(color: palette.manualGlow, radius: 3)
+                    .paletteGlow(HouseGlow.Full.led, palette, color: palette.manualWhite)
                     .opacity(resetting ? 1 : 0)
             }
             .animation(Theme.Motion.hover, value: resetting)

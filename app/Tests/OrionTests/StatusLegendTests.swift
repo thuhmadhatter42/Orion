@@ -14,9 +14,9 @@ final class StatusLegendTests: XCTestCase {
     /// Every readout the app can show, listening or not: status, word, lamp shape, colours.
     func testOneTableForBothSurfaces() {
         let p = Palette()
-        let ready = AppStatus.Look(text: Theme.greenText, lamp: Theme.green, glow: Theme.greenGlow)
-        let working = AppStatus.Look(text: p.amber, lamp: p.amber, glow: p.amberGlow)
-        let red = AppStatus.Look(text: Theme.redText, lamp: Theme.red, glow: Theme.red.opacity(0.7))
+        let ready = AppStatus.Look(text: Theme.greenText, lamp: Theme.green, glow: Theme.green)
+        let working = AppStatus.Look(text: p.amber, lamp: p.amber, glow: p.amber)
+        let red = AppStatus.Look(text: Theme.redText, lamp: Theme.red, glow: Theme.red)
         let table: [(String, Readout, Bool, AppStatus, String, Lamp, AppStatus.Look)] = [
             ("idle", .idle, false, .ready, "READY", .locked, ready),
             ("drop", .drop, false, .ready, "READY", .locked, ready),
@@ -49,11 +49,11 @@ final class StatusLegendTests: XCTestCase {
     func testLiveUsesTheAccentAndFailedStaysRed() {
         let p = Palette(accent: Accent(60, 160, 255), highContrast: false)
         let live = AppStatus.live("SYSTEM AUDIO").look(p)
-        XCTAssertEqual(live, AppStatus.Look(text: p.amber, lamp: p.amber, glow: p.amberGlow))
+        XCTAssertEqual(live, AppStatus.Look(text: p.amber, lamp: p.amber, glow: p.amber))
         XCTAssertNotEqual(live.text, Palette().amber)
         XCTAssertNotEqual(live.lamp, Theme.red)
         XCTAssertEqual(AppStatus.failed.look(p),
-                       AppStatus.Look(text: Theme.redText, lamp: Theme.red, glow: Theme.red.opacity(0.7)))
+                       AppStatus.Look(text: Theme.redText, lamp: Theme.red, glow: Theme.red))
     }
 
     /// High Contrast: the same words and fills, no glow (the palette's rule: "glows go").

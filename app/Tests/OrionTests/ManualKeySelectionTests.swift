@@ -199,7 +199,7 @@ final class ManualKeySelectionTests: XCTestCase {
             XCTAssertGreaterThan(c.redComponent, 0.94)
             XCTAssertEqual(c.alphaComponent, 1, accuracy: 0.001)
         }
-        XCTAssertEqual(NSColor(Palette(highContrast: true).manualGlow).alphaComponent, 0, accuracy: 0.001)   // no halo in High Contrast
+        // no halo in High Contrast: HouseRetrofitTests.testHighContrastDrawsNoHalo (the glow module draws it now)
     }
 
     // MARK: offscreen renders (ORION_SNAPSHOT_DIR=<dir> swift test --filter ManualKeySelectionTests/testRender)

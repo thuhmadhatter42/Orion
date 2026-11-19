@@ -529,6 +529,7 @@ struct PocketContainer: View {
 extension PocketState {
     /// Everything both surfaces draw, from the app's objects: one derivation for the popover and
     /// the window (the window then puts its own readout in, for the drag-hover highlight).
+    @MainActor
     static func make(engine: Engine, model: FaceplateModel, live: LiveController, tuning: TuningSettings,
                      recents: RecentStore, display: DisplaySettings, shortcuts: ShortcutStore, extras: PocketExtras,
                      spelling: SpellingSettings, daw: String?, help: HelpSettings = .shared) -> PocketState {
