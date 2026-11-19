@@ -5,7 +5,7 @@ Steps 3-6 (core) and 7-8 (shims) can run side by side. Steps 9-11 and 16 touch `
 
 - [x] 1. Read plan, preflight → §1
 - [x] 2. Freeze Python goldens → §2
-- [ ] 3. Core skeleton and ring → §3
+- [x] 3. Core skeleton and ring → §3
 - [ ] 4. Core key parity → §4
 - [ ] 5. Core BPM parity → §5
 - [ ] 6. Core streaming and worker → §6
@@ -44,3 +44,12 @@ Next: §2 writes `tools/parity/make_goldens.py` and freezes the outputs into `co
 - Found while freezing: the first try at the done test FAILED on 2 files. The reference is random on digital silence (essentia's FrameCutter adds clock-seeded noise to silent frames), so a TempoCNN patch made only of silence gets a different class every run. Those patches are now written as `null` ("noise_only"); a file's BPM is frozen only when the real patches decide the vote whatever the silent ones say ("decided"). This is not only a smoke-set case: `bpm-bench/4703149` ends in 50 s of digital silence (7 of its 19 patches). Counts: 1636 patches, 9 undefined; 98 of 99 clips have a defined BPM (the one without is the 20 s silence clip).
 - The core's parity runner reads mono float32 PCM, not audio files: `<work>/pcm/<id>.f32` (1.9 GB, outside the repo). To make it again: `bin/python/bin/python3 tools/parity/make_goldens.py --check --work <folder> [--bench-root <checkout with the bench audio>/docs/research --ffmpeg-bin <that checkout>/bin]`. Another ffmpeg version gives other smoke clips; the tools refuse on the sha256 mismatch instead of comparing the wrong audio.
 Next: §3 builds the core skeleton against these files.
+
+**3 → 4 (2026-11-19).** The core exists and its own gate is green on both slices.
+- `core/include/beatkey.h`: the whole C API. Bring-up (`bk_load_weights`, `bk_ready`), whole clip (`bk_analyze_buffer`), live (`bk_analyzer_create / destroy / push / push_channels / snapshot / new_song`), the log (`bk_log*`), `bk_version`. Rigid bring-up: nothing analyzes before the weights load; there is no key-only mode.
+- `core/src/`, one owner per behaviour: `ring.h` (lock-free single-producer ring: takes what fits, drops and counts the rest, never waits) · `log.{h,cpp}` (`~/Library/Logs/Beat Key/plugin.log`, 1 MB roll, real home from the password database, mirrored to os_log, `$BEATKEY_LOG_DIR` for tests) · `tempocnn.cpp` (weights loader + network) · `np.h` (numpy / CPython sum orders and rounding) · `fft` · `resample` · `hpcp` · `key` (with the tuning estimate and the retune rule, as in `bpm.py`) · `mel` · `refine` · `boundary` · `live` · `file` · `worker` · `sane.h` (what counts as "not audio") · `error.h` · `api.cpp` (argument checks, error → code + sentence + log line). Inside, anything that cannot go on throws `bk::Error`; nothing crosses the C API and the audio-thread path runs no code that can throw.
+- Weights: `models/deeptemp-k16-3.bkw` (1,282,846 bytes) from the `.npz` by `core/tools/make_weights.py`; CC BY-NC-SA, a separate file, never compiled in. The loader refuses garbage, a cut-short file, trailing bytes, a wrong shape, a non-number, a missing file (each tested).
+- `core/build.sh`: universal objects + `build.noindex/libbeatkey.a`, macOS 12.0 minimum, `-Wall -Wextra -Werror`, hidden visibility, `-ffp-contract=off`, plain x86_64 (no AVX flags). `core/test.sh`: header compiles as C and C++, `.bkw` matches the `.npz`, then `core_test` under the tripwire dylib on arm64 and on x86_64 (`arch -x86_64`). Result: **246 checks, 0 failed, on each slice**. The tripwire shows 0 allocations and 0 locks on the thread that plays the audio thread, for `Ring::push` and for the real `bk_analyzer_push_channels` path; the tripwire itself is proven to count.
+- The first build compiled clean. Two test faults were mine, not the core's: the tripwire's self-check was optimised away by the compiler (now a `volatile` pointer), and the live test's pacing depended on machine speed (it now waits for the worker chunk by chunk).
+- Written ahead of their steps because `api.cpp` links them: the key, tempo and streaming code. Their gates are steps 4-6.
+Next: §4 gates the key half against the goldens.

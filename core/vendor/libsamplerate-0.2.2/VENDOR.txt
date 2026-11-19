@@ -1,0 +1,18 @@
+libsamplerate 0.2.2 (Secret Rabbit Code), 2-clause BSD (COPYING).
+Source: https://github.com/libsndfile/libsamplerate/releases/download/0.2.2/libsamplerate-0.2.2.tar.xz
+sha256 3258da280511d24b49d6b08615bbe824d0cacc9842b0e4caf11c52cf2b043893
+(the same tarball tools/build-old-mac/essentia.sh pins for the analyzer's essentia wheel).
+
+Why it is here: the Python analyzer resamples with essentia's Resample, which is libsamplerate's
+src_simple() at quality 1 (SRC_SINC_MEDIUM_QUALITY). The core must give the same samples
+(plan A5), so it uses the same code, not another resampler.
+
+Copied unmodified from the tarball:
+  COPYING  AUTHORS
+  include/samplerate.h
+  src/common.h  src/samplerate.c  src/src_sinc.c  src/src_linear.c  src/src_zoh.c
+  src/mid_qual_coeffs.h
+Not copied: src/high_qual_coeffs.h (9 MB) and src/fastest_coeffs.h. They are only included when
+ENABLE_SINC_BEST_CONVERTER / ENABLE_SINC_FAST_CONVERTER are defined, and ours are not.
+Ours, not upstream's: beatkey-config/config.h (upstream generates config.h at configure time).
+Built by core/build.sh with -O2 (as the wheel builds it), -DHAVE_CONFIG_H, hidden visibility.

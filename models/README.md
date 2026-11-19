@@ -38,3 +38,14 @@ harvested Pro Tools sessions. Held-out Acc1 on J's music 66 → 86 %, public bpm
 leakage check clean (candidates/ftC-leakage.md). J's rule: "Ship if clean". The original weights are
 in archive/deeptemp-k16-3-pre-ftC.npz; the `.pb` (essentia-tensorflow path) is unchanged and is not
 what the bundled app uses.
+
+## deeptemp-k16-3.bkw
+
+The same weights as `deeptemp-k16-3.npz` (the fine-tuned ftC set), as the flat binary the native
+core loads (`core/src/tempocnn.cpp`, `bk_load_weights`). Generated from the `.npz` by
+`core/tools/make_weights.py`; `core/test.sh` checks the two still match byte for byte. It is a
+format conversion of the model above, under the same CC BY-NC-SA 4.0 license and attribution. It
+ships as a separate data file beside the plug-in binary and is never compiled into it, so the
+AGPL binary stays free of the non-commercial clause (plan `docs/plans/plugin-2026-11-19.md`, L8).
+Whenever the `.npz` changes, run `make_weights.py` again and freeze new goldens
+(`tools/parity/make_goldens.py`).
