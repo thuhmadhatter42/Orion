@@ -112,7 +112,10 @@ component() {
   rm -rf "$stage"
 }
 
-sign_args() { [ "$PKG_IDENTITY" = "-" ] || printf '%s\n' --sign "$PKG_IDENTITY" --timestamp; }
+# The signing arguments, as an array: the identity has spaces ("Developer ID Installer: J Shriver (…)"), and a
+# string of them word-split into a dozen arguments and productbuild printed its usage (found 2026-11-19, step 19).
+SIGN_ARGS=()
+[ "$PKG_IDENTITY" = "-" ] || SIGN_ARGS=(--sign "$PKG_IDENTITY" --timestamp)
 
 cmd_build() {
   local out="${1:?usage: plugin-pkgs.sh build <outdir>}" ver pk
@@ -140,8 +143,7 @@ cmd_build() {
   # the small product the app carries: just the plug-ins, no "Beat Key is open" check (the app is what runs it)
   pk="$out/Beat-Key-Plug-ins.pkg"
   cmd_distribution "$HERE/plugins-distribution.xml" "$out/plugins-distribution.xml" "$ver" "$out"
-  # shellcheck disable=SC2046
-  productbuild --distribution "$out/plugins-distribution.xml" --package-path "$out/components" $(sign_args) "$pk" >/dev/null
+  productbuild --distribution "$out/plugins-distribution.xml" --package-path "$out/components" ${SIGN_ARGS[@]+"${SIGN_ARGS[@]}"} "$pk" >/dev/null
   [ "$PKG_IDENTITY" = "-" ] || pkgutil --check-signature "$pk" >/dev/null || refuse "$pk is not signed"
   say "product: $(basename "$pk") ($(du -h "$pk" | cut -f1))"
 }

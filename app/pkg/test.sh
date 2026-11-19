@@ -87,6 +87,22 @@ ditto "$OUTB/Beat Key.component" "$W/unsigned/Beat Key.component"; codesign --re
 refuses "an unsigned AU" "not signed or its seal is broken" env BEATKEY_AU="$W/unsigned/Beat Key.component" "$S" build "$W/out6"
 refuses "a version that is not N.N.N" "not major.minor.patch" env BEATKEY_VERSION=abc "$S" build "$W/out7"
 
+echo "== a signing identity with spaces reaches productbuild as ONE argument"
+# Stand-ins on PATH for the three signing tools (security, productbuild, pkgutil): nothing is signed, the
+# argv productbuild got is written one argument per line. 0.1.78's build split the name into words here.
+mkdir -p "$W/fakebin"
+printf '#!/bin/bash\necho "  1) ABC \\"$FAKE_ID\\""\n' > "$W/fakebin/security"
+printf '#!/bin/bash\nprintf "%%s\\n" "$@" > "$FAKE_ARGV"\nfor a; do last="$a"; done\n: > "$last"\n' > "$W/fakebin/productbuild"
+printf '#!/bin/bash\n[ "$1" = --check-signature ] && exit 0\nexec /usr/sbin/pkgutil "$@"\n' > "$W/fakebin/pkgutil"
+chmod +x "$W/fakebin/"*
+ID="Developer ID Installer: Test Name With Spaces (ABCDE12345)"
+env PATH="$W/fakebin:$PATH" FAKE_ID="$ID" FAKE_ARGV="$W/argv.txt" PKG_SIGN_IDENTITY="$ID" "$S" build "$W/spaces" >"$W/spaces.log" 2>&1 \
+  && ok "build with a spaced identity exits 0" || { bad "build with a spaced identity exits 0"; cat "$W/spaces.log"; }
+grep -qxF "$ID" "$W/argv.txt" 2>/dev/null && ok "productbuild got the identity as one argument" || bad "productbuild got the identity as one argument ($(tr '\n' '|' < "$W/argv.txt" 2>/dev/null))"
+[ "$(grep -n -- '--sign' "$W/argv.txt" | cut -d: -f1)" = "$(( $(grep -nxF "$ID" "$W/argv.txt" | cut -d: -f1) - 1 ))" ] \
+  && ok "--sign is followed by the identity" || bad "--sign is followed by the identity"
+grep -qx -- '--timestamp' "$W/argv.txt" && ok "--timestamp is passed" || bad "--timestamp is passed"
+
 echo "== without AAX"
 BEATKEY_SKIP_AAX=1 "$S" build "$W/noaax" >"$W/noaax.log" 2>&1 && ok "BEATKEY_SKIP_AAX=1 builds" || { bad "BEATKEY_SKIP_AAX=1 builds"; cat "$W/noaax.log"; }
 grep -q 'NO AAX' "$W/noaax.log" && ok "it says so loudly" || bad "it says so loudly"
