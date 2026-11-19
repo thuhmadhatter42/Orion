@@ -48,6 +48,7 @@ typedef struct bkp_view_state {
     char        format[8];       /* "AU", "VST3" */
     char        status[256];     /* "" when analyzing, else why not (the face shows it) */
     bk_snapshot snap;            /* top 3 with %, tuning, readings, song / reading_song, silent, ... */
+    int         clip_state;      /* bkp_clip_state: 0 live, 1 reads whole clips (AudioSuite), 2 analyzing one now */
 } bkp_view_state;
 
 /* 0 = filled; -1 = closed (out->alive = 0) or a NULL out. */

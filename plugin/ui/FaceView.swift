@@ -163,7 +163,7 @@ struct FaceMore: View {
             section("TOP KEYS") {
                 HStack(spacing: 6) {
                     if s.top.isEmpty {
-                        Text("Listening…").font(FaceType.face(11, bold: false)).foregroundColor(accent.color(0.62))
+                        Text(s.clips ? "Analyze a clip." : "Listening…").font(FaceType.face(11, bold: false)).foregroundColor(accent.color(0.62))
                     }
                     ForEach(s.top, id: \.name) { k in
                         Button("\(k.name)  \(k.percent)%") { model.togglePin(k.name) }
@@ -197,7 +197,7 @@ struct FaceMore: View {
                     .font(FaceType.face(11, bold: false).monospacedDigit()).foregroundColor(accent.color(0.85))
             }
             HStack(spacing: 6) {
-                Button("NEW SONG") { model.newSong() }.buttonStyle(FaceChipStyle()).help(FaceTips.newSong)
+                Button(s.clips ? "CLEAR" : "NEW SONG") { model.newSong() }.buttonStyle(FaceChipStyle()).help(FaceTips.newSong)
                 Spacer(minLength: 0)
             }
             section("COLOR") {
@@ -219,7 +219,7 @@ struct FaceMore: View {
                 Button("WHAT'S NEW") { model.openPage("WhatsNew.html", "What's New") }.buttonStyle(FaceChipStyle())
                 Spacer(minLength: 0)
             }
-            Text("Beat Key \(model.version) · \(s.format)").font(FaceType.caption).foregroundColor(Color.white.opacity(0.4))
+            Text("Beat Key \(model.version) · \(s.clips ? "\(s.format) AudioSuite" : s.format)").font(FaceType.caption).foregroundColor(Color.white.opacity(0.4))
         }
         .padding(14)
         .frame(width: 320)

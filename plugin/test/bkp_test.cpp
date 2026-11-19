@@ -11,7 +11,10 @@
  *              leaves the instance as it was
  *   marker     the "host died with Beat Key in it" marker: a dead process's marker is reported once
  *              and removed; ours exists while an instance is open and is gone after the last
- * Usage: bkp_test <weights.bkw> <scratch folder> [passthru|tripwire|live|state|marker ...]
+ *   clip       a whole clip (AudioSuite Analyze, step 14): fed in odd windows it reads exactly as the core's
+ *              file path reads the same mono; the reading becomes the instance's (buttons, state); every
+ *              refusal is logged, keeps the old reading and tells the face
+ * Usage: bkp_test <weights.bkw> <scratch folder> [passthru|tripwire|live|state|marker|clip ...]
  * BEATKEY_LOG_DIR must point inside the scratch folder (plugin/test.sh sets it).
  */
 #include <atomic>
@@ -446,6 +449,136 @@ void test_state() {
     bkp_destroy(a);
 }
 
+// ------------------------------------------------------------------ clip
+// Feeds n channels in host-sized windows (sizes cycle, the way an AudioSuite pass may hand them).
+long feed_clip(bkp_instance *p, const std::vector<std::vector<float>> &ch, size_t frames) {
+    static const uint32_t sizes[] = {1024, 4096, 333, 8192, 1};
+    std::vector<const float *> ptr(ch.size());
+    long kept = 0;
+    for (size_t at = 0, i = 0; at < frames; i++) {
+        const uint32_t n = (uint32_t)std::min<size_t>(sizes[i % 5], frames - at);
+        for (size_t c = 0; c < ch.size(); c++) ptr[c] = ch[c].data() + at;
+        const long k = bkp_clip_add(p, ptr.data(), (int)ch.size(), n);
+        if (k < 0) return -1;
+        kept += k;
+        at += n;
+    }
+    return kept;
+}
+
+bool same_reading(const bk_reading &a, const bk_reading &b) { return memcmp(&a, &b, sizeof a) == 0; }
+
+void test_clip() {
+    printf("== whole clip (AudioSuite Analyze): the core's file path, the instance's reading, every refusal\n");
+    const double rate = 48000.0;
+    const size_t n = (size_t)(rate * 20);
+    std::vector<float> l = clip(rate, 20, 120.0), r = clip(rate, 20, 120.0);
+    for (size_t i = 0; i < n; i++) r[i] = 0.6f * r[i] + 0.05f * (float)std::sin(2 * M_PI * 98.0 * (double)i / rate);
+    std::vector<float> mono(n);
+    for (size_t i = 0; i < n; i++) mono[i] = (l[i] + r[i]) / 2.0f;   // the core's downmix, stereo = 0.5 * (L + R)
+    bkp_instance *p = make("AAX");   // loads the weights (once per process)
+    bk_reading ref{};
+    char err[256] = {0};
+    CHECK(bk_analyze_buffer(mono.data(), n, rate, &ref, err, sizeof err) == BK_OK, "the core refused the reference: %s", err);
+
+    CHECK(bkp_clip_state(p) == 0, "a fresh instance claims to read clips");
+    bkp_use_clips(p);
+    CHECK(bkp_clip_state(p) == 1, "bkp_use_clips did not take");
+    char st[256];
+    CHECK(bkp_status(p, st, sizeof st)[0] == 0, "a whole-clip instance has a status before any clip: '%s'", st);
+    bk_snapshot s;
+    bkp_snapshot(p, &s);
+    CHECK(!s.has_reading, "a reading before any clip");
+
+    size_t mark = log_mark();
+    CHECK(bkp_clip_begin(p, rate, n, err, sizeof err) == 0, "begin refused: %s", err);
+    uint64_t have = 1, want = 0;
+    bkp_clip_progress(p, &have, &want);
+    CHECK(have == 0 && want == n, "progress after begin: %llu / %llu", (unsigned long long)have, (unsigned long long)want);
+    // 700 frames past the announced length: not kept
+    std::vector<std::vector<float>> st2 = {l, r};
+    st2[0].resize(n + 700, 0.9f);
+    st2[1].resize(n + 700, 0.9f);
+    CHECK(feed_clip(p, st2, n + 700) == (long)n, "frames past the announced length were kept");
+    bkp_clip_progress(p, &have, &want);
+    CHECK(have == n, "progress at the end: %llu", (unsigned long long)have);
+    bk_reading got{};
+    CHECK(bkp_clip_end(p, "AudioSuite Analyze", &got, err, sizeof err) == 0, "end refused: %s", err);
+    CHECK(same_reading(got, ref), "the clip's reading is not the core's file reading of the same mono (%s %.1f / %.2f vs %s %.1f / %.2f)",
+          got.keys[0].name, got.keys[0].percent, got.bpm_exact, ref.keys[0].name, ref.keys[0].percent, ref.bpm_exact);
+    CHECK(log_has_since(mark, "AudioSuite Analyze: 2 ch, 20.0 s at 48000 Hz -> "), "no AudioSuite log line for the run");
+    CHECK(bkp_clip_state(p) == 1, "still analyzing after the end");
+    bkp_snapshot(p, &s);
+    CHECK(s.has_reading && same_reading(s.reading, ref), "the instance's reading is not the clip's");
+    char key[8];
+    CHECK(bkp_key_in_use(p, key, sizeof key) == 0 && strcmp(key, ref.keys[0].name) == 0, "key in use '%s', want '%s'", key, ref.keys[0].name);
+    double bpm = 0;
+    CHECK(bkp_bpm_in_use(p, &bpm) == 0 && bpm == ref.bpm_exact, "BPM in use %.2f, want %.2f", bpm, ref.bpm_exact);
+
+    // mono, in other windows: the same answer as the core on that channel
+    CHECK(bkp_clip_begin(p, rate, n, err, sizeof err) == 0, "second begin refused: %s", err);
+    CHECK(feed_clip(p, {l}, n) == (long)n, "mono clip not kept");
+    bk_reading monor{}, lref{};
+    CHECK(bkp_clip_end(p, "AudioSuite Analyze", &monor, err, sizeof err) == 0, "mono end refused: %s", err);
+    CHECK(bk_analyze_buffer(l.data(), n, rate, &lref, err, sizeof err) == BK_OK, "core refused L: %s", err);
+    CHECK(same_reading(monor, lref), "a mono clip is not the core's reading of that channel");
+
+    // the length not said: the clip grows as it comes
+    CHECK(bkp_clip_begin(p, rate, 0, err, sizeof err) == 0, "begin with no length refused: %s", err);
+    CHECK(feed_clip(p, {l, r}, n) == (long)n, "unannounced clip not kept whole");
+    CHECK(bkp_clip_end(p, nullptr, &got, err, sizeof err) == 0 && same_reading(got, ref), "an unannounced clip read differently");
+
+    // the session state carries a clip's reading into a live instance (reopened session)
+    uint8_t blob[BKP_STATE_CAP];
+    const size_t len = bkp_state_save(p, blob, sizeof blob);
+    bkp_instance *q = make("AAX");
+    CHECK(len > 0 && bkp_state_load(q, blob, len, err, sizeof err) == 0, "the state did not round-trip: %s", err);
+    bkp_snapshot(q, &s);
+    CHECK(s.has_reading && same_reading(s.reading, ref), "the restored reading is not the clip's");
+
+    // refusals: each logged, the reading the instance had is kept, the face is told why
+    mark = log_mark();
+    CHECK(bkp_clip_begin(q, rate, n, err, sizeof err) == -1 && strstr(err, "plays live"), "a live instance began a clip: '%s'", err);
+    CHECK(bkp_clip_begin(p, 1000.0, n, err, sizeof err) == -1 && strstr(err, "outside 8000..384000"), "rate 1000 accepted: '%s'", err);
+    CHECK(bkp_clip_begin(p, rate, (uint64_t)(rate * (BKP_CLIP_MAX_SECS + 1)), err, sizeof err) == -1 && strstr(err, "reads up to"),
+          "an over-long selection accepted: '%s'", err);
+    const float *one[1] = {l.data()};
+    CHECK(bkp_clip_add(p, one, 1, 100) == -1, "audio before a begin was kept");
+    CHECK(log_has_since(mark, "audio came before the clip began"), "no log line for audio before a begin");
+    CHECK(bkp_clip_end(p, "AudioSuite Analyze", &got, err, sizeof err) == -1 && strstr(err, "no clip was begun"), "end with no clip: '%s'", err);
+    CHECK(bkp_clip_begin(p, rate, n, err, sizeof err) == 0, "begin after refusals refused: %s", err);
+    CHECK(bkp_status(p, st, sizeof st)[0] == 0, "a new clip did not clear the last refusal: '%s'", st);
+    const float *two[2] = {l.data(), r.data()};
+    CHECK(bkp_clip_add(p, two, 2, 4096) == 4096, "first stereo window refused");
+    CHECK(bkp_clip_add(p, one, 1, 4096) == -1, "a channel-count change mid-clip was accepted");
+    CHECK(bkp_clip_add(p, two, 2, 4096) == -1, "a refused clip kept taking audio");
+    CHECK(bkp_clip_end(p, "AudioSuite Analyze", &got, err, sizeof err) == -1 && strstr(err, "changed the channel count"),
+          "a refused clip was read: '%s'", err);
+    CHECK(log_has_since(mark, "AudioSuite Analyze REFUSED: the host changed the channel count"), "no REFUSED run line");
+    CHECK(strstr(bkp_status(p, st, sizeof st), "Couldn't read the selection"), "the face is not told: '%s'", st);
+    bkp_snapshot(p, &s);
+    CHECK(s.has_reading && same_reading(s.reading, ref), "a refused clip changed the reading");
+    const float *nul[2] = {l.data(), nullptr};
+    CHECK(bkp_clip_begin(p, rate, n, err, sizeof err) == 0 && bkp_clip_add(p, nul, 2, 10) == -1, "a NULL channel was accepted");
+    bkp_clip_cancel(p, "test");
+    CHECK(log_has_since(mark, "whole clip dropped after 0.0 s: test"), "no log line for a cancel");
+    CHECK(bkp_clip_begin(p, rate, n, err, sizeof err) == 0, "begin for the empty clip refused");
+    CHECK(bkp_clip_end(p, "AudioSuite Analyze", &got, err, sizeof err) == -1 && strstr(err, "no audio"), "an empty clip was read: '%s'", err);
+    std::vector<float> bad(4800, 0.1f);
+    bad[100] = NAN;
+    const float *b1[1] = {bad.data()};
+    CHECK(bkp_clip_begin(p, rate, bad.size(), err, sizeof err) == 0 && bkp_clip_add(p, b1, 1, (uint32_t)bad.size()) == (long)bad.size(),
+          "the NaN clip was not taken in");
+    CHECK(bkp_clip_end(p, "AudioSuite Analyze", &got, err, sizeof err) == -1 && strstr(err, "not audio"), "a NaN clip was read: '%s'", err);
+
+    // a whole-clip instance never prepares a live analyzer through the clip calls; NEW SONG clears its reading
+    bkp_new_song(p);
+    bkp_snapshot(p, &s);
+    CHECK(!s.has_reading && s.readings == 0, "clear left a reading");
+    bkp_destroy(q);
+    bkp_destroy(p);
+}
+
 // ------------------------------------------------------------------ marker
 void test_marker() {
     printf("== crash marker\n");
@@ -489,7 +622,7 @@ void test_marker() {
 
 int main(int argc, char **argv) {
     if (argc < 3) {
-        fprintf(stderr, "usage: bkp_test <weights.bkw> <scratch folder> [passthru|tripwire|live|state|marker ...]\n");
+        fprintf(stderr, "usage: bkp_test <weights.bkw> <scratch folder> [passthru|tripwire|live|state|marker|clip ...]\n");
         return 2;
     }
     g_weights = argv[1];
@@ -509,6 +642,7 @@ int main(int argc, char **argv) {
     if (want("live")) test_live();
     if (want("state")) test_state();
     if (want("marker")) test_marker();
+    if (want("clip")) test_clip();
     printf("bkp_test: %d checks, %d failed\n", g_checks, g_failed);
     return g_failed ? 1 : 0;
 }

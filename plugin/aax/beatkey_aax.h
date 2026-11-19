@@ -23,6 +23,13 @@ constexpr AAX_CTypeID kBeatKeyAaxViewTokenBlock = 'BKtk'; // GetCustomData: the 
 #define BEATKEY_AAX_EFFECT_ID "com.jshriver.orion.plugin"
 #define BEATKEY_AAX_BUNDLE_ID "com.jshriver.orion.plugin.aax"
 
+/* The AudioSuite effect (plan step 14), a second effect in the same bundle: whole-clip Analyze through
+ * AAX_CHostProcessor.  Its own product and AudioSuite IDs (permanent too), as the SDK's DemoDelay_HostProcessor does. */
+constexpr AAX_CTypeID kBeatKeyAaxASProductID = 'BtKA';
+constexpr AAX_CTypeID kBeatKeyAaxASPlugInID = 'BKas';
+constexpr AAX_CTypeID kBeatKeyAaxInstanceBlock = 'BKin'; // GetCustomData: the instance (bkp_instance *), same process
+#define BEATKEY_AAX_AS_EFFECT_ID "com.jshriver.orion.plugin.audiosuite"
+
 /* The algorithm context: audio in, audio out, buffer length, and the instance (private data the data model
  * fills in ResetFieldData).  Bypass and the host tempo reach the instance from the data model, not here. */
 struct BeatKeyAaxContext {
@@ -51,7 +58,10 @@ void AAX_CALLBACK BeatKeyAax_Process(BeatKeyAaxContext* const begin[], const voi
 class BeatKeyAaxParameters : public AAX_CEffectParameters {
 public:
 	static AAX_CEffectParameters* AAX_CALLBACK Create();
-	BeatKeyAaxParameters();
+	/* The AudioSuite effect's data model: the same object, its instance reads whole clips (bkp_use_clips), no
+	 * live analyzer is ever prepared. */
+	static AAX_CEffectParameters* AAX_CALLBACK CreateAudioSuite();
+	explicit BeatKeyAaxParameters(bool audioSuite = false);
 	~BeatKeyAaxParameters() AAX_OVERRIDE;
 
 	AAX_Result EffectInit() AAX_OVERRIDE;
@@ -75,6 +85,7 @@ private:
 	void prepareForHostRate();
 
 	bkp_instance* mInst = nullptr;
+	bool mAudioSuite = false;
 	uint64_t mViewToken = 0;
 	double mRate = 0;
 	// GetChunkSize stages the bytes GetChunk then writes (the AAX interface makes both const)
@@ -86,5 +97,10 @@ private:
 /* The GUI (beatkey_aax_view.mm): an AAX_CEffectGUI hosting the face (bkp_view_create). */
 class AAX_IEffectGUI;
 AAX_IEffectGUI* AAX_CALLBACK BeatKeyAaxGUI_Create();
+
+/* The AudioSuite effect (beatkey_aax_audiosuite.cpp): its description, added to the collection by
+ * GetEffectDescriptions.  Failed descriptor calls are logged; the first error is returned. */
+class AAX_ICollection;
+AAX_Result BeatKeyAax_DescribeAudioSuite(AAX_ICollection* collection);
 
 #endif

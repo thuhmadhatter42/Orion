@@ -60,6 +60,12 @@ final class FaceModel: ObservableObject {
         if !state.alive { return ("This instance is closed.", .error) }
         if !state.status.isEmpty { return (state.status, .error) }
         if state.error { return ("Analysis stopped. Report sends the log.", .error) }
+        if state.clips {
+            // AudioSuite: readings come from Analyze on a selection; playback, bypass and silence play no part
+            if state.analyzing { return ("Reading the selection…", .info) }
+            if !state.hasReading { return ("Select a clip, then press Analyze.", .info) }
+            return ("", .info)
+        }
         if state.bypass { return ("Bypassed. Not listening.", .info) }
         if state.stale { return ("New song. Listening…", .info) }
         if state.silent { return ("Silence. Play the track.", .info) }
@@ -119,7 +125,7 @@ final class FaceModel: ObservableObject {
     func newSong() {
         _ = bkp_view_new_song(token)
         FaceLog.line(token, "face: new song")
-        show("New song. Listening…", kind: .info)
+        show(state.clips ? "Cleared. Analyze a clip." : "New song. Listening…", kind: .info)
         refresh()
     }
 
