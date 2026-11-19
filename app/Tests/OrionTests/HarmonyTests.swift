@@ -346,7 +346,7 @@ final class HarmonyTests: XCTestCase {
     func testAdvancedWindowIsWiderNotTaller() {
         let a = FaceplateView.size(advanced: true), b = FaceplateView.size(advanced: false)
         XCTAssertEqual(b, FaceplateView.size)
-        XCTAssertEqual(b.width, 528)                       // J 2026-11-09: the left side 24 narrower
+        XCTAssertEqual(b.width, 512)                       // plate 496 + 8 each side (J 2026-11-19: smaller black bars)
         XCTAssertEqual(a.height, b.height)
         XCTAssertEqual(a.width, b.width + FaceplateView.columnGap + HarmonyPanel.width)
     }

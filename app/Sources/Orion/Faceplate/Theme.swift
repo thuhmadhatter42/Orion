@@ -16,9 +16,18 @@ enum Theme {
     static let panelDeep = hex(0x050505)
     static let black = hex(0x000000)                   // rings and shadows only, never a surface
 
-    /// The window around the plate: the mockup page's radial background.
+    /// The faceplate grey, the one token: the window's plate, the pocket's plate and (through
+    /// `desk`) the Mini follow it (J 2026-11-19: "the face plate grey is too light grey": about
+    /// 20% darker than 0x232326 / 0x191a1c / 0x131315).
+    static let plateTop = hex(0x1b1b1e)
+    static let plateMid = hex(0x141415)
+    static let plateBottom = hex(0x0f0f11)
+    /// The plate's body: top, middle at 40%, bottom.
+    static var plateBody: LinearGradient { vertical([(plateTop, 0), (plateMid, 0.4), (plateBottom, 1)]) }
+
+    /// The window around the plate: the mockup page's radial background; it starts at the plate's bottom grey.
     static let desk = RadialGradient(
-        gradient: Gradient(stops: [.init(color: hex(0x131315), location: 0),
+        gradient: Gradient(stops: [.init(color: plateBottom, location: 0),
                                    .init(color: hex(0x08080a), location: 0.65),
                                    .init(color: hex(0x030304), location: 1)]),
         center: UnitPoint(x: 0.5, y: 0.3), startRadius: 0, endRadius: 420)
@@ -240,8 +249,67 @@ struct Palette: Equatable {
         Theme.rgb(accent.r, accent.g, accent.b, (highContrast ? Theme.A.highContrastAlphas : Theme.A.alphas)[i])
     }
 
-    /// A Manual Key Selection's white (ManualLook): High Contrast pure white, no glow.
+    /// The white of every white button: pure white leaned toward the display colour by the one
+    /// amount `CapWhite.tint` (J 2026-11-19). High Contrast: pure white.
+    var capWhite: Color { Theme.rgb(capRGB.0, capRGB.1, capRGB.2) }
+    /// The cap's gradient and legend, all from `capWhite`'s one tint.
+    var cap: CapWhite.Face { CapWhite.face(accent: accent, highContrast: highContrast) }
+    private var capRGB: (Double, Double, Double) { CapWhite.rgb(accent: accent, highContrast: highContrast) }
+
+    /// A Manual Key Selection's white (ManualLook): High Contrast pure white, no glow. Deliberately
+    /// not tinted (it marks "not the display colour", and the menu-bar key must stay neutral), so it
+    /// is not a cap white; it is a lit state, not a button.
     var manualWhite: Color { highContrast ? Theme.rgb(255, 255, 255) : Theme.rgb(244, 244, 247) }
+}
+
+/// The one owner of "white" on a button (J 2026-11-19: the caps read as yellow teeth). Pure white
+/// (or silver) mixed toward the display colour by ONE constant, `tint`; every white button
+/// (SSLCapStyle: key caps, send caps, popover caps) takes its
+/// colours from here, and no off-white is written anywhere else. High Contrast: pure white, no tint.
+enum CapWhite {
+    /// How far toward the display colour the white leans (0...1). The one number to change.
+    static let tint = 0.04
+    /// The white being tinted: pure white. (Silver, a cool grey-white, was the alternative: #E6E8EB.)
+    static let base: (Double, Double, Double) = (255, 255, 255)
+    /// The silver option, for renders and comparison.
+    static let silver: (Double, Double, Double) = (230, 232, 235)
+
+    /// Tests / comparison renders only: replace `tint` and `base` for one render.
+    static var tintOverride: Double?
+    static var baseOverride: (Double, Double, Double)?
+
+    /// `base` mixed toward `accent` by `tint` (sRGB 0...255). High Contrast: pure white.
+    static func rgb(accent: Accent, highContrast: Bool, tint t: Double? = nil,
+                    base b: (Double, Double, Double)? = nil) -> (Double, Double, Double) {
+        if highContrast { return (255, 255, 255) }
+        let t = min(1, max(0, t ?? tintOverride ?? tint))
+        let b = b ?? baseOverride ?? base
+        return (b.0 + (accent.r - b.0) * t, b.1 + (accent.g - b.1) * t, b.2 + (accent.b - b.2) * t)
+    }
+
+    /// The cap's shading, as fractions of the white: top, middle, bottom. A pressable cap and an
+    /// unavailable one (a touch darker); the legend is a dark tinted the same way.
+    static let readyShade: [Double] = [0.97, 0.88, 0.75]
+    static let unavailableShade: [Double] = [0.88, 0.80, 0.69]
+    static let legendBase: (Double, Double, Double) = (56, 56, 59)
+
+    struct Face {
+        var ready: [Color]
+        var unavailable: [Color]
+        var legend: Color
+        var legendDim: Color
+    }
+
+    static func face(accent: Accent, highContrast: Bool) -> Face {
+        let w = rgb(accent: accent, highContrast: highContrast)
+        func shaded(_ k: [Double]) -> [Color] { k.map { Theme.rgb(w.0 * $0, w.1 * $0, w.2 * $0) } }
+        // the legend leans the same way, by the same tint (High Contrast: neutral dark)
+        let t = highContrast ? 0 : min(1, max(0, tintOverride ?? tint))
+        let l = legendBase
+        let lg = (l.0 + (accent.r - l.0) * t, l.1 + (accent.g - l.1) * t, l.2 + (accent.b - l.2) * t)
+        return Face(ready: shaded(readyShade), unavailable: shaded(unavailableShade),
+                    legend: Theme.rgb(lg.0, lg.1, lg.2), legendDim: Theme.rgb(lg.0, lg.1, lg.2, 0.45))
+    }
 }
 
 private struct PaletteKey: EnvironmentKey { static let defaultValue = Palette() }
