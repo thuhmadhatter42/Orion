@@ -43,9 +43,9 @@ try:
         sr = float(bb["header"].get("SAMPLE RATE", "0") or 0)
         print("sr", sr, "tracks", len(bb["tracks"]), "files", len(bb["files"]))
         print("sample EDL row (ticks):", hlib.redact([x["start"] for x in tk["tracks"][0]["edl"][:3]] if tk["tracks"] else None))
-        tempos = hlib.edl_tempos(bb, sa, tk, sr)
-        from collections import Counter
-        print("edl tempos (n, top5):", len(tempos), Counter(round(t, 2) for t in tempos).most_common(5))
+        # same fit harvest.py uses (4 beats per bar, as edldiag.py does)
+        edl_t, edl_flat, edl_n, edl_on = hlib.edl_tempo(hlib.edl_points(bb, sa, 4), sr)
+        print("edl tempo:", edl_t, "flat", edl_flat, "points", edl_n, "on line", edl_on)
         for t in bb["tracks"]:
             nm = t["name"]
             if t["comment"]:
