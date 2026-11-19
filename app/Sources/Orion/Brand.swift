@@ -16,9 +16,6 @@ enum Brand {
     static let setUpPermissions = "Set Up Permissions…"
     static let checkForUpdates = "Check for Updates…"
     static let licenses = "Licenses"
-    /// Bundled in Contents/Resources by app/build.sh (copied from the repo root).
-    static let licensesFile = "THIRD-PARTY-LICENSES"
-    static let licensesExt = "md"
 
     /// The last line of every red FAILED readout. One line on the LCD.
     static let doctorHint = "TRY \(wordmark) › RUN DOCTOR"

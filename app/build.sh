@@ -85,8 +85,15 @@ xcrun actool "$APP/icon/Assets.xcassets" --compile "$OUTAPP/Contents/Resources" 
 rm -rf "$ACT"
 [ -f "$OUTAPP/Contents/Resources/Assets.car" ] || { echo "actool produced no Assets.car"; exit 1; }
 plutil -replace CFBundleIconName -string AppIcon "$OUTAPP/Contents/Info.plist"
-[ -f "$ROOT/THIRD-PARTY-LICENSES.md" ] || { echo "missing THIRD-PARTY-LICENSES.md"; exit 1; }
-cp "$ROOT/THIRD-PARTY-LICENSES.md" "$OUTAPP/Contents/Resources/THIRD-PARTY-LICENSES.md"
+# House kit, help-menu: the Help menu's pages. Manual and What's New are app/pages/*.html; Licenses.txt is
+# GENERATED from THIRD-PARTY-LICENSES.md + LICENSE (app/tools/licenses.sh: one source, never a hand copy).
+# Help > Manual, Help > What's New and App menu > Licenses open these from Contents/Resources.
+for f in Manual.html WhatsNew.html; do
+  [ -s "$APP/pages/$f" ] || { echo "missing $APP/pages/$f"; exit 1; }
+  cp "$APP/pages/$f" "$OUTAPP/Contents/Resources/$f"
+done
+sh "$APP/tools/licenses.sh" "$OUTAPP/Contents/Resources/Licenses.txt" \
+  || { echo "could not generate Licenses.txt (THIRD-PARTY-LICENSES.md + LICENSE)"; exit 1; }
 # House kit, Uninstall: App menu > Uninstall Beat Key… runs this script on this manifest (app/uninstall/)
 for f in uninstall.sh uninstall.manifest; do
   [ -f "$APP/uninstall/$f" ] || { echo "missing $APP/uninstall/$f"; exit 1; }

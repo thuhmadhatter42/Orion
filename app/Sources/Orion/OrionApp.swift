@@ -102,6 +102,9 @@ struct OrionApp: App {
             CommandGroup(replacing: .help) {
                 Button(Brand.help) { HelpWindow.shared.open(why: "menu") }
                     .keyboardShortcut("?", modifiers: .command)
+                // House kit, help-menu: the bundled pages (HelpPages.swift); a missing one is logged + alerted
+                Button("Manual") { HouseHelp.open(HouseHelp.manual) }
+                Button("What's New") { HouseHelp.open(HouseHelp.whatsNew) }
                 Divider()
                 Toggle("Help Mode", isOn: $help.isOn)
             }
@@ -118,7 +121,7 @@ struct OrionApp: App {
                 Button(Brand.runDoctor) { engine.runDoctor() }
                     .disabled(engine.state.isBusy)
                 Button(Brand.setUpPermissions) { PermissionGuide.shared.open(at: nil, why: "menu") }
-                Button(Brand.licenses) { Licenses.open() }
+                Button(Brand.licenses) { HouseHelp.open(HouseHelp.licenses) }
                 if login.loggedIn && YouTubeLogin.inApp {
                     Button("Log Out of YouTube") { login.logOut() }
                         .disabled(engine.state.isBusy)
@@ -336,26 +339,6 @@ private struct WindowConfigurator: NSViewRepresentable {
         return v
     }
     func updateNSView(_ nsView: NSView, context: Context) {}
-}
-
-/// App menu › Licenses: opens the bundled THIRD-PARTY-LICENSES.md (open-source notices and the
-/// source-code offer) in TextEdit, so it needs no screen of its own.
-enum Licenses {
-    /// The bundled file, or nil when running unbundled (`swift run`).
-    static func fileURL(bundle: Bundle = .main) -> URL? {
-        bundle.url(forResource: Brand.licensesFile, withExtension: Brand.licensesExt)
-    }
-
-    static func open(bundle: Bundle = .main) {
-        guard let url = fileURL(bundle: bundle) else { NSSound.beep(); return }
-        let ws = NSWorkspace.shared
-        // .md has no default app on a clean Mac; TextEdit always exists.
-        if let edit = ws.urlForApplication(withBundleIdentifier: "com.apple.TextEdit") {
-            ws.open([url], withApplicationAt: edit, configuration: NSWorkspace.OpenConfiguration())
-        } else {
-            ws.open(url)
-        }
-    }
 }
 
 /// Reading › Reference Pitch › Custom…: a number from 400 to 480 Hz.

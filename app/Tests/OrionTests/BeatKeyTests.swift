@@ -61,14 +61,13 @@ final class BeatKeyTests: XCTestCase {
         let app = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()      // app/
         let file = app.deletingLastPathComponent()
-            .appendingPathComponent("\(Brand.licensesFile).\(Brand.licensesExt)")
+            .appendingPathComponent("THIRD-PARTY-LICENSES.md")
         let text = try String(contentsOf: file, encoding: .utf8)
         XCTAssertTrue(text.contains("Source for Beat Key and its modifications: https://github.com/thuhmadhatter42/beat_dl"))
         for needle in ["GNU AFFERO GENERAL PUBLIC LICENSE", "GNU GENERAL PUBLIC LICENSE", "CC BY-NC-SA 4.0",
                        "Essentia", "yt-dlp", "FFmpeg", "Deno"] {
             XCTAssertTrue(text.contains(needle), needle)
         }
-        XCTAssertNil(Licenses.fileURL(bundle: Bundle(for: Self.self)))   // unbundled: nothing to open, no crash
     }
 
     // MARK: failure hints
