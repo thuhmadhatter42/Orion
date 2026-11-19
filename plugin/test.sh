@@ -6,8 +6,9 @@
 #  2. bkp_test (plugin/test/bkp_test.cpp) linked against the core's tripwire dylib, run on BOTH
 #     slices: arm64, then x86_64 (`arch -x86_64`: Rosetta here, native on an Intel Mac).  A slice this
 #     Mac cannot run is a FAIL, never a skip.
-#  3. The shim harnesses (plugin/test/shims.sh): the VST3 and AU objects driven directly, no host, on
-#     both slices, the audio path under the tripwire.
+#  3. vst3_harness (plugin/test/vst3_harness.cpp): the VST3 shim's own objects driven directly, no host, on
+#     both slices: factory, Bypass parameter, the real process() under the tripwire, state and its refusals.
+#     The AU shim has no direct harness (the SDK needs an AudioComponent); auval drives it in plugin/validate.sh.
 # The validator gate (auval, pluginval, Steinberg's validator) is plugin/validate.sh; it needs the
 # built bundles installed in ~/Library/Audio/Plug-Ins.
 # Scratch: plugin/build.noindex/test.XXXXXX, removed on every way out.  Logs go there, never to
@@ -49,8 +50,24 @@ for slice in arm64 x86_64; do
     || fail "bkp_test failed on the $slice slice"
 done
 
-if [ $# -eq 0 ] && [ -f "$HERE/test/shims.sh" ]; then
-  echo "== the shims, driven directly (no host)"
-  sh "$HERE/test/shims.sh" || fail "shim harness failed"
+if [ $# -eq 0 ]; then
+  echo "== the VST3 shim, driven directly (no host, no bundle)"
+  PI="$HERE/vendor/vst3-pluginterfaces-3.8.1"
+  clang++ $CXXF -w -I"$PI" -c "$PI/pluginterfaces/base/coreiids.cpp" -o "$TMP/pi_coreiids.o"
+  clang++ $CXXF -w -I"$PI" -c "$PI/pluginterfaces/base/funknown.cpp" -o "$TMP/pi_funknown.o"
+  clang -fobjc-arc $ARCHS -Wall -Wextra -Werror -O2 -I"$ROOT/core/include" -I"$HERE/shared" -DBKP_VIEW_CLASS=BeatKeyHarnessFace \
+    -c "$HERE/shared/bkp_view.m" -o "$TMP/bkp_view.o"
+  clang++ -std=c++17 -fobjc-arc -x objective-c++ $ARCHS -Wall -Wextra -Werror -O2 -I"$ROOT/core/include" -isystem "$PI" \
+    -c "$HERE/vst3/beatkey_vst3_view.mm" -o "$TMP/beatkey_vst3_view.o"
+  clang++ $CXXF -I"$ROOT/core/include" -isystem "$PI" "-DBKP_VERSION=\"$VERSION\"" \
+    "$HERE/vst3/beatkey_vst3.cpp" "$HERE/test/vst3_harness.cpp" "$HERE/shared/bkp.cpp" \
+    "$TMP/pi_coreiids.o" "$TMP/pi_funknown.o" "$TMP/bkp_view.o" "$TMP/beatkey_vst3_view.o" "$ROOT/core/build.noindex/libbeatkey.a" \
+    -L"$TMP" -ltripwire -Wl,-rpath,"$TMP" -framework Accelerate -framework CoreFoundation -framework AppKit -framework Foundation \
+    -o "$TMP/vst3_harness"
+  for slice in arm64 x86_64; do
+    echo "== run vst3_harness: $slice slice"
+    mkdir -p "$TMP/v3-$slice/logs"
+    BEATKEY_LOG_DIR="$TMP/v3-$slice/logs" arch -$slice "$TMP/vst3_harness" "$WEIGHTS" || fail "vst3_harness failed on the $slice slice"
+  done
 fi
 echo "plugin/test.sh: PASS (both slices)"

@@ -10,7 +10,7 @@ Steps 3-6 (core) and 7-8 (shims) can run side by side. Steps 9-11 and 16 touch `
 - [x] 5. Core BPM parity → §5
 - [x] 6. Core streaming and worker → §6
 - [x] 7. Plug-in instance layer → §7
-- [ ] 8. VST3 + AU, validator gate → §8
+- [x] 8. VST3 + AU, validator gate → §8
 - [ ] 9. SwiftUI face, house kit → §9
 - [ ] 10. SEND AUTO-TUNE button → §10
 - [ ] 11. SEND BPM through app → §11
@@ -105,3 +105,18 @@ Next: §6 gates the streaming port and soaks the worker.
 - `plugin/test.sh`: builds the core and `bkp_test` universal, runs it on arm64 and on x86_64 (Rosetta) under the core's tripwire: **132 checks, 0 failed, on each slice**; the audio path (float, double, bypass, 80 channels, host tempo) made 0 allocations and 0 locks.
 - Logging (one owner each): the core logs analyzer created / destroyed, readings, drops, refusals; the layer logs `plug-in opened: host ..., Beat Key <format> <version>`, `plug-in closed`, rate changes, weights and state refusals, sends, the crash marker.
 Next: §8, the VST3 and AU shims on top of `bkp_*`, and the validator gate.
+
+**8 → 9 (2026-11-19).** The VST3 and the AU pass the whole validator gate on both slices.
+- Shims, host glue
+- Placeholder face: `plugin/shared/bkp_view.{h,m}`, an NSView (key, BPM, status, 360 x 120, amber on dark) compiled under a per-format class name (`BeatKeyAUFace`, `BeatKeyVST3Face`; the AU's factory is `BeatKeyAUViewFactory`). Views hold a token, never the instance (`bkp_view_register / unregister`). Step 9 replaces it.
+- `plugin/build.sh`: core, layer, both bundles universal (macOS 12.0, `-Werror` on our code), weights in each bundle's `Contents/Resources`, Developer ID + hardened runtime + timestamp, `codesign --verify --deep --strict`, then `plugin/smoke.sh` (identity, both slices, minos, exact exports, signature facts, weights byte-identical). Bundle ids `com.jshriver.orion.plugin.au` / `.vst3`.
+- `plugin/test.sh` now also runs `plugin/test/vst3_harness.cpp` (the VST3 shim driven directly: factory, bypass parameter, the real `process()` float + double under the tripwire, state round trip and refusals): **434 checks, 0 failed, each slice**; `bkp_test` 132/132 each slice. The AU has no direct harness (the SDK needs an AudioComponent); auval drives it.
+- `plugin/validate.sh` = the gate, Beat Key's own bundles only (installs into `~/Library/Audio/Plug-Ins`, `--remove` puts them in the Trash). Results 03:40-03:47:
+  - auval `-v aufx BtKy FLRc`: AU VALIDATION SUCCEEDED, arm64 and `arch -x86_64`, 0 warnings (Tail Time warning fixed with `SupportsTail`).
+  - Steinberg validator (built from the MIT SDK 3.8.1 by `plugin/tools/build-vst3-validator.sh`, universal): 47 passed, 0 failed, arm64 and x86_64.
+  - pluginval 1.0.4 strictness 10, rates 44.1-192 kHz x blocks 16-2048 (144 runs per bundle), `--vst3validator`, `--verbose`: VST3 SUCCESS (its validator step: 537 passed, 0 failed) and AU SUCCESS (its auval step exit 0, `VALIDATING AUDIO UNIT: 'aufx' - 'BtKy' - 'FLRc'`), each on arm64 and x86_64. The script fails unless each log proves its sub-validator ran.
+  - Which slice ran is proven by the plug-in log: every open line now says `(arm64)` or `(x86_64)`.
+- Not run: pluginval's editor test (`--skip-gui-tests`, so no window on J's screen). It is §9's done test, on Sofia.
+- Incident (reported to the main session at 03:35): one `auval -a` listing ran at 03:33 before J's no-scan rule reached this agent. The log shows it opened 4 Waves V14 bundles; no iLok / PACE / licence lines, no dialog on screen. From then on, only Beat Key's own bundles were named.
+- Test installs were removed (Trash). No VERSION bump, nothing published, no AAX.
+For §9: replace `bkp_view.m` with the SwiftUI face behind the same `bkp_view_create(token)` entry (the shims need not change); read from `bkp_snapshot`, `bkp_key_in_use`, `bkp_bpm_in_use`, `bkp_status`, `bkp_host_tempo`; write with `bkp_set_pin`, `bkp_set_tempo_mult`, `bkp_new_song`; log sends with `bkp_log_send`. Report attaches `~/Library/Logs/Beat Key/plugin.log` (+ `.1`) and, after a `HOST DIED` line, the host's newest crash report. Keep the per-format Swift module names (A6). Size is `BKP_VIEW_W x BKP_VIEW_H` in both shims (VST3 `getSize`, AU view frame).

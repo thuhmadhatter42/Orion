@@ -54,6 +54,26 @@ std::string host_name() {
     return p && *p ? p : "unknown host";
 }
 
+// <bundle>/Contents/Resources/<name> of a loaded bundle, or "" (the reason goes to why).
+std::string bundle_resource(const char *bundle_id, const char *name, std::string &why) {
+    CFStringRef id = CFStringCreateWithCString(nullptr, bundle_id, kCFStringEncodingUTF8);
+    CFBundleRef b = id ? CFBundleGetBundleWithIdentifier(id) : nullptr;
+    if (id) CFRelease(id);
+    if (!b) {
+        why = std::string("bundle ") + bundle_id + " is not loaded";
+        return "";
+    }
+    CFURLRef res = CFBundleCopyResourcesDirectoryURL(b);
+    char buf[2048] = {0};
+    const bool ok = res && CFURLGetFileSystemRepresentation(res, true, (UInt8 *)buf, sizeof buf);
+    if (res) CFRelease(res);
+    if (!ok) {
+        why = std::string("bundle ") + bundle_id + " has no Resources folder";
+        return "";
+    }
+    return std::string(buf) + "/" + name;
+}
+
 std::string log_dir() {
     char buf[1024];
     std::string p = bk_log_path(buf, sizeof buf);
@@ -274,21 +294,29 @@ bkp_instance *bkp_create(const bkp_config *cfg) {
     for (int c = 0; c < kMaxCh; c++) p->scratch_ch[c] = p->scratch + (size_t)c * kScratch;
     p->format = cfg && cfg->format && *cfg->format ? cfg->format : "?";
     p->host = cfg && cfg->host && *cfg->host ? cfg->host : host_name();
-    p->weights_path = cfg && cfg->weights_path ? cfg->weights_path : "";
+    std::string where_why;
+    if (cfg && cfg->weights_path && *cfg->weights_path) p->weights_path = cfg->weights_path;
+    else if (cfg && cfg->bundle_id && *cfg->bundle_id)
+        p->weights_path = bundle_resource(cfg->bundle_id, "deeptemp-k16-3.bkw", where_why);
     p->area = p->format + "#" + std::to_string(g_serial.fetch_add(1) + 1);
 
     {
         std::lock_guard<std::mutex> g(g_marker_mu);
         if (g_open++ == 0) marker_open(p->format.c_str(), p->host);
     }
-    bkp_log(p, "plug-in opened: host %s, Beat Key %s %s, core %s", p->host.c_str(), p->format.c_str(), BKP_VERSION,
+#if defined(__arm64__)
+    const char *slice = "arm64";
+#else
+    const char *slice = "x86_64";
+#endif
+    bkp_log(p, "plug-in opened: host %s, Beat Key %s %s (%s), core %s", p->host.c_str(), p->format.c_str(), BKP_VERSION, slice,
             bk_version());
 
     char err[256] = {0};
     if (!bk_ready()) {
         if (p->weights_path.empty()) {
-            snprintf(err, sizeof err, "no weights path was given");
-            bkp_log(p, "REFUSED: no weights path was given; the plug-in passes audio through and does not analyze");
+            snprintf(err, sizeof err, "no weights file (%s)", where_why.empty() ? "no bundle or path was given" : where_why.c_str());
+            bkp_log(p, "REFUSED: %s; the plug-in passes audio through and does not analyze", err);
         } else if (bk_load_weights(p->weights_path.c_str(), err, sizeof err) != BK_OK) {
             bkp_log(p, "REFUSED: weights not loaded from %s; the plug-in passes audio through and does not analyze",
                     p->weights_path.c_str());

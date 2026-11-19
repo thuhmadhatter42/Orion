@@ -93,7 +93,7 @@ std::vector<float> clip(double rate, double secs, double bpm) {
 }
 
 bkp_instance *make(const char *format, bool weights = true) {
-    bkp_config c = {format, weights ? g_weights.c_str() : nullptr, "test.host"};
+    bkp_config c = {format, weights ? nullptr : "com.example.not-loaded", weights ? g_weights.c_str() : nullptr, "test.host"};
     return bkp_create(&c);
 }
 
@@ -146,7 +146,7 @@ void test_passthru() {
     // weights may already be loaded by an earlier test in this process; only then is status empty
     if (!bk_ready()) {
         CHECK(strstr(bkp_status(p, st, sizeof st), "incomplete") != nullptr, "status '%s'", st);
-        CHECK(log_has_since(mark, "REFUSED: no weights path"), "no refusal line");
+        CHECK(log_has_since(mark, "REFUSED: no weights file (bundle com.example.not-loaded is not loaded)"), "no refusal line");
         CHECK(bkp_prepare(p, 48000) != 0, "prepare analyzed without weights");
     }
     for (int f64 = 0; f64 < 2; f64++) {

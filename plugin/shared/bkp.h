@@ -38,7 +38,9 @@ typedef struct bkp_instance bkp_instance;
 
 typedef struct bkp_config {
     const char *format;        /* "AU", "VST3", "AAX": for the log and the marker */
-    const char *weights_path;  /* <bundle>/Contents/Resources/deeptemp-k16-3.bkw */
+    const char *bundle_id;     /* the format bundle's CFBundleIdentifier: the weights are its
+                                  Contents/Resources/deeptemp-k16-3.bkw */
+    const char *weights_path;  /* tests: a weights file to use instead (NULL in the shims) */
     const char *host;          /* host bundle id or name; NULL = the main bundle's id, else the process name */
 } bkp_config;
 
