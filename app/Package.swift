@@ -10,8 +10,12 @@ let package = Package(
         .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.1"),
     ],
     targets: [
+        // Swift the app and the plug-in's face both compile (key names, tempo text, tuning maths, the
+        // Auto-Tune hand-off, the SEND BPM contract, the look's primitives). plugin/build.sh compiles the
+        // same files into each plug-in format under that format's own module name.
+        .target(name: "BeatKeyShared", path: "Sources/BeatKeyShared"),
         .executableTarget(name: "Orion",
-                          dependencies: [.product(name: "Sparkle", package: "Sparkle")],
+                          dependencies: ["BeatKeyShared", .product(name: "Sparkle", package: "Sparkle")],
                           path: "Sources/Orion",
                           resources: [.process("Resources")],
                           // build.sh puts Sparkle.framework in Contents/Frameworks.
@@ -20,6 +24,6 @@ let package = Package(
                                                          "-Xlinker", "@executable_path/../Frameworks",
                                                          "-Xlinker", "-weak_framework",
                                                          "-Xlinker", "ScreenCaptureKit"])]),
-        .testTarget(name: "OrionTests", dependencies: ["Orion"], path: "Tests/OrionTests"),
+        .testTarget(name: "OrionTests", dependencies: ["Orion", "BeatKeyShared"], path: "Tests/OrionTests"),
     ]
 )

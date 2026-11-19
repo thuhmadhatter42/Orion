@@ -56,16 +56,21 @@ bundle_skeleton() {   # $1 = bundle, $2 = Info.plist.in
   plutil -lint "$1/Contents/Info.plist" >/dev/null || refuse "$2 does not make a valid plist"
   printf 'BNDL????' > "$1/Contents/PkgInfo"
   cp "$WEIGHTS" "$1/Contents/Resources/deeptemp-k16-3.bkw"
+  # the face's MANUAL and WHAT'S NEW: the app's own pages, opened offline from the bundle
+  for page in Manual.html WhatsNew.html; do
+    [ -f "$ROOT/app/pages/$page" ] || refuse "no app/pages/$page"
+    cp "$ROOT/app/pages/$page" "$1/Contents/Resources/$page"
+  done
 }
 
 echo "== the core"
 sh "$ROOT/core/build.sh" >/dev/null || refuse "core/build.sh failed (run it alone to see why)"
 check_universal "$CORELIB"
 
-echo "== the instance layer + one face class per format"
+echo "== the instance layer + the SwiftUI face, one Swift module per format (A6)"
 clang++ -std=c++17 $CF $INC $DEFS -c shared/bkp.cpp -o "$OBJ/bkp.o"
-clang -fobjc-arc $CF $INC -DBKP_VIEW_CLASS=BeatKeyAUFace -c shared/bkp_view.m -o "$OBJ/au/bkp_view.o"
-clang -fobjc-arc $CF $INC -DBKP_VIEW_CLASS=BeatKeyVST3Face -c shared/bkp_view.m -o "$OBJ/vst3/bkp_view.o"
+sh ui/build-face.sh BeatKeyAU "$OBJ/au" "$VERSION" || refuse "the AU face did not build"
+sh ui/build-face.sh BeatKeyVST3 "$OBJ/vst3" "$VERSION" || refuse "the VST3 face did not build"
 
 # ---- AU ----
 echo "== AU: Beat Key.component"
@@ -82,7 +87,7 @@ AU="$OUT/Beat Key.component"
 bundle_skeleton "$AU" au/Info.plist.in
 clang++ -bundle $ARCHS_FLAGS -o "$AU/Contents/MacOS/Beat Key" "$OBJ"/au/*.o "$OBJ/bkp.o" "$CORELIB" \
   -framework Accelerate -framework AudioToolbox -framework AudioUnit -framework CoreAudio \
-  -framework CoreFoundation -framework AppKit -framework Foundation \
+  -framework CoreFoundation -framework AppKit -framework Foundation $(cat "$OBJ/au/face.ldflags") \
   -Wl,-exported_symbols_list,"$HERE/au/exports.txt" || refuse "could not link the AU"
 check_universal "$AU/Contents/MacOS/Beat Key"
 sign_bundle "$AU"
@@ -102,7 +107,7 @@ sed -e "s/@VERSION@/$VERSION/g" vst3/moduleinfo.json.in > "$V3/Contents/Resource
 python3 -I -c 'import json,sys; json.load(open(sys.argv[1]))' "$V3/Contents/Resources/moduleinfo.json" \
   || refuse "VST3 moduleinfo.json is not valid JSON"
 clang++ -bundle $ARCHS_FLAGS -o "$V3/Contents/MacOS/Beat Key" "$OBJ"/vst3/*.o "$OBJ/bkp.o" "$CORELIB" \
-  -framework Accelerate -framework CoreFoundation -framework AppKit -framework Foundation \
+  -framework Accelerate -framework CoreFoundation -framework AppKit -framework Foundation $(cat "$OBJ/vst3/face.ldflags") \
   -Wl,-exported_symbols_list,"$HERE/vst3/exports.txt" || refuse "could not link the VST3"
 check_universal "$V3/Contents/MacOS/Beat Key"
 sign_bundle "$V3"
