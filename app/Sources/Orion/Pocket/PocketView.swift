@@ -492,7 +492,7 @@ struct FooterChipStyle: ButtonStyle {
 private struct PocketPlate: View {
     var body: some View {
         ZStack {
-            Theme.vertical([(Theme.hex(0x232326), 0), (Theme.hex(0x191a1c), 0.4), (Theme.hex(0x131315), 1)])
+            Theme.plateBody
             LinearGradient(gradient: Gradient(stops: [
                 .init(color: Color.white.opacity(0), location: 0.30),
                 .init(color: Color.white.opacity(0.04), location: 0.45),

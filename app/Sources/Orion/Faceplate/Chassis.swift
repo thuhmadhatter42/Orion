@@ -17,7 +17,7 @@ struct Plate<Content: View>: View {
             .frame(width: width)
             .background(
                 ZStack {
-                    Theme.vertical([(Theme.hex(0x232326), 0), (Theme.hex(0x191a1c), 0.4), (Theme.hex(0x131315), 1)])
+                    Theme.plateBody
                     // 115deg sheen across the plate
                     LinearGradient(gradient: Gradient(stops: [
                         .init(color: Color.white.opacity(0), location: 0.32),

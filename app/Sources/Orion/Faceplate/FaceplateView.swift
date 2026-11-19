@@ -68,12 +68,19 @@ struct FaceplateView: View {
     /// send caps and the footer links. Advanced mode adds the harmony column to the right: the
     /// window grows wider, never taller (laptop screens have width to spare, not height).
     static func size(advanced: Bool) -> CGSize {
-        CGSize(width: plateWidth(advanced: advanced) + 32, height: height)
+        CGSize(width: plateWidth(advanced: advanced) + margin * 2, height: height)
     }
     static let size = size(advanced: false)
+    /// The dark band between the window edge and the plate, sides and bottom (J 2026-11-19: "make
+    /// those black bars smaller": 16 -> 8), and above it, under the 28 pt title bar (6 -> 2: the
+    /// plate's outer ring starts 4 pt up, so it still clears the traffic lights).
+    static let margin: CGFloat = 8
+    static let topMargin: CGFloat = 2
+    /// The plate's own height (the rail, readout, rows and footer), both modes.
+    static let plateHeight: CGFloat = 734
     /// The window's content height, both modes (J 2026-11-09: 732 + 12 for the taller keyboard,
     /// + 12 for the bigger key dial).
-    static let height: CGFloat = 756
+    static let height: CGFloat = plateHeight + topMargin + margin
     /// The module column inside the plate's 12 pt padding (J 2026-11-09: "the whole left side is
     /// too wide": 496 -> 472, as narrow as SEND TO AUTO-TUNE and the source name allow at full size).
     static let moduleWidth: CGFloat = 472
@@ -223,9 +230,9 @@ struct FaceplateFace: View {
                     footer.padding(.top, Theme.S.l)
                 }
             }
-            .padding(.top, 6)          // + the 28 pt title bar above = the mockup's traffic-light gap
-            .padding(.horizontal, 16)
-            .padding(.bottom, 16)
+            .padding(.top, FaceplateView.topMargin)   // + the 28 pt title bar above: the traffic lights clear the plate's ring
+            .padding(.horizontal, FaceplateView.margin)
+            .padding(.bottom, FaceplateView.margin)
         }
         .frame(width: size.width, height: size.height)
         .environment(\.helpMode, state.help)

@@ -199,8 +199,8 @@ final class AmberCaretField: NSTextField {
     }
 }
 
-/// The pale SSL-style key cap, three states (design pass F7): ready (cream, dark legend), lit
-/// (amber) and unavailable: the same cream cap at full strength, a touch darker, no shine, its
+/// The pale SSL-style key cap, three states (design pass F7): ready (white, tinted by CapWhite, dark legend), lit
+/// (amber) and unavailable: the same cap at full strength, a touch darker, no shine, its
 /// legend dimmed. The cap never goes see-through (a faded cap reads as broken, not off).
 struct SSLCapStyle: ButtonStyle {
     let lit: Bool
@@ -243,7 +243,7 @@ private struct CapBody<Label: View>: View {
         let shape = RoundedRectangle(cornerRadius: r, style: .continuous)
         let on = lit || ready
         return label   // a Text set by SSLCapStyle.label, or an icon
-            .foregroundColor(lit ? palette.accent.litCap.legend.color : on ? Theme.hex(0x3a372f) : Theme.hex(0x4a463c, 0.45))
+            .foregroundColor(lit ? palette.accent.litCap.legend.color : on ? palette.cap.legend : palette.cap.legendDim)
             .shadow(color: Color.white.opacity(lit ? 0.35 : on ? 0.5 : 0.2), radius: 0, y: 1)
             .padding(.horizontal, padding)
             .frame(height: height - SSLCapStyle.ring * 2)
@@ -253,9 +253,11 @@ private struct CapBody<Label: View>: View {
                         let c = palette.accent.litCap   // the display colour (COLOR)
                         Theme.vertical([(c.top.color, 0), (c.mid.color, 0.45), (c.bottom.color, 1)])
                     } else if on {
-                        Theme.vertical([(Theme.hex(0xefede4), 0), (Theme.hex(0xd6d3c6), 0.45), (Theme.hex(0xb3b0a2), 1)])
+                        let c = palette.cap.ready
+                        Theme.vertical([(c[0], 0), (c[1], 0.45), (c[2], 1)])
                     } else {
-                        Theme.vertical([(Theme.hex(0xd8d5ca), 0), (Theme.hex(0xc1bdb0), 0.45), (Theme.hex(0xa9a698), 1)])
+                        let c = palette.cap.unavailable
+                        Theme.vertical([(c[0], 0), (c[1], 0.45), (c[2], 1)])
                     }
                     // the cap's top shine (an unavailable cap has none)
                     if on {
