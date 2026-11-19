@@ -18,7 +18,7 @@
 #   BEATKEY_VERSION        default: ../../VERSION
 #   BEATKEY_AU / _VST3 / _AAX   bundle paths, default plugin/build.noindex/Beat Key.{component,vst3,aaxplugin}
 #   BEATKEY_SKIP_AAX=1     build WITHOUT the AAX (says so loudly; the installer then has no AAX choice)
-#   BEATKEY_AAX_MARKER     plugin/build.noindex/AAX-NOT-SIGNED: the file plugin/build.sh leaves when the AAX
+#   BEATKEY_AAX_MARKER     plugin/build.noindex/AAX-NOT-PACE-SIGNED: the file plugin/build.sh leaves when the AAX
 #                          signing step did not run (A6). While it exists, this script refuses to package.
 #   BEATKEY_AAX_VERIFY     ~/.config/beat-key/aax-verify.sh (outside the repo, beside the signing script): run as
 #                          `sh <it> <bundle>`; non-zero refuses. The repo never holds how the AAX is signed.
@@ -33,7 +33,7 @@ PLUGIN_OUT="$ROOT/plugin/build.noindex"
 AU="${BEATKEY_AU:-$PLUGIN_OUT/Beat Key.component}"
 VST3="${BEATKEY_VST3:-$PLUGIN_OUT/Beat Key.vst3}"
 AAX="${BEATKEY_AAX:-$PLUGIN_OUT/Beat Key.aaxplugin}"
-MARKER="${BEATKEY_AAX_MARKER:-$PLUGIN_OUT/AAX-NOT-SIGNED}"
+MARKER="${BEATKEY_AAX_MARKER:-$PLUGIN_OUT/AAX-NOT-PACE-SIGNED}"
 AAX_VERIFY="${BEATKEY_AAX_VERIFY:-$HOME/.config/beat-key/aax-verify.sh}"
 PKG_IDENTITY="${PKG_SIGN_IDENTITY:-Developer ID Installer: J Shriver (9WTFGV63S2)}"
 SKIP_AAX="${BEATKEY_SKIP_AAX:-0}"

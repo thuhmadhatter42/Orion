@@ -68,7 +68,7 @@ Every launch, Beat Key also asks Sparkle for one background check (no timer).
 relocatable, one receipt each (`com.jshriver.orion.plugin.{au,vst3,aax}.pkg`). `distribution.xml` makes them
 choices under Customize; all start ticked. Each plug-in package has a postinstall that only reads and logs
 (`app/pkg/plugin-postinstall`), like the app's: `/var/log/install.log` and `~/Library/Logs/Beat Key/install.log`.
-- Refuses to package when the AAX is missing, its seal is broken, `plugin/build.noindex/AAX-NOT-SIGNED`
+- Refuses to package when the AAX is missing, its seal is broken, `plugin/build.noindex/AAX-NOT-PACE-SIGNED`
   exists (the file plugin/build.sh leaves when the AAX signing step did not run), or the verify script
   `~/.config/beat-key/aax-verify.sh` (outside the repo, if present) says no. `BEATKEY_SKIP_AAX=1` builds an
   installer with no AAX, and says so.

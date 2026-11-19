@@ -28,7 +28,7 @@ export BEATKEY_VERSION="$VER"
 # a stand-in AAX: the signed VST3 under the AAX name (the seal does not depend on the folder's extension). The real
 # AAX is the AAX step's; this only proves the packaging path.
 ditto "$OUTB/Beat Key.vst3" "$W/aax/Beat Key.aaxplugin"
-export BEATKEY_AAX="$W/aax/Beat Key.aaxplugin" BEATKEY_AAX_MARKER="$W/AAX-NOT-SIGNED" BEATKEY_AAX_VERIFY="$W/none.sh"
+export BEATKEY_AAX="$W/aax/Beat Key.aaxplugin" BEATKEY_AAX_MARKER="$W/AAX-NOT-PACE-SIGNED" BEATKEY_AAX_VERIFY="$W/none.sh"
 
 echo "== full build: AU + VST3 + AAX"
 OUT="$W/out"
@@ -69,9 +69,9 @@ check "main installer Distribution lists the AAX choice" grep -q 'plugin.aax' "$
 check "main installer carries all four components" test "$(ls -d "$W/main-x/"*.pkg | wc -l | tr -d ' ')" = 4
 
 echo "== refusals"
-: > "$W/AAX-NOT-SIGNED"
+: > "$W/AAX-NOT-PACE-SIGNED"
 refuses "AAX marker present" "AAX not signed" "$S" build "$W/out2"
-rm -f "$W/AAX-NOT-SIGNED"
+rm -f "$W/AAX-NOT-PACE-SIGNED"
 refuses "AAX missing" "bundle not found" env BEATKEY_AAX="$W/nope/Beat Key.aaxplugin" "$S" build "$W/out3"
 ditto "$OUTB/Beat Key.vst3" "$W/broken/Beat Key.aaxplugin"; printf 'tamper' >> "$W/broken/Beat Key.aaxplugin/Contents/Resources/deeptemp-k16-3.bkw"
 refuses "AAX with a broken seal" "not signed or its seal is broken" env BEATKEY_AAX="$W/broken/Beat Key.aaxplugin" "$S" build "$W/out4"
