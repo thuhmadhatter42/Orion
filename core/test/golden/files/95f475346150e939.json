@@ -1,0 +1,82 @@
+{
+ "key": {
+  "chroma": [
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "keys": [
+   [
+    "C",
+    0.0
+   ],
+   [
+    "Am",
+    0.0
+   ],
+   [
+    "G",
+    0.0
+   ]
+  ],
+  "n_frames": 216,
+  "n_peaks": 0,
+  "pcp12": [
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "retuned": false,
+  "scores": {},
+  "tuning_cents": null,
+  "tuning_raw": null
+ },
+ "pcm_sha256": "2a30c57a4d9493dee87b67431a6df0c02af11468bf0ef3e0f952dff48c24df53",
+ "resampled": {
+  "key_44100": {
+   "samples": 882000,
+   "sha256": "2a30c57a4d9493dee87b67431a6df0c02af11468bf0ef3e0f952dff48c24df53"
+  },
+  "tempo_11025": {
+   "samples": 220500,
+   "sha256": "ff793c626048816a52aa19c55232c5226be1f990b3b028ddc435877fc2676547"
+  }
+ },
+ "sample_rate": 44100,
+ "samples": 882000,
+ "sha256": "95f475346150e939a31eec1baed0fb2554cf854a5ce3ad254bb995dea0cfea46",
+ "tempo": {
+  "bpm": null,
+  "bpm_exact": null,
+  "classes": [
+   null,
+   null
+  ],
+  "decided": false,
+  "global_bpm": null,
+  "n_frames": 432,
+  "n_silent_frames": 432,
+  "noise_only": [
+   true,
+   true
+  ]
+ }
+}

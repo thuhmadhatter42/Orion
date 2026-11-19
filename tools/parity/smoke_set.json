@@ -1,0 +1,28 @@
+{
+  "about": "The 20-clip smoke set of the plug-in plan (docs/plans/plugin-2026-11-19.md, A5 and step 2). Every clip is made from bench audio (or from nothing) by ffmpeg, so no audio is stored in the repo. 'src' entries are '<bench>/<index into the sorted audio folder>'. make_goldens.py builds each clip, then freezes the Python analyzer's file outputs and its live (stream) events for it.",
+  "clips": [
+    {"id": "s01-48k-s16",        "inputs": ["key-bench/0"],  "args": ["-t", "60", "-ar", "48000", "-c:a", "pcm_s16le"], "new_song_at_chunk": 50},
+    {"id": "s02-48k-f32",        "inputs": ["bpm-bench/0"],  "args": ["-t", "60", "-ar", "48000", "-c:a", "pcm_f32le"]},
+    {"id": "s03-48k-mono",       "inputs": ["key-bench/5"],  "args": ["-t", "45", "-ar", "48000", "-ac", "1", "-c:a", "pcm_s16le"]},
+    {"id": "s04-96k-s24",        "inputs": ["bpm-bench/5"],  "args": ["-t", "45", "-ar", "96000", "-c:a", "pcm_s24le"]},
+    {"id": "s05-88k2",           "inputs": ["key-bench/10"], "args": ["-t", "45", "-ar", "88200", "-c:a", "pcm_s16le"]},
+    {"id": "s06-22k05",          "inputs": ["bpm-bench/10"], "args": ["-t", "45", "-ar", "22050", "-c:a", "pcm_s16le"]},
+    {"id": "s07-32k",            "inputs": ["key-bench/15"], "args": ["-t", "45", "-ar", "32000", "-c:a", "pcm_s16le"]},
+    {"id": "s08-11k025",         "inputs": ["bpm-bench/15"], "args": ["-t", "60", "-ar", "11025", "-c:a", "pcm_s16le"]},
+    {"id": "s09-44k1-mono",      "inputs": ["key-bench/20"], "args": ["-t", "60", "-ac", "1", "-c:a", "pcm_s16le"]},
+    {"id": "s10-5s",             "inputs": ["bpm-bench/20"], "args": ["-t", "5", "-c:a", "pcm_s16le"]},
+    {"id": "s11-11s5",           "inputs": ["key-bench/25"], "args": ["-t", "11.5", "-c:a", "pcm_s16le"]},
+    {"id": "s12-3s",             "inputs": ["bpm-bench/25"], "args": ["-t", "3", "-c:a", "pcm_s16le"]},
+    {"id": "s13-silence-20s",    "inputs": ["lavfi:anullsrc=r=44100:cl=stereo"], "args": ["-t", "20", "-c:a", "pcm_s16le"]},
+    {"id": "s14-gap-5s",         "inputs": ["key-bench/30", "lavfi:anullsrc=r=44100:cl=stereo", "bpm-bench/30"],
+                                 "args": ["-filter_complex", "[0:a]atrim=0:20,asetpts=N/SR/TB[a];[1:a]atrim=0:5,asetpts=N/SR/TB[b];[2:a]atrim=0:20,asetpts=N/SR/TB[c];[a][b][c]concat=n=3:v=0:a=1[o]", "-map", "[o]", "-c:a", "pcm_s16le"]},
+    {"id": "s15-detune-plus30",  "inputs": ["key-bench/2"],  "args": ["-t", "60", "-af", "asetrate=44100*1.0174796921,aresample=44100", "-c:a", "pcm_s16le"]},
+    {"id": "s16-detune-minus17", "inputs": ["key-bench/3"],  "args": ["-t", "60", "-af", "asetrate=44100*0.9902284752,aresample=44100", "-c:a", "pcm_s16le"]},
+    {"id": "s17-back-to-back",   "inputs": ["key-bench/35", "bpm-bench/35"],
+                                 "args": ["-filter_complex", "[0:a]atrim=0:40,asetpts=N/SR/TB[a];[1:a]atrim=0:40,asetpts=N/SR/TB[b];[a][b]concat=n=2:v=0:a=1[o]", "-map", "[o]", "-c:a", "pcm_s16le"]},
+    {"id": "s18-quiet-32db",     "inputs": ["bpm-bench/2"],  "args": ["-t", "45", "-af", "volume=-32dB", "-c:a", "pcm_f32le"]},
+    {"id": "s19-quiet-70db",     "inputs": ["bpm-bench/3"],  "args": ["-t", "45", "-af", "volume=-70dB", "-c:a", "pcm_f32le"]},
+    {"id": "s20-native-mp3",     "inputs": ["key-bench/39"], "copy": true}
+  ],
+  "layer_dumps": ["key-bench/0", "key-bench/1", "bpm-bench/0", "bpm-bench/1", "smoke/s01-48k-s16"]
+}
