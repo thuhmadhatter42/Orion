@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key><string>en</string>
+	<key>CFBundleExecutable</key><string>Beat Key</string>
+	<key>CFBundleGetInfoString</key><string>@VERSION@, Four Letter Records</string>
+	<key>CFBundleIdentifier</key><string>com.jshriver.orion.plugin.midi.aax</string>
+	<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+	<key>CFBundleName</key><string>Beat Key MIDI</string>
+	<key>CFBundlePackageType</key><string>TDMw</string>
+	<key>CFBundleSignature</key><string>PTul</string>
+	<key>CFBundleShortVersionString</key><string>@VERSION@</string>
+	<key>CFBundleVersion</key><string>@VERSION@</string>
+	<key>LSMinimumSystemVersion</key><string>12.0</string>
+	<key>LSMultipleInstancesProhibited</key><string>true</string>
+	<key>LSPrefersCarbon</key><false/>
+	<key>NSAppleScriptEnabled</key><string>No</string>
+	<key>NSHumanReadableCopyright</key><string>Four Letter Records. Free software: GNU AGPL v3.</string>
+</dict>
+</plist>

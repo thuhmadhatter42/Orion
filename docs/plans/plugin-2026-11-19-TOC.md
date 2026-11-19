@@ -15,7 +15,7 @@ Steps 3-6 (core) and 7-8 (shims) can run side by side. Steps 9-11 and 16 touch `
 - [x] 10. SEND AUTO-TUNE button → §10 (Auto-Tune Pro check open → §12)
 - [x] 11. SEND BPM through app → §11 (Live / Logic / Artemis checks open → §12)
 - [ ] 12. Milestone A, J's check → §12
-- [ ] 13. AAX Native, signed → §13
+- [ ] 13. AAX Native, signed → §13 (built + PACE-signed + validator on the MacBook Pro; Pro Tools on Sofia open)
 - [ ] 14. AudioSuite Analyze pass → §14
 - [ ] 15. MIDI variant → §15
 - [ ] 16. Installer and plug-in updates → §16
@@ -148,6 +148,14 @@ Next: §11.
 - An app older than this commit has no listener: the plug-in waits 8 s and says "Beat Key app didn't answer. Update it?" The installed Beat Key (0.1.77 on Sofia) is such an app; the end-to-end check needs an app built from this branch.
 - NOT done (§12): host checks Live 10 (Remote Script), Logic (Accessibility), Artemis (`reading` post). They need a Beat Key app built from this branch on the test Mac, the DAW open in J's session, and audio playing through the plug-in.
 For §12 (J's check, main session): build + install the app from this branch and both plug-ins (named install step) on the MacBook Pro and Sofia, then per format and host: the face opens (Live 10, Logic, Pro Tools later), key + BPM appear on a playing track, MORE works, SEND AUTO-TUNE changes Auto-Tune Pro's key (Auto Key Detection on), SEND BPM changes the session tempo and the face says "Session tempo …" (Live 10 with Beat Key's Remote Script chosen, Logic with Accessibility for Beat Key, Artemis' Beat Key button), the AU checked by auval from a GUI context on Sofia.
+
+**13, first half (2026-11-19 11:50).** The AAX Native is built, PACE-signed and through Avid's validator on the MacBook Pro; the Pro Tools check on Sofia is still open, so 13 is not ticked.
+- `plugin/vendor/aax-sdk-2.9.0/` (GPLv3 option, `VENDOR.txt`: everything also in JUCE 7dda739b's copy is byte-identical to it; 21 files come from J's 2.9.0 download, listed). Row added to `THIRD-PARTY-LICENSES.md`.
+- `plugin/aax/`: `beatkey_aax.{h,cpp}` (data model: `bkp_*` only; rate from `Controller()->GetSampleRate` at EffectInit and re-checked in `TimerWakeup`; Master Bypass -> `bkp_set_bypass`; `Transport()->GetCurrentTempo` in `TimerWakeup` -> `bkp_set_host_tempo`; one chunk `BKst` = the layer's blob; the instance reaches the audio proc as private data filled in `ResetFieldData`; Compare always equal, because the blob holds the last reading), `beatkey_aax_describe.cpp` (`FLRc` / `BtKy`, effect id `com.jshriver.orion.plugin`, 15 stem formats mono to 7.1.2, each with its own permanent native id `BK..`, multi-mono off, category Effect: `AAX_Enums.h` has no analyzer category), `beatkey_aax_view.mm` (the SwiftUI face, Swift module `BeatKeyAAX`, by token).
+- `plugin/build.sh` builds the AAX universal (macOS 12.0, AAXLibrary from the vendored sources, cached in `build.noindex/aaxlib`), Developer ID, then runs `$BEATKEY_AAX_SIGN` (default `~/.config/beat-key/aax-sign.sh`, private, outside the repo). Without that script: `AAX not signed` and the marker `build.noindex/AAX-NOT-PACE-SIGNED`. `plugin/smoke.sh` checks the AAX too.
+- `plugin/validate-aax.sh`: Avid's AAX Validator 2024.6 (arm64 only) on our bundle by path, no install. Signed bundle: 12 PASS (describe, data_model, load_unload x1000, parameters, parameter traversals, info tests); excused: `test.cycle_counts` (DSP only), `test.page_table.load` (the validator can't load its own page-table library here). Its Ruby crashes on a volume with no "Container Free Space" on macOS 27; the script patches its unpacked copy.
+- No harness test for the AAX shim yet (the VST3 has `vst3_harness.cpp`); the validator's data-model and parameter tests drove the real object.
+Next (main session): Pro Tools on Sofia, with the signed bundle installed in `/Library/Application Support/Avid/Audio/Plug-Ins` (ditto, never cp -R): it loads, reads, SEND AUTO-TUNE, SEND BPM through the app's Accessibility route with the read-back. Then tick 13.
 
 **15 (AU + VST3 part) → 13 / 12 (2026-11-19).** Beat Key MIDI exists as AU and VST3. Its AAX hook is in the instance layer, ready for the AAX shim. The row stays unticked: the AAX part and the live host table are still open.
 - §Q2 default: while a key is in use (the same rule as the buttons: the pin, else the first detected key), its tonic triad, root position, C3 octave, velocity 96, is held on channel 1. A key change sends the old chord's offs, then the new chord's ons. No key or bypass sends the offs. The face also has a drag-out **.MID** chip (tempo + 4/4 + key signature, `MidiExport.data`, track "Beat Key").

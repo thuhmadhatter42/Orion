@@ -1,18 +1,22 @@
 # plugin/build-midi.sh: Beat Key MIDI, the MIDI variant (plan step 15).  SOURCED by plugin/build.sh after the
 # plain AU and VST3, never run alone: it uses that script's variables (OUT, OBJ, CF, INC, DEFS, SDK, PI,
-# CORELIB, ARCHS_FLAGS, VERSION), its helpers (bundle_skeleton, check_universal, sign_bundle, refuse) and
-# its objects (the AU SDK objects, the VST3 interface objects, the instance layer's bkp.o).
+# CORELIB, ARCHS_FLAGS, VERSION, AUVERSION, AAXLIB, XI), its helpers (bundle_skeleton, check_universal,
+# sign_bundle, pace_sign, refuse) and its objects (the AU SDK objects, the VST3 interface objects, AAX_Exports,
+# the instance layer's bkp.o).
 #
 #   plugin/build.noindex/Beat Key MIDI.component   AU    (aumf BtKM FLRc, factory BeatKeyMIDIAUFactory)
 #   plugin/build.noindex/Beat Key MIDI.vst3        VST3  (class 42744B794D49444956535433464C5263)
+#   plugin/build.noindex/Beat Key MIDI.aaxplugin   AAX Native (FLRc BtKM, a local MIDI output node), PACE-signed by
+#                                                  build.sh's pace_sign (or unsigned + the AAX-NOT-PACE-SIGNED marker)
 #
 # The same shim sources as Beat Key, compiled with -DBKP_MIDI=1 (an event output / a MIDI output callback,
 # the notes from bkp_midi_process).  Each has its own Swift module (BeatKeyAUMIDI, BeatKeyVST3MIDI) and
 # Objective-C class names, so all four bundles can sit in one host (A6).  Signed and verified like the others.
-[ -n "$OBJ" ] && [ -n "$SDK" ] && [ -n "$PI" ] || { echo "plugin/build-midi.sh: REFUSED: source it from plugin/build.sh" >&2; exit 1; }
+[ -n "$OBJ" ] && [ -n "$SDK" ] && [ -n "$PI" ] && [ -n "$AAXLIB" ] || { echo "plugin/build-midi.sh: REFUSED: source it from plugin/build.sh" >&2; exit 1; }
 
-echo "== the MIDI variant's faces (BeatKeyAUMIDI, BeatKeyVST3MIDI)"
-mkdir -p "$OBJ/au-midi" "$OBJ/vst3-midi"
+echo "== the MIDI variant's faces (BeatKeyAUMIDI, BeatKeyVST3MIDI, BeatKeyAAXMIDI)"
+mkdir -p "$OBJ/au-midi" "$OBJ/vst3-midi" "$OBJ/aax-midi"
+sh ui/build-face.sh BeatKeyAAXMIDI "$OBJ/aax-midi" "$VERSION" || refuse "the AAX MIDI face did not build"
 sh ui/build-face.sh BeatKeyAUMIDI "$OBJ/au-midi" "$VERSION" || refuse "the AU MIDI face did not build"
 sh ui/build-face.sh BeatKeyVST3MIDI "$OBJ/vst3-midi" "$VERSION" || refuse "the VST3 MIDI face did not build"
 
@@ -41,3 +45,17 @@ clang++ -bundle $ARCHS_FLAGS -o "$V3M/Contents/MacOS/Beat Key" "$OBJ"/vst3-midi/
   -Wl,-exported_symbols_list,"$HERE/vst3/exports.txt" || refuse "could not link the VST3 MIDI"
 check_universal "$V3M/Contents/MacOS/Beat Key"
 sign_bundle "$V3M"
+
+echo "== AAX: Beat Key MIDI.aaxplugin"
+clang++ -std=c++17 $CF $INC $DEFS $XI -DBKP_MIDI=1 -c aax/beatkey_aax.cpp -o "$OBJ/aax-midi/beatkey_aax.o"
+clang++ -std=c++17 $CF $INC $DEFS $XI -DBKP_MIDI=1 "-DBKP_AAX_VERSION_INT=$AUVERSION" -c aax/beatkey_aax_describe.cpp -o "$OBJ/aax-midi/beatkey_aax_describe.o"
+clang++ -std=c++17 -fobjc-arc -x objective-c++ $CF $INC $XI -DBKP_MIDI=1 -c aax/beatkey_aax_view.mm -o "$OBJ/aax-midi/beatkey_aax_view.o"
+AXM="$OUT/Beat Key MIDI.aaxplugin"
+bundle_skeleton "$AXM" aax/Info-MIDI.plist.in
+printf 'TDMwPTul' > "$AXM/Contents/PkgInfo"
+clang++ -bundle $ARCHS_FLAGS -o "$AXM/Contents/MacOS/Beat Key" "$OBJ"/aax-midi/*.o "$OBJ/aax/sdk_AAX_Exports.o" "$OBJ/bkp.o" "$AAXLIB" "$CORELIB" \
+  -framework Accelerate -framework CoreFoundation -framework AppKit -framework Foundation $(cat "$OBJ/aax-midi/face.ldflags") \
+  -Wl,-exported_symbols_list,"$HERE/aax/exports.txt" || refuse "could not link the AAX MIDI"
+check_universal "$AXM/Contents/MacOS/Beat Key"
+sign_bundle "$AXM"
+pace_sign "$AXM"

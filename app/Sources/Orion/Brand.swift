@@ -15,6 +15,7 @@ enum Brand {
     static let runDoctor = "Run Doctor"
     static let setUpPermissions = "Set Up Permissions…"
     static let checkForUpdates = "Check for Updates…"
+    static let updatePlugins = "Update Plug-ins…"
     static let licenses = "Licenses"
 
     /// The last line of every red FAILED readout. One line on the LCD.

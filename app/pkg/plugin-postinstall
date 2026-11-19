@@ -1,0 +1,51 @@
+#!/bin/bash
+# Beat Key plug-in installer, postinstall (a template: app/pkg/plugin-pkgs.sh fills @FORMAT@, @BUNDLE@, @DEST@
+# once per format). Runs as root after the bundle is laid down. It ONLY reads and logs; it never changes the
+# bundle (anything written into a signed bundle breaks the seal and the host skips it silently), never scans
+# plug-ins, never opens a host, and never fails the install: the exit is always 0.
+# Every line goes to /var/log/install.log ("Beat Key plug-in postinstall:") and, for the person at the screen, to
+# ~/Library/Logs/Beat Key/install.log (written AS that person, so a link in their folder cannot aim root at a
+# system file). No /tmp anywhere.
+# $1 = package path, $2 = install location, $3 = target volume.
+FORMAT="@FORMAT@"
+BUNDLE="@BUNDLE@"
+DEST="@DEST@"
+V="${3:-/}"; V="${V%/}"
+PATH_ON_DISK="$V$DEST/$BUNDLE"
+
+CU=""
+if [ "${3:-/}" = "/" ]; then
+  CU="$(/usr/bin/stat -f%Su /dev/console 2>/dev/null)"
+  case "$CU" in ''|root|loginwindow) CU="" ;; esac
+fi
+say() {
+  line="$(/bin/date '+%Y-%m-%d %H:%M:%S') [installer] plug-in $FORMAT: $*"
+  echo "Beat Key plug-in postinstall: $FORMAT: $*"
+  /usr/bin/logger -t BeatKeyInstaller "plug-in postinstall: $FORMAT: $*" 2>/dev/null
+  [ -n "$CU" ] || return 0
+  H="$(/usr/bin/dscl . -read "/Users/$CU" NFSHomeDirectory 2>/dev/null | /usr/bin/sed 's/^NFSHomeDirectory: //')"
+  [ -d "$H" ] || return 0
+  /usr/bin/sudo -u "$CU" /bin/sh -c 'd="$1/Library/Logs/Beat Key"; [ -L "$d" ] && exit 0; /bin/mkdir -p "$d" && printf "%s\n" "$2" >> "$d/install.log"' sh "$H" "$line" 2>/dev/null
+}
+
+say "start: package '${1:-?}', location '${2:-?}', target volume '${3:-?}', uid $(/usr/bin/id -u), console user '${CU:-none}'"
+if [ ! -d "$PATH_ON_DISK" ]; then
+  say "ERROR: $PATH_ON_DISK is not there after the install"; exit 0
+fi
+VER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PATH_ON_DISK/Contents/Info.plist" 2>/dev/null || echo '?')"
+EXE="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$PATH_ON_DISK/Contents/Info.plist" 2>/dev/null || echo '')"
+ARCHS="$(/usr/bin/lipo -archs "$PATH_ON_DISK/Contents/MacOS/$EXE" 2>/dev/null || echo '?')"
+OWNER="$(/usr/bin/stat -f%Su:%Sg "$PATH_ON_DISK" 2>/dev/null || echo '?')"
+say "installed: $PATH_ON_DISK version $VER, archs '$ARCHS', owner $OWNER"
+if OUT="$(/usr/bin/codesign --verify --deep --strict "$PATH_ON_DISK" 2>&1)"; then
+  say "signature seals (codesign --verify --deep --strict)"
+else
+  say "ERROR: signature does not verify: $OUT"
+fi
+if [ -f "$PATH_ON_DISK/Contents/Resources/deeptemp-k16-3.bkw" ]; then
+  say "tempo weights present"
+else
+  say "ERROR: tempo weights missing from the bundle"
+fi
+say "done. A host that is open must be restarted to see the new plug-in (Ableton Live: rescan; Logic: it rescans itself)."
+exit 0

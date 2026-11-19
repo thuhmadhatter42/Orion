@@ -59,6 +59,28 @@ to `/var/log/install.log` (lines `JS: Beat Key check:` and `Beat Key postinstall
 Sparkle keeps using the DMG (it quits Beat Key itself before installing); the pkg is only the download.
 Every launch, Beat Key also asks Sparkle for one background check (no timer).
 
+### The plug-ins are choices in the same installer (plan step 16)
+
+`app/pkg/plugin-pkgs.sh` packs the signed bundles from `plugin/build.noindex` (run by build.sh, which runs
+`plugin/build.sh` first; `BEATKEY_PLUGINS_PREBUILT=1` skips that): `Beat-Key-AU.pkg` (to
+`/Library/Audio/Plug-Ins/Components`), `Beat-Key-VST3.pkg` (`/Library/Audio/Plug-Ins/VST3`) and
+`Beat-Key-AAX.pkg` (`/Library/Application Support/Avid/Audio/Plug-Ins`): plain payloads, root-owned, not
+relocatable, one receipt each (`com.jshriver.orion.plugin.{au,vst3,aax}.pkg`). `distribution.xml` makes them
+choices under Customize; all start ticked. Each plug-in package has a postinstall that only reads and logs
+(`app/pkg/plugin-postinstall`), like the app's: `/var/log/install.log` and `~/Library/Logs/Beat Key/install.log`.
+- Refuses to package when the AAX is missing, its seal is broken, `plugin/build.noindex/AAX-NOT-PACE-SIGNED`
+  exists (the file plugin/build.sh leaves when the AAX signing step did not run), or the verify script
+  `~/.config/beat-key/aax-verify.sh` (outside the repo, if present) says no. `BEATKEY_SKIP_AAX=1` builds an
+  installer with no AAX, and says so.
+- The same plug-in packages also ride inside the app as `Contents/Resources/Beat-Key-Plug-ins.pkg`. Sparkle
+  updates Beat Key (the DMG); at the next launch Beat Key reads the installed plug-ins' versions and, if any
+  is older than the app, asks once and adds Beat Key menu > Update Plug-ins… (opens that package in Installer;
+  one password). `PluginUpdate.swift`.
+- After signing and again after notarizing, build.sh runs `plugin-pkgs.sh verify <pkg>`: the pkg is expanded and
+  every bundle inside is re-checked with `codesign --verify --deep --strict`, and each must install where its
+  format belongs.
+- Dry run on the real signed bundles, nothing installed or notarized: `sh app/pkg/test.sh`.
+
 ## Testing an update without publishing
 
 Build the newer version with `APPCAST_DOWNLOAD_PREFIX=http://127.0.0.1:<port>/`, serve its DMG and

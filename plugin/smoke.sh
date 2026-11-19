@@ -11,7 +11,7 @@ VER=$(tr -d ' \n' < "$ROOT/VERSION")
 OLDIFS=$IFS; IFS=.; set -- $VER; IFS=$OLDIFS
 AUVER=$(( ($1 << 16) | ($2 << 8) | $3 ))
 
-check_bundle() {   # $1 bundle, $2 bundle id, $3 expected exports (sorted, space separated)
+check_bundle() {   # $1 bundle, $2 bundle id, $3 expected exports (sorted, space separated), $4 package type (default BNDL)
   B=$1; BIN="$B/Contents/MacOS/Beat Key"; P="$B/Contents/Info.plist"
   echo "-- $(basename "$B")"
   [ -f "$BIN" ] || fail "$B: no executable"
@@ -19,7 +19,7 @@ check_bundle() {   # $1 bundle, $2 bundle id, $3 expected exports (sorted, space
   plutil -lint "$P" >/dev/null || fail "$P is not a valid plist"
   pl() { /usr/libexec/PlistBuddy -c "Print $1" "$P" 2>/dev/null || fail "$P has no $1"; }
   [ "$(pl :CFBundleExecutable)" = "Beat Key" ] || fail "$B: CFBundleExecutable"
-  [ "$(pl :CFBundlePackageType)" = "BNDL" ] || fail "$B: CFBundlePackageType"
+  [ "$(pl :CFBundlePackageType)" = "${4:-BNDL}" ] || fail "$B: CFBundlePackageType is not ${4:-BNDL}"
   [ "$(pl :CFBundleIdentifier)" = "$2" ] || fail "$B: CFBundleIdentifier is not $2"
   [ "$(pl :CFBundleShortVersionString)" = "$VER" ] || fail "$B: version differs from VERSION $VER"
   cmp -s "$B/Contents/Resources/deeptemp-k16-3.bkw" "$ROOT/models/deeptemp-k16-3.bkw" || fail "$B: weights missing or not models/deeptemp-k16-3.bkw"
@@ -60,6 +60,17 @@ assert c[0]["Category"] == "Audio Module Class" and c[0]["Version"] == sys.argv[
 PY
 echo "ok: moduleinfo.json (Beat Key, one Audio Module Class)"
 
+AX="$HERE/build.noindex/Beat Key.aaxplugin"
+check_bundle "$AX" com.jshriver.orion.plugin.aax "_ACFCanUnloadNow _ACFGetClassFactory _ACFGetSDKVersion _ACFRegisterComponent _ACFRegisterPlugin _ACFShutdown _ACFStartup" TDMw
+[ "$(cat "$AX/Contents/PkgInfo")" = "TDMwPTul" ] || fail "AAX PkgInfo is not TDMwPTul"
+for a in arm64 x86_64; do
+  nm -arch $a "$AX/Contents/MacOS/Beat Key" | grep -q ' __Z21GetEffectDescriptionsP15AAX_ICollection$' || fail "AAX $a slice has no GetEffectDescriptions"
+done
+if [ -f "$HERE/build.noindex/AAX-NOT-PACE-SIGNED" ]; then
+  echo "AAX: NOT PACE-signed (retail Pro Tools will not load it; never publish)"
+else
+  echo "ok: AAX PkgInfo TDMwPTul, GetEffectDescriptions linked, PACE signing step ran"
+fi
 # Beat Key MIDI (plan step 15)
 AUM="$HERE/build.noindex/Beat Key MIDI.component"
 check_bundle "$AUM" com.jshriver.orion.plugin.midi.au "_BeatKeyMIDIAUFactory"
@@ -81,4 +92,12 @@ assert len(c) == 1 and c[0]["CID"] == "42744B794D49444956535433464C5263" and c[0
 assert c[0]["Category"] == "Audio Module Class" and c[0]["Version"] == sys.argv[2]
 PY
 echo "ok: moduleinfo.json (Beat Key MIDI, one Audio Module Class)"
+AXM="$HERE/build.noindex/Beat Key MIDI.aaxplugin"
+check_bundle "$AXM" com.jshriver.orion.plugin.midi.aax "_ACFCanUnloadNow _ACFGetClassFactory _ACFGetSDKVersion _ACFRegisterComponent _ACFRegisterPlugin _ACFShutdown _ACFStartup" TDMw
+[ "$(cat "$AXM/Contents/PkgInfo")" = "TDMwPTul" ] || fail "AAX MIDI PkgInfo is not TDMwPTul"
+for a in arm64 x86_64; do
+  nm -arch $a "$AXM/Contents/MacOS/Beat Key" | grep -q ' __Z21GetEffectDescriptionsP15AAX_ICollection$' || fail "AAX MIDI $a slice has no GetEffectDescriptions"
+  nm -arch $a "$AXM/Contents/MacOS/Beat Key" | grep -q '_bkp_midi_process' || fail "AAX MIDI $a slice does not call bkp_midi_process"
+done
+echo "ok: AAX MIDI PkgInfo TDMwPTul, GetEffectDescriptions + bkp_midi_process linked"
 echo "plugin/smoke.sh: OK"

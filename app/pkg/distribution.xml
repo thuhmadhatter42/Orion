@@ -5,7 +5,8 @@
 <installer-gui-script minSpecVersion="2">
   <title>Beat Key</title>
   <organization>com.jshriver</organization>
-  <options customize="never" require-scripts="false" hostArchitectures="arm64,x86_64"/>
+  <!-- customize="allow": the Customize button shows the plug-in choices (AU, VST3, AAX). The app itself is hidden and always installed. -->
+  <options customize="allow" require-scripts="false" hostArchitectures="arm64,x86_64"/>
   <os-version min="12.0"/>
   <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
   <installation-check script="beatKeyClosedCheck()"/>
@@ -39,14 +40,62 @@ function beatKeyClosedCheck() {
   return false;
 }
 ]]></script>
+  <!-- Plug-ins are choices in this one download (plan 16, J 2026-11-19: one download, one version). Each is its own component
+       package built by app/pkg/plugin-pkgs.sh: a plain payload into the folder the hosts read, the same for every user.
+       plugin-pkgs.sh drops each block fenced by the AAX begin/end comments below only when built with BEATKEY_SKIP_AAX=1. -->
   <choices-outline>
     <line choice="default">
       <line choice="com.jshriver.orion.pkg"/>
+      <line choice="com.jshriver.orion.plugins">
+        <line choice="com.jshriver.orion.plugin.au"/>
+        <line choice="com.jshriver.orion.plugin.vst3"/>
+        <!-- BEGIN AAX -->
+        <line choice="com.jshriver.orion.plugin.aax"/>
+        <!-- END AAX -->
+        <line choice="com.jshriver.orion.plugin.midi.au"/>
+        <line choice="com.jshriver.orion.plugin.midi.vst3"/>
+        <!-- BEGIN AAX -->
+        <line choice="com.jshriver.orion.plugin.midi.aax"/>
+        <!-- END AAX -->
+      </line>
     </line>
   </choices-outline>
   <choice id="default"/>
   <choice id="com.jshriver.orion.pkg" visible="false" title="Beat Key" description="Beat Key in Applications">
     <pkg-ref id="com.jshriver.orion.pkg"/>
   </choice>
+  <choice id="com.jshriver.orion.plugins" title="Plug-ins" description="Beat Key on a track: key and BPM, with SEND BPM and SEND AUTO-TUNE. Beat Key MIDI also plays the key as MIDI notes. Pick the formats your DAWs use."/>
+  <choice id="com.jshriver.orion.plugin.au" start_selected="true" title="Audio Unit" description="For Audio Unit hosts such as Logic Pro. Installs to /Library/Audio/Plug-Ins/Components.">
+    <pkg-ref id="com.jshriver.orion.plugin.au.pkg"/>
+  </choice>
+  <choice id="com.jshriver.orion.plugin.vst3" start_selected="true" title="VST3" description="For VST3 hosts. Installs to /Library/Audio/Plug-Ins/VST3.">
+    <pkg-ref id="com.jshriver.orion.plugin.vst3.pkg"/>
+  </choice>
+  <!-- BEGIN AAX -->
+  <choice id="com.jshriver.orion.plugin.aax" start_selected="true" title="AAX" description="For Pro Tools. Installs to /Library/Application Support/Avid/Audio/Plug-Ins.">
+    <pkg-ref id="com.jshriver.orion.plugin.aax.pkg"/>
+  </choice>
+  <!-- END AAX -->
+  <choice id="com.jshriver.orion.plugin.midi.au" start_selected="true" title="Audio Unit: Beat Key MIDI" description="Beat Key MIDI: the key in use as MIDI notes, plus a drag-out MIDI file. Installs to /Library/Audio/Plug-Ins/Components.">
+    <pkg-ref id="com.jshriver.orion.plugin.midi.au.pkg"/>
+  </choice>
+  <choice id="com.jshriver.orion.plugin.midi.vst3" start_selected="true" title="VST3: Beat Key MIDI" description="Beat Key MIDI: the key in use as MIDI notes, plus a drag-out MIDI file. Installs to /Library/Audio/Plug-Ins/VST3.">
+    <pkg-ref id="com.jshriver.orion.plugin.midi.vst3.pkg"/>
+  </choice>
+  <!-- BEGIN AAX -->
+  <choice id="com.jshriver.orion.plugin.midi.aax" start_selected="true" title="AAX: Beat Key MIDI" description="Beat Key MIDI for Pro Tools. Installs to /Library/Application Support/Avid/Audio/Plug-Ins.">
+    <pkg-ref id="com.jshriver.orion.plugin.midi.aax.pkg"/>
+  </choice>
+  <!-- END AAX -->
   <pkg-ref id="com.jshriver.orion.pkg" version="@VERSION@" onConclusion="none">Beat-Key-component.pkg</pkg-ref>
+  <pkg-ref id="com.jshriver.orion.plugin.au.pkg" version="@VERSION@" onConclusion="none">Beat-Key-AU.pkg</pkg-ref>
+  <pkg-ref id="com.jshriver.orion.plugin.vst3.pkg" version="@VERSION@" onConclusion="none">Beat-Key-VST3.pkg</pkg-ref>
+  <!-- BEGIN AAX -->
+  <pkg-ref id="com.jshriver.orion.plugin.aax.pkg" version="@VERSION@" onConclusion="none">Beat-Key-AAX.pkg</pkg-ref>
+  <!-- END AAX -->
+  <pkg-ref id="com.jshriver.orion.plugin.midi.au.pkg" version="@VERSION@" onConclusion="none">Beat-Key-AU-MIDI.pkg</pkg-ref>
+  <pkg-ref id="com.jshriver.orion.plugin.midi.vst3.pkg" version="@VERSION@" onConclusion="none">Beat-Key-VST3-MIDI.pkg</pkg-ref>
+  <!-- BEGIN AAX -->
+  <pkg-ref id="com.jshriver.orion.plugin.midi.aax.pkg" version="@VERSION@" onConclusion="none">Beat-Key-AAX-MIDI.pkg</pkg-ref>
+  <!-- END AAX -->
 </installer-gui-script>
