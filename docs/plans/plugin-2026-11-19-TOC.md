@@ -4,7 +4,7 @@ Read once before step 1: §V (J's words), §L (licence), §A (architecture), §S
 Steps 3-6 (core) and 7-8 (shims) can run side by side. Steps 9-11 and 16 touch `app/`: after the finish plan's app edits are merged.
 
 - [x] 1. Read plan, preflight → §1
-- [ ] 2. Freeze Python goldens → §2
+- [x] 2. Freeze Python goldens → §2
 - [ ] 3. Core skeleton and ring → §3
 - [ ] 4. Core key parity → §4
 - [ ] 5. Core BPM parity → §5
@@ -35,3 +35,12 @@ Steps 3-6 (core) and 7-8 (shims) can run side by side. Steps 9-11 and 16 touch `
 - Looked up in essentia's source at the pinned commit 77a6a954 (the plan's §4 "look it up before vendoring"): `Resample` default `quality` is **1 = libsamplerate SRC_SINC_MEDIUM_QUALITY** (not best), run as one `src_simple` call per array; libsamplerate 0.2.2, BSD-2-Clause. FFT is FFTW 3.3.10 single precision, `FFTW_ESTIMATE`. The streaming FrameCutter's silent-frame noise is uniform ±1e-10 from a time-seeded MT19937, so the reference itself is random on digital silence.
 - The "20-file smoke set" did not exist anywhere. Step 2 defines it (`tools/parity/smoke_set.json`): 20 clips made from bench audio with ffmpeg (other sample rates, mono, short, silence, detuned, back-to-back, quiet).
 Next: §2 writes `tools/parity/make_goldens.py` and freezes the outputs into `core/test/golden/`.
+
+**2 → 3 (2026-11-19).** The Python outputs are frozen.
+- `tools/parity/make_goldens.py` + `tools/parity/smoke_set.json`. It runs `bpm.py`'s and `tempocnn_np.py`'s own functions layer by layer, then `analyze_full` once more and refuses unless both say the same.
+- `core/test/golden/` (2.8 MB, no audio): `manifest.json` (100 rows = 40 key-bench + 40 bpm-bench + 20 smoke; 99 distinct clips, the last smoke clip is a bench file on purpose), `files/` (99: key top-3 with %, 24 scores, pcp12, tuning, chroma; TempoCNN class per patch, global / 0.1 / refined BPM), `stream/` (20: `LiveAnalyzer` events, fed 0.5 s at a time like `--stream`), `layers/` (5 clips: HPCP frames, peaks, mel bands, CNN output, the resampled signals' edges).
+- Done test met: a second run reproduced all 161 files byte for byte (`--check`: "CHECK OK: 161 files, byte for byte", 02:21).
+- The smoke set did not exist; it is now 20 ffmpeg recipes over bench audio: 48 / 96 / 88.2 / 32 / 22.05 / 11.025 kHz, mono, 3 s / 5 s / 11.5 s, 20 s of digital silence, a 5 s gap, +30 and -17 cents, two songs back to back, -32 dB and -70 dB, one mp3 as it is. The bench files are all 44.1 kHz stereo mp3 of 120 s, so only the smoke set exercises the 44.1 kHz resampler.
+- Found while freezing: the first try at the done test FAILED on 2 files. The reference is random on digital silence (essentia's FrameCutter adds clock-seeded noise to silent frames), so a TempoCNN patch made only of silence gets a different class every run. Those patches are now written as `null` ("noise_only"); a file's BPM is frozen only when the real patches decide the vote whatever the silent ones say ("decided"). This is not only a smoke-set case: `bpm-bench/4703149` ends in 50 s of digital silence (7 of its 19 patches). Counts: 1636 patches, 9 undefined; 98 of 99 clips have a defined BPM (the one without is the 20 s silence clip).
+- The core's parity runner reads mono float32 PCM, not audio files: `<work>/pcm/<id>.f32` (1.9 GB, outside the repo). To make it again: `bin/python/bin/python3 tools/parity/make_goldens.py --check --work <folder> [--bench-root <checkout with the bench audio>/docs/research --ffmpeg-bin <that checkout>/bin]`. Another ffmpeg version gives other smoke clips; the tools refuse on the sha256 mismatch instead of comparing the wrong audio.
+Next: §3 builds the core skeleton against these files.

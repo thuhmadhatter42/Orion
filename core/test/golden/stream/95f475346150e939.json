@@ -1,0 +1,15 @@
+{
+ "chunk_samples": 22050,
+ "chunks": 40,
+ "events": [
+  [
+   5,
+   {
+    "db": -120.0,
+    "event": "silence"
+   }
+  ]
+ ],
+ "new_song_at_chunk": null,
+ "rate": 44100
+}

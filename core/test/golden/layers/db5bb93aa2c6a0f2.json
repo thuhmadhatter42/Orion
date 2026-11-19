@@ -1,0 +1,43 @@
+{
+ "cnn": {
+  "file": "db5bb93aa2c6a0f2.cnn.f32",
+  "shape": [
+   19,
+   256
+  ],
+  "unstable_rows_zeroed": [],
+  "what": "tempocnn_np.predict rows (softmax over the 256 tempo classes), every patch"
+ },
+ "hpcp": {
+  "file": "db5bb93aa2c6a0f2.hpcp.f32",
+  "shape": [
+   300,
+   36
+  ],
+  "what": "hpcp_frames rows (A = 440), first frames of the file"
+ },
+ "key44100_edges": {
+  "each": 4096,
+  "file": "db5bb93aa2c6a0f2.key44100_edges.f32",
+  "what": "first and last samples of the 44.1 kHz signal the key reads"
+ },
+ "mel": {
+  "file": "db5bb93aa2c6a0f2.mel.f32",
+  "shape": [
+   600,
+   40
+  ],
+  "silent_rows_zeroed": [],
+  "what": "tempocnn_np.mel_bands rows, first frames of the file"
+ },
+ "peaks": {
+  "counts": "db5bb93aa2c6a0f2.peak_counts.i32",
+  "file": "db5bb93aa2c6a0f2.peaks.f32",
+  "what": "per HPCP frame: count (int32), then count x (frequency, magnitude, whitened magnitude)"
+ },
+ "tempo11025_edges": {
+  "each": 4096,
+  "file": "db5bb93aa2c6a0f2.tempo11025_edges.f32",
+  "what": "first and last samples of the 11.025 kHz signal the tempo reads"
+ }
+}
