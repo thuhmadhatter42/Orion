@@ -220,6 +220,8 @@ struct OrionApp: App {
     }
 
     private func launch() {
+        // The shared code (BeatKeyShared: the Auto-Tune hand-off, ...) logs into beatkey.log.
+        SharedLog.sink = { tag, line in AppLog.log(line, file: tag) }
         wireRename()
         live.songs.recents = recents   // each live song its own Recent Readings entry
         model.follow(live)             // each live song reads at x1
@@ -279,6 +281,8 @@ struct OrionApp: App {
                                   sendAutoTune: windowActions.sendAutoTune)
         // Tell Artemis (and answer its "what is the key now?") what the app shows: Broadcast.swift.
         Broadcast.shared.install(engine: engine, model: model, live: live)
+        // SEND BPM from the plug-in: the app sends the tempo for it (PluginSendListener.swift).
+        PluginSendListener.shared.install()
         // Is this the latest version? One Sparkle background check per launch (the same updater as
         // Check for Updates…); it only shows a window when a newer Beat Key exists.
         updater.checkInBackgroundAtLaunch()

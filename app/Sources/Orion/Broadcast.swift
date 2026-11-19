@@ -23,6 +23,12 @@ import Foundation
 //     Beat Key answers with exactly one `reading` (the current one; source "none" and no key/bpm
 //     when there is none). The answer is posted even if nothing changed.
 //
+//   source "plugin": a Beat Key plug-in's SEND BPM inside Artemis, relayed by PluginSendListener
+//     (relayPlugin): bpm only, songID = salted hash of the host process. Not the app's own reading.
+//
+//   com.jshriver.orion.send / .sent   plug-in <-> app (SEND BPM): BeatKeyShared/PluginSend.swift and
+//     PluginSendListener.swift; the full text is in the same doc.
+//
 //   Never in a payload: a song title, a file name or a path (songID is a salted hash, new each launch).
 //   Beat Key not running: nothing is posted and nobody answers.
 //
@@ -34,7 +40,9 @@ import Foundation
 
 /// A reading as it goes out (the payload, before it is a dictionary).
 struct BroadcastReading: Equatable {
-    enum Source: String { case listen, file, none }
+    /// `plugin`: a Beat Key plug-in's SEND BPM inside a host that is not a DAW Beat Key drives (Artemis),
+    /// relayed by PluginSendListener. Never fed from the app's own reading; never deduped.
+    enum Source: String { case listen, file, none, plugin }
     var source: Source
     var songID: String
     var key: String?
@@ -137,6 +145,18 @@ final class Broadcast {
             .store(in: &bag)
         startListening()
         AppLog.log("broadcast on: posting \(Broadcast.readingName.rawValue), answering \(Broadcast.requestName.rawValue)")
+    }
+
+    /// A plug-in's SEND BPM in Artemis (plan §S1.5): one `reading` with source "plugin" and the plug-in's
+    /// BPM, the contract Artemis's Beat Key button listens to. It does not touch `last` (the app's own
+    /// reading, which `request` still answers with). songID = a salted hash of the host process, no name.
+    func relayPlugin(bpm: Double, hostPid: Int) {
+        let r = BroadcastReading(source: .plugin,
+                                 songID: SHA256.hash(data: Data((salt + "|plugin|\(hostPid)").utf8)).prefix(6)
+                                    .map { String(format: "%02x", $0) }.joined(),
+                                 key: nil, bpm: bpm, confidence: nil)
+        AppLog.log("post (plug-in relay): \(r.logText)")
+        transport.post(Broadcast.readingName, r.userInfo)
     }
 
     // MARK: request -> reply
