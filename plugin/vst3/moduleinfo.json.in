@@ -1,0 +1,29 @@
+{
+	"Name": "Beat Key",
+	"Version": "@VERSION@",
+	"Factory Info": {
+		"Vendor": "Four Letter Records",
+		"URL": "https://fourletterrecords.com",
+		"E-Mail": "contact@fourletterrecords.com",
+		"Flags": {
+			"Unicode": true,
+			"Classes Discardable": false,
+			"Component Non Discardable": false
+		}
+	},
+	"Compatibility": [],
+	"Classes": [
+		{
+			"CID": "42744B79416E6C7A56535433464C5263",
+			"Category": "Audio Module Class",
+			"Name": "Beat Key",
+			"Vendor": "Four Letter Records",
+			"Version": "@VERSION@",
+			"SDKVersion": "VST 3.8.1",
+			"Sub Categories": ["Fx", "Analyzer"],
+			"Class Flags": 0,
+			"Cardinality": 2147483647,
+			"Snapshots": []
+		}
+	]
+}

@@ -14,6 +14,7 @@
 
 #include "error.h"
 #include "file.h"
+#include "key.h"
 #include "log.h"
 #include "sane.h"
 #include "tempocnn.h"
@@ -48,6 +49,13 @@ int bk_load_weights(const char *path, char *err, size_t err_cap) {
         bk::fail("weights", err, err_cap, "loading the weights failed: %s", e.what());
         return BK_ERR_INTERNAL;
     }
+}
+
+int bk_key_index(const char *name) {
+    if (!name) return -1;
+    for (int i = 0; i < 24; i++)
+        if (bk::key_name(i) == name) return i;
+    return -1;
 }
 
 int bk_ready(void) { return bk::weights_ready() ? 1 : 0; }

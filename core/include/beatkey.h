@@ -81,6 +81,10 @@ typedef struct bk_reading {
     double secs;             /* live: seconds of sound behind the reading.  Files: the clip's length */
 } bk_reading;
 
+/* The 24 key names the core reads out ("C".."B", "Cm".."Bm" in Auto-Tune's spelling): the index
+ * 2 * pitch class + (0 major, 1 minor), or -1 for anything else (NULL included).  Any thread. */
+int bk_key_index(const char *name);
+
 /* ---- a whole clip (bpm.py analyze_full, without the decoding) ---- */
 
 /* mono: n float32 samples at sample_rate (any rate 8000..384000; resampled inside as bpm.py does).
