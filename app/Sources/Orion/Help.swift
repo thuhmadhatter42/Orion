@@ -255,27 +255,66 @@ enum HelpTipLogic {
         CGRect(x: p.x - 1, y: p.y - 1, width: cursorSize.width + 1, height: cursorSize.height + 1)
     }
 
-    /// Where a `card`-sized card goes for the mouse at `p` on a surface of `bounds` (y down):
-    /// down-right of the pointer; flipped left / above when it would leave the surface, then kept
-    /// inside the margins. It never covers the pointer unless the surface is too small to avoid it.
-    static func cardOrigin(cursor p: CGPoint, card: CGSize, in bounds: CGSize) -> CGPoint {
+    /// Which side of the pointer a card is on. Remembered between mouse moves so a card only flips
+    /// at a surface edge and does not flicker back and forth there (`flipSlack`).
+    struct FollowSide: Equatable {
+        var left = false
+        var above = false
+    }
+    /// How far from an edge the pointer must come back before a flipped card flips back.
+    static let flipSlack: CGFloat = 24
+
+    /// The one placement rule for a card that follows the mouse (J 2026-11-19: it jumped above or
+    /// below the key wheel and spazzed; it must sit next to the mouse). A fixed offset down-right of
+    /// the pointer, moving exactly with it (1 px of mouse = 1 px of card). It flips left / above
+    /// only when it would leave the surface, and flips back only once `flipSlack` clears the edge;
+    /// then it is kept inside the margins. It never covers the pointer unless the surface is too
+    /// small to avoid it. A cursor, surface or card that is not a real number is logged once and
+    /// the card goes to the margin, so a card is always placed.
+    static func followOrigin(cursor p: CGPoint, card: CGSize, in bounds: CGSize,
+                             side: FollowSide = FollowSide()) -> (origin: CGPoint, side: FollowSide) {
+        guard p.x.isFinite, p.y.isFinite, bounds.width.isFinite, bounds.height.isFinite,
+              card.width.isFinite, card.height.isFinite else {
+            logOnce("placement got a non-finite cursor/surface/card (\(p), \(bounds), \(card)); card put at the margin")
+            return (CGPoint(x: margin, y: margin), side)
+        }
         let m = margin, off = cursorOffset
         // the pointer hangs down-right of its hot spot, so the left / above sides need less gap
         let right = p.x + off.width, left = p.x - 8 - card.width
         let below = p.y + off.height, above = p.y - 6 - card.height
-        let fitsRight = right + card.width <= bounds.width - m
-        let fitsLeft = left >= m
-        let fitsBelow = below + card.height <= bounds.height - m
-        let fitsAbove = above >= m
-        var x = fitsRight || !fitsLeft && (bounds.width - p.x >= p.x) ? right : left
-        var y = fitsBelow || !fitsAbove && (bounds.height - p.y >= p.y) ? below : above
+        func fitsRight(_ slack: CGFloat) -> Bool { right + card.width <= bounds.width - m - slack }
+        func fitsBelow(_ slack: CGFloat) -> Bool { below + card.height <= bounds.height - m - slack }
+        let fitsLeft = left >= m, fitsAbove = above >= m
+        var next = side
+        // a side changes only when the new side fits and the old one does not (back: with flipSlack
+        // to spare); where neither fits (a surface narrower than the card) the card stays put on
+        // its side, clamped, rather than jumping across the surface
+        if side.left { if fitsRight(flipSlack) { next.left = false } }
+        else if !fitsRight(0) && fitsLeft { next.left = true }
+        if side.above { if fitsBelow(flipSlack) { next.above = false } }
+        else if !fitsBelow(0) && fitsAbove { next.above = true }
+        var x = next.left ? left : right
+        var y = next.above ? above : below
         x = min(max(x, m), max(m, bounds.width - card.width - m))
         y = min(max(y, m), max(m, bounds.height - card.height - m))
         // clamped back over the pointer: move to the other side vertically if that side has room
         if CGRect(x: x, y: y, width: card.width, height: card.height).intersects(cursorRect(p)) {
-            if y >= p.y, above >= 0 { y = above } else if y < p.y, below + card.height <= bounds.height { y = below }
+            if y >= p.y, above >= 0 { y = above; next.above = true }
+            else if y < p.y, below + card.height <= bounds.height { y = below; next.above = false }
         }
-        return CGPoint(x: x, y: y)
+        return (CGPoint(x: x, y: y), next)
+    }
+
+    /// The same rule with no memory of the last side (first frame, tests).
+    static func cardOrigin(cursor p: CGPoint, card: CGSize, in bounds: CGSize) -> CGPoint {
+        followOrigin(cursor: p, card: card, in: bounds).origin
+    }
+
+    /// Things that should never happen, logged once each (a hover would repeat them every frame).
+    private static var loggedOnce = Set<String>()
+    static func logOnce(_ line: String) {
+        guard loggedOnce.insert(line).inserted else { return }
+        AppLog.log("hover card: " + line)
     }
 
     /// The frames a card must keep off while `control` is hovered: every other explainable control
@@ -335,12 +374,22 @@ enum HelpTipLogic {
     /// still while the mouse moves inside it.
     static func cardOrigin(cursor p: CGPoint, card: CGSize, in bounds: CGSize,
                            control: CGRect, avoiding others: [CGRect]) -> CGPoint {
-        plan(cursor: p, card: card, in: bounds, control: control, avoiding: others).origin
+        var side = FollowSide()
+        return plan(cursor: p, card: card, in: bounds, control: control, avoiding: others, side: &side).origin
     }
 
+    /// `follow` = a hover card over a big surface (the key wheel): the card sits next to the mouse
+    /// and nothing else decides where it goes (the hovered "control" is the whole wheel; keeping
+    /// off it threw the card above or below it, b982707). Without `follow` (help mode's
+    /// tips over buttons) the card also keeps off the hovered control and its neighbours, so a
+    /// tip never covers its own button. `side` is the card's remembered side (hysteresis).
     static func plan(cursor p: CGPoint, card: CGSize, in bounds: CGSize,
-                     control: CGRect, avoiding others: [CGRect]) -> Plan {
-        let base = cardOrigin(cursor: p, card: card, in: bounds)
+                     control: CGRect, avoiding others: [CGRect],
+                     follow: Bool = false, side: inout FollowSide) -> Plan {
+        let f = followOrigin(cursor: p, card: card, in: bounds, side: side)
+        side = f.side
+        let base = f.origin
+        if follow { return Plan(origin: base, covers: 0) }
         let blocked = blockers(others, control: control)
         let baseCovers = coverage(CGRect(origin: base, size: card), control: control, blockers: blocked)
         if baseCovers == 0 { return Plan(origin: base, covers: 0) }
@@ -480,6 +529,8 @@ struct HelpTipAnchor {
     let tip: HelpTip
     let anchor: Anchor<CGRect>
     var width: CGFloat = HelpCard.width
+    /// Sits next to the mouse and nothing else (the key wheel's cards), not around the control.
+    var follow = false
 }
 
 /// What the surface's card layer collects: the hovered control's tip (if any) and, in help mode,
@@ -540,7 +591,11 @@ private struct NativeHelpModifier: ViewModifier {
 /// The mouse over a surface (its own coordinates, y down), nil when outside. Only the floating
 /// card observes it, so a mouse move redraws the card, never the surface.
 final class HelpCursor: ObservableObject {
-    @Published var point: CGPoint?
+    @Published var point: CGPoint? {
+        didSet { if point == nil { side = HelpTipLogic.FollowSide() } }
+    }
+    /// Which side of the mouse the card is on (not published: only the card's placement reads it).
+    var side = HelpTipLogic.FollowSide()
 }
 
 private struct HelpTipLayer: ViewModifier {
@@ -555,8 +610,9 @@ private struct HelpTipLayer: ViewModifier {
                         Color.clear
                         if let v = prefs.tip {
                             FloatingHelpCard(tip: v.tip, width: v.width, control: g[v.anchor], bounds: g.size,
-                                             others: prefs.controls.map { g[$0] }, cursor: cursor)
-                                .id(v.tip.id).transition(.opacity)
+                                             follow: v.follow, others: prefs.controls.map { g[$0] }, cursor: cursor)
+                                // one card for the whole wheel: crossing a section swaps its text, no fade-out and in
+                                .id(v.follow ? "follow-card" : v.tip.id).transition(.opacity)
                         }
                     }
                     .frame(width: g.size.width, height: g.size.height, alignment: .topLeading)
@@ -582,15 +638,23 @@ private struct FloatingHelpCard: View {
     let width: CGFloat
     let control: CGRect
     let bounds: CGSize
+    /// Sits next to the mouse and nothing else (HelpTipLogic.plan).
+    var follow = false
     /// Every explainable control's frame: the card keeps off the neighbours.
     var others: [CGRect] = []
     @ObservedObject var cursor: HelpCursor
     @State private var size: CGSize = .zero
 
     var body: some View {
+        // no mouse reading (the tracker has not reported yet, or an offscreen render): the control's
+        // centre stands in, so the card still goes down-right of where the mouse must be
+        if cursor.point == nil && !Pocket.snapshot {
+            HelpTipLogic.logOnce("\"\(tip.id)\" shown with no mouse position; placed down-right of the control's centre")
+        }
         let p = cursor.point ?? CGPoint(x: control.midX, y: control.midY)
         let card = size == .zero ? CGSize(width: width, height: 52) : size
-        let plan = HelpTipLogic.plan(cursor: p, card: card, in: bounds, control: control, avoiding: others)
+        let plan = HelpTipLogic.plan(cursor: p, card: card, in: bounds, control: control, avoiding: others,
+                                     follow: follow, side: &cursor.side)
         let o = plan.origin
         if size != .zero { HelpTipLogic.logCrowded(tip: tip.id, bounds: bounds, plan: plan, card: card) }
         HelpTipLogic.onPlace?(HelpTipLogic.Placement(tip: tip.id, bounds: bounds, control: control, others: others,
@@ -621,9 +685,9 @@ extension View {
 
     /// An always-on hover card (the key wheel's): shown at the mouse while `tip` is non-nil, help
     /// mode or not, on the surface's card layer.
-    func hoverCard(_ tip: HelpTip?, width: CGFloat = HelpCard.width) -> some View {
+    func hoverCard(_ tip: HelpTip?, width: CGFloat = HelpCard.width, follow: Bool = false) -> some View {
         transformAnchorPreference(key: HelpTipKey.self, value: .bounds) { v, a in
-            if let t = tip, v.tip == nil { v.tip = HelpTipAnchor(tip: t, anchor: a, width: width) }
+            if let t = tip, v.tip == nil { v.tip = HelpTipAnchor(tip: t, anchor: a, width: width, follow: follow) }
         }
     }
 
