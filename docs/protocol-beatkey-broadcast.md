@@ -8,7 +8,7 @@ Transport: macOS distributed notifications (`DistributedNotificationCenter`). `u
 
 | key | type | meaning |
 |---|---|---|
-| `source` | String | `"listen"` (Listen's reading), `"file"` (a finished download or analysed file), `"none"` (nothing on show). Always present. |
+| `source` | String | `"listen"` (Listen's reading), `"file"` (a finished download or analysed file), `"none"` (nothing on show), `"plugin"` (a plug-in's SEND BPM in Artemis, below). Always present. |
 | `songID` | String | Opaque id of the song or file. A salted hash, new each Beat Key launch; never a name. `""` when source is `"none"`. Always present. |
 | `key` | String | The key IN USE, Auto-Tune's spelling (`"Ebm"`, `"F#"`, `"Bb"`): the key J pinned if there is a pin, else the detector's #1 (`Result.keyInUse`). Absent = no key. |
 | `bpm` | Double | The BPM as Beat Key's dial shows it, including the x2 / x0.5 click (141.98 measured, else the analyzer's own number). Absent = no BPM. |
@@ -45,3 +45,51 @@ Nothing is posted and nobody answers. Artemis greys its Beat Key items (checks f
 - every request answered: `request answered: …` (same text);
 - identical payloads skipped: counted, logged at most once a minute (`dedupe: N identical readings skipped (T in all)`);
 - a key or BPM that is not usable is left out and logged as `ERROR broadcast: …`.
+
+## `source: "plugin"` in `reading` (the plug-in's SEND BPM in Artemis)
+
+When a Beat Key plug-in inside Artemis presses SEND BPM, the app posts one `reading` with `source: "plugin"`, the plug-in's `bpm`, no `key` / `confidence`, and `songID` = a salted hash of the host process (no name). It is not the app's own reading: `request` is still answered with the app's own (`last`), and a `plugin` reading is never deduped. Code: `Broadcast.relayPlugin`. The Artemis side is unconfirmed, like the rest of this contract.
+
+# Plug-in SEND BPM (Beat Key plug-in <-> Beat Key app)
+
+Plan `docs/plans/plugin-2026-11-19.md` §S1. No plug-in format can set the host's tempo, and the Accessibility permission the DAWs need belongs to an app, so the plug-in asks and the app sends through Send to DAW's own drivers. One contract, compiled by both sides: `app/Sources/BeatKeyShared/PluginSend.swift`. App half: `app/Sources/Orion/PluginSendListener.swift` (tests `PluginSendTests.swift`). Plug-in half: `plugin/ui/Senders.swift` (tests `plugin/test/face_test.swift`). Same transport (distributed notifications, property-list `userInfo`).
+
+## `com.jshriver.orion.send` (plug-in posts)
+
+| key | type | meaning |
+|---|---|---|
+| `requestID` | String | a fresh UUID per press (1-64 characters) |
+| `bpm` | Double | the BPM as the face shows it (x2 / ÷2 applied), 20...999 |
+| `hostBundleID` | String | the host's bundle id (`""` when it has none) |
+| `hostName` | String | the host's name; the app falls back to it to find the DAW |
+| `hostPid` | Int | the host's process id |
+| `proto` | Int | `1` |
+
+## `com.jshriver.orion.sent` (app posts)
+
+| key | type | meaning |
+|---|---|---|
+| `requestID` | String | the request's |
+| `ok` | Bool | the DAW took it |
+| `message` | String | one line for the face: the driver's own result, or why not |
+
+## What the app does with a `send`
+
+- Host is a DAW Beat Key drives (`DAW.from(bundleID:name:)`): `DAWSendController.sendQuiet`, tempo only (plan §Q3 default): the same drivers, queue and one-at-a-time rule as Reading › Send to DAW, no result alert. Setup steps and the Accessibility guide still show in the app, as from the menu. Busy: `ok: false`, "Beat Key is already sending. Try again."
+- Host is Artemis (`com.jshriver.artemis…`): the `reading` relay above, then `ok: true`.
+- Any other host: `ok: false`, "Beat Key can't set the tempo in <host>."
+- A payload that is not a request (no requestID, another `proto`, a BPM that is not a tempo): logged as `ERROR plug-in send refused: …`; answered `ok: false` with the reason when it has a requestID.
+- The app answers within 7 s (`PluginSend.appDeadline`) even when the driver is still working ("<DAW> didn't answer in 7 s."); a later result is logged, never sent twice.
+
+## What the plug-in does
+
+1. Sandboxed host (`APP_SANDBOX_CONTAINER_ID` set): says so, sends nothing.
+2. App not installed: "SEND BPM needs the Beat Key app." with a GET IT link to the download page.
+3. App not running: opens it in the background, then posts `request` every 0.5 s until a `reading` answers (15 s at most). A running app gets 3 s to answer before the send goes anyway.
+4. Posts `send`, waits 8 s (`PluginSend.pluginTimeout`) for the `sent` with its requestID. None: "Beat Key app didn't answer. Update it?"
+5. On `ok`: reads the host's tempo back for up to 2 s. Moved: "Session tempo 141.98". Not moved: "Session still 120.00". The host gives plug-ins no tempo: "Sent 141.98. Host won't say its tempo."
+
+## Logging (SEND BPM)
+
+- App, beatkey.log (`[PluginSendListener]`, `[DAWSend]`): every request (`plug-in send: BPM 141.98 from com.ableton.live (pid …)`), every answer (`plug-in send answered (request …): ok|FAILED: …`), every refusal, a late driver result.
+- Plug-in, plugin.log: the press, the launch, the post, and one `SEND BPM <bpm>: [FAILED: ]<outcome> (session was <tempo>)` line per press.

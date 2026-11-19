@@ -17,7 +17,7 @@ command -v git >/dev/null || refuse "git not found"
 mkdir -p "$HERE/build.noindex"
 if [ ! -d "$SRC/.git" ]; then
   git clone --depth 1 --branch "$TAG" --recurse-submodules --shallow-submodules \
-    https://github.com/steinbergmedia/vst3sdk.git "$SRC" || refuse "could not clone the VST3 SDK at $TAG"
+    https://github.com/steinbergmedia/vst3sdk.git "$SRC" >&2 || refuse "could not clone the VST3 SDK at $TAG"
 fi
 HEAD=$(git -C "$SRC" rev-parse HEAD)
 [ "$HEAD" = "$COMMIT" ] || refuse "$SRC is at $HEAD, want $COMMIT ($TAG)"

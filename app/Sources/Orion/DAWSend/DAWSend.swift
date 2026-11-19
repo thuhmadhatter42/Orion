@@ -234,6 +234,35 @@ enum DAWSendController {
         }
     }
 
+    /// SEND BPM from the plug-in (PluginSendListener): the same drivers, queue and busy rule as the
+    /// menu's Send to DAW, but no result alert: `completion` (main thread) gets the outcome, which goes
+    /// back to the plug-in's face. Setup steps (install a script) still show their dialog in the app,
+    /// and a missing Accessibility permission opens the permission guide, as from the menu.
+    static func sendQuiet(_ p: SendPayload, to d: DAW, driver: DAWDriver? = nil, completion: @escaping (SendOutcome) -> Void) {
+        guard !busy else {
+            AppLog.log("send to DAW (plug-in): already sending; refused")
+            completion(SendOutcome(daw: d, ok: false, message: "Beat Key is already sending. Try again."))
+            return
+        }
+        guard plan(p) != nil else {
+            AppLog.log("send to DAW (plug-in): no BPM and no key; nothing sent")
+            completion(SendOutcome(daw: d, ok: false, message: "No BPM to send."))
+            return
+        }
+        let drv = driver ?? DAWDrivers.driver(d)
+        AppLog.log("send to DAW (plug-in): [\(p.text)] to \(d.name)")
+        busy = true
+        queue.async {
+            let o = run(d) { try drv.send(p) }
+            DispatchQueue.main.async {
+                busy = false
+                AppLog.log("send to DAW (plug-in): \(o.daw.name) \(o.ok ? "ok" : o.permission != nil ? "needs Accessibility" : "failed"): \(o.message)")
+                if o.permission != nil { PermissionGuide.shared.need(.accessibility, why: "SEND BPM from the plug-in") }
+                completion(o)
+            }
+        }
+    }
+
     static func analyzeSelection() {
         guard let d = DAWWatcher.shared.target else {
             AppLog.log("analyze selection: no DAW open")

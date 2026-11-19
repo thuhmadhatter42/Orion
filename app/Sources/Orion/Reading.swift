@@ -3,41 +3,13 @@ import Foundation
 // The readout's own logic (tempo cycling, tuning, confidence, recent readings), kept out of the
 // views so it can be tested.
 
-/// Clicking the BPM cycles x1 > x2 > x0.5 > x1: the half- or double-time reading of the same tempo.
-enum TempoFactor: Equatable {
-    case one, double, half
-
-    var next: TempoFactor {
-        switch self {
-        case .one: return .double
-        case .double: return .half
-        case .half: return .one
-        }
-    }
-    var multiplier: Double {
-        switch self {
-        case .one: return 1
-        case .double: return 2
-        case .half: return 0.5
-        }
-    }
-    /// The tag beside the BPM; nil at x1.
-    var label: String? {
-        switch self {
-        case .one: return nil
-        case .double: return "×2"
-        case .half: return "×0.5"
-        }
-    }
-}
-
-enum Tempo {
+// TempoFactor, Tempo (text, split), Tuning and TuningMeter live in BeatKeyShared (Tempo.swift,
+// Tuning.swift): the plug-in's face shares them. The app's reading-shaped helpers are here.
+extension Tempo {
     /// The BPM as the LCD shows it: two decimals when measured (140.82), else the analyzer's own
     /// text ("142.0"), times the factor. nil = no BPM.
     static func text(_ r: Result, factor: TempoFactor = .one) -> String? {
-        if let exact = r.bpmExact, exact > 0 { return String(format: "%.2f", exact * factor.multiplier) }
-        guard let s = r.bpm, let v = Double(s) else { return r.bpm }
-        return factor == .one ? s : String(format: "%.1f", v * factor.multiplier)
+        text(bpm: r.bpm, exact: r.bpmExact, factor: factor)
     }
 
     /// The whole-number reading that is in the file name, beside a decimal one; nil when the two
@@ -46,115 +18,11 @@ enum Tempo {
         guard r.bpmExact != nil, let v = (text(r, factor: factor)).flatMap(Double.init) else { return nil }
         return String(Int(v.rounded()))
     }
-
-    /// The BPM as the readout draws it (J 2026-11-09, "decimals small"): the whole number big,
-    /// the decimals (with their point) small beside it. "141.98" -> ("141", ".98"); "142" ->
-    /// ("142", nil); "---.-" or text with no digits before the point stays whole.
-    static func split(_ text: String) -> (whole: String, fraction: String?) {
-        guard let dot = text.firstIndex(of: "."), dot != text.startIndex,
-              text[..<dot].allSatisfy(\.isNumber) else { return (text, nil) }
-        let frac = String(text[dot...])
-        return (String(text[..<dot]), frac.count > 1 ? frac : nil)
-    }
-}
-
-enum Tuning {
-    /// Shown as presets in the menu; custom values are limited to `range`.
-    static let presets: [Double] = [432, 436, 438, 440, 442, 444, 450]
-    static let range: ClosedRange<Double> = 400...480
-    static let defaultReference = 440.0
-    /// The offset is folded to -50...+50, so every confident track gets a line: +50 and -50 are the
-    /// same tuning seen from either neighbouring semitone (J, 2026-11-08: Spotify pitched +50 ¢ live
-    /// showed no line under the old 45 ¢ cap). The analyzer names the key on the same side.
-    static let maxOffset = 50.0
-
-    /// What a person typed in the Custom… box: a number inside `range`, else nil.
-    static func parse(_ text: String) -> Double? {
-        guard let v = Double(text.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")),
-              range.contains(v) else { return nil }
-        return v
-    }
-
-    static func clamp(_ hz: Double) -> Double { min(max(hz, range.lowerBound), range.upperBound) }
-
-    /// Cents the track sits above (+) or below (-) `reference`, from its cents against A = 440.
-    /// Tuning repeats every semitone, so the answer is folded to -50...+50.
-    static func offset(trackCents: Double, reference: Double) -> Double {
-        let raw = trackCents - 1200 * log2(reference / 440)
-        return raw - 100 * (raw / 100).rounded()
-    }
-
-    /// The LCD line ("TUNING +12¢ · A=440"), or nil when there is no confident reading.
-    static func line(_ trackCents: Double?, reference: Double) -> String? {
-        guard let c = trackCents else { return nil }
-        let o = offset(trackCents: c, reference: reference)
-        guard abs(o) <= maxOffset else { return nil }
-        let n = Int(o.rounded())
-        let signed = n > 0 ? "+\(n)" : (n < 0 ? "−\(-n)" : "0")
-        return "TUNING \(signed)¢ · A=\(refText(reference))"
-    }
-
-    static func refText(_ hz: Double) -> String {
-        hz == hz.rounded() ? String(Int(hz)) : String(format: "%g", hz)
-    }
-
-    /// The TUNING meter's reading (J 2026-11-09, Orra's meter), or nil when there is no confident
-    /// reading: the same rule as `line`.
-    static func meter(_ trackCents: Double?, reference: Double) -> TuningMeter? {
-        guard let c = trackCents else { return nil }
-        let o = offset(trackCents: c, reference: reference)
-        guard abs(o) <= maxOffset else { return nil }
-        return TuningMeter(cents: o, reference: reference)
-    }
-}
-
-/// What the TUNING meter shows: a track from −50 ¢ to +50 ¢ with a marker at the offset (green
-/// when close to in tune), then "+0.1 ct  A4 = 440.0 Hz", the concert pitch the offset implies.
-struct TuningMeter: Equatable {
-    /// Cents above (+) or below (−) the reference, folded to −50...+50.
-    let cents: Double
-    /// The Settings reference (A = 440 by default).
-    let reference: Double
-
-    static let span = 50.0
-    /// Within this many cents the marker is green: in tune.
-    static let inTuneCents = 5.0
-
-    /// The marker's place on the track, 0 (−50 ¢) ... 0.5 (in tune) ... 1 (+50 ¢), clamped.
-    static func fraction(_ cents: Double) -> Double {
-        guard cents.isFinite else { return 0.5 }
-        return (min(max(cents, -span), span) + span) / (2 * span)
-    }
-
-    static func inTune(_ cents: Double) -> Bool { abs(cents) <= inTuneCents }
-
-    /// The concert A the track implies: reference · 2^(cents / 1200).
-    static func concertHz(cents: Double, reference: Double) -> Double { reference * pow(2, cents / 1200) }
-
-    /// "+0.1 ct", "−12.0 ct", "0.0 ct".
-    static func centsText(_ cents: Double) -> String {
-        let r = (cents * 10).rounded() / 10
-        if r == 0 { return "0.0 ct" }
-        return (r > 0 ? "+" : "−") + String(format: "%.1f", abs(r)) + " ct"
-    }
-
-    /// "A4 = 440.0 Hz".
-    static func hzText(_ hz: Double) -> String { "A4 = " + String(format: "%.1f", hz) + " Hz" }
-
-    var fraction: Double { TuningMeter.fraction(cents) }
-    var inTune: Bool { TuningMeter.inTune(cents) }
-    var concertHz: Double { TuningMeter.concertHz(cents: cents, reference: reference) }
-    var text: String { TuningMeter.centsText(cents) + "  " + TuningMeter.hzText(concertHz) }
-    var spoken: String {
-        let r = (cents * 10).rounded() / 10
-        let dir = r == 0 ? "in tune" : String(format: "%.1f cents %@", abs(r), r > 0 ? "sharp" : "flat")
-        return "Tuning \(dir), A4 = \(String(format: "%.1f", concertHz)) hertz"
-    }
 }
 
 /// The reference pitch, remembered between launches.
 final class TuningSettings: ObservableObject {
-    static let key = "referencePitch"
+    static let key = Tuning.defaultsKey
     private let defaults: UserDefaults
 
     @Published var reference: Double {

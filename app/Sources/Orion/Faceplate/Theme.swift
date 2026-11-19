@@ -21,11 +21,12 @@ enum Theme {
     /// The faceplate grey, the one token: the window's plate, the pocket's plate and (through
     /// `desk`) the Mini follow it (J 2026-11-19: "the face plate grey is too light grey": about
     /// 20% darker than 0x232326 / 0x191a1c / 0x131315).
-    static let plateTop = hex(0x1b1b1e)
-    static let plateMid = hex(0x141415)
-    static let plateBottom = hex(0x0f0f11)
+    /// The greys themselves are BeatKeyShared's `PlateGrey` (one copy with the plug-in's face).
+    static let plateTop = PlateGrey.top
+    static let plateMid = PlateGrey.mid
+    static let plateBottom = PlateGrey.bottom
     /// The plate's body: top, middle at 40%, bottom.
-    static var plateBody: LinearGradient { vertical([(plateTop, 0), (plateMid, 0.4), (plateBottom, 1)]) }
+    static var plateBody: LinearGradient { PlateGrey.body }
 
     /// The window around the plate: the mockup page's radial background; it starts at the plate's bottom grey.
     static let desk = RadialGradient(
@@ -263,48 +264,7 @@ struct Palette: Equatable {
     var manualWhite: Color { capWhite }
 }
 
-/// The one owner of "white" (J 2026-11-19: the caps read as yellow teeth; "tinted towards the user
-/// selected colour, that's it"). Pure white mixed toward the display colour by ONE constant, `tint`;
-/// every white button (SSLCapStyle: key caps, send caps, popover caps) and the Manual Key Selection's
-/// white (`Palette.manualWhite`, which the menu-bar key uses too) take their colours from here, and
-/// no off-white is written anywhere else. High Contrast: pure white, no tint.
-enum CapWhite {
-    /// How far toward the display colour the white leans (0...1). The one number to change.
-    static let tint = 0.04
-    private static let white = 255.0
-
-    /// Pure white mixed toward `accent` by `tint` (sRGB 0...255). High Contrast: pure white.
-    /// `tint` is a parameter only so tests can pin the maths; clamped to 0...1.
-    static func rgb(accent: Accent, highContrast: Bool, tint t: Double = CapWhite.tint) -> (Double, Double, Double) {
-        if highContrast { return (white, white, white) }
-        let t = min(1, max(0, t))
-        return (white + (accent.r - white) * t, white + (accent.g - white) * t, white + (accent.b - white) * t)
-    }
-
-    /// The cap's shading, as fractions of the white: top, middle, bottom. A pressable cap and an
-    /// unavailable one (a touch darker); the legend is a dark tinted the same way.
-    static let readyShade: [Double] = [0.97, 0.88, 0.75]
-    static let unavailableShade: [Double] = [0.88, 0.80, 0.69]
-    static let legendBase: (Double, Double, Double) = (56, 56, 59)
-
-    struct Face {
-        var ready: [Color]
-        var unavailable: [Color]
-        var legend: Color
-        var legendDim: Color
-    }
-
-    static func face(accent: Accent, highContrast: Bool) -> Face {
-        let w = rgb(accent: accent, highContrast: highContrast)
-        func shaded(_ k: [Double]) -> [Color] { k.map { Theme.rgb(w.0 * $0, w.1 * $0, w.2 * $0) } }
-        // the legend leans the same way, by the same tint (High Contrast: neutral dark)
-        let t = highContrast ? 0 : min(1, max(0, tint))
-        let l = legendBase
-        let lg = (l.0 + (accent.r - l.0) * t, l.1 + (accent.g - l.1) * t, l.2 + (accent.b - l.2) * t)
-        return Face(ready: shaded(readyShade), unavailable: shaded(unavailableShade),
-                    legend: Theme.rgb(lg.0, lg.1, lg.2), legendDim: Theme.rgb(lg.0, lg.1, lg.2, 0.45))
-    }
-}
+// CapWhite (the one owner of "white") lives in BeatKeyShared/Look.swift: one copy with the plug-in's face.
 
 private struct PaletteKey: EnvironmentKey { static let defaultValue = Palette() }
 
