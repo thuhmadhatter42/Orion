@@ -103,7 +103,7 @@ struct FaceplateView: View {
         var s = PocketState.make(engine: engine, model: model, live: live, tuning: tuning, recents: recents,
                                  display: display, shortcuts: shortcuts, extras: extras, spelling: spelling,
                                  daw: watcher.target?.name)
-        if showDrop { s.readout = .drop }
+        s.dropTargeted = showDrop
         s.miniOpen = mini.isOpen
         return s
     }
@@ -234,11 +234,6 @@ struct FaceplateFace: View {
         .background(Theme.desk.edgesIgnoringSafeArea(.all))
     }
 
-    private var highlighted: Bool {
-        if case .drop = state.readout { return true }
-        return false
-    }
-
     private var findLit: Bool { Faceplate.isFindLit(picked, busy: state.busy) }
     private var capWidth: CGFloat { FaceplateView.capWidth }
 
@@ -250,7 +245,7 @@ struct FaceplateFace: View {
     private var module: some View {
         let gap = FaceplateView.gridGap
         return VStack(spacing: 0) {
-            LCD(state: state, highlighted: highlighted, actions: actions)
+            LCD(state: state, actions: actions)
             HStack(spacing: gap) {
                 LinkField(text: $url, focused: $fieldFocused, onSubmit: { actions.downloadPressed(state) })
                 if state.needsLogin, let cap = Faceplate.loginCap(busy: state.busy) {

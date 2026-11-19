@@ -121,7 +121,7 @@ enum Event: Equatable {
         case "stage":
             guard let s = obj["stage"] as? String else { return nil }
             return .stage(s)
-        case "downloading", "analyzing", "renaming", "updating":
+        case "downloading", "analyzing", "renaming":
             return .stage(kind)
         default:
             return nil

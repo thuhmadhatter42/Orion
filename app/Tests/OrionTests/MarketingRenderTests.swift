@@ -5,7 +5,7 @@ import XCTest
 
 /// Marketing screenshots for the fourletterrecords.com /beat-key page, rendered offscreen at 2x with the
 /// default amber accent (never the live app, never J's screen):
-/// ORION_SNAPSHOT_DIR=<dir> swift test --filter MarketingRenderTests
+/// swift test --filter MarketingRenderTests
 /// A render failure is an XCTFail plus a stderr line naming the shot; nothing ships to customers.
 final class MarketingRenderTests: XCTestCase {
     private func reading() -> Result {
@@ -15,9 +15,6 @@ final class MarketingRenderTests: XCTestCase {
 
     @MainActor
     func testRenderMarketingShots() throws {
-        guard let dir = ProcessInfo.processInfo.environment["ORION_SNAPSHOT_DIR"] else {
-            throw XCTSkip("set ORION_SNAPSHOT_DIR to write the marketing PNGs")
-        }
         guard #available(macOS 13.0, *) else { throw XCTSkip("ImageRenderer is macOS 13+") }
         let shared = SpellingSettings.shared
         let savedManual = shared.manualKey
@@ -26,8 +23,7 @@ final class MarketingRenderTests: XCTestCase {
             Pocket.snapshot = false
             shared.manualKey = savedManual
         }
-        let out = URL(fileURLWithPath: dir)
-        try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
+        let out = try SnapshotOutput.folder(for: self)
 
         func write<V: View>(_ v: V, _ name: String) {
             do {

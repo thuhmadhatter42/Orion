@@ -33,14 +33,14 @@ final class SpellingMenuBarTests: XCTestCase {
             let q = state(s)
             let w = HarmonyPanel.wheel(q, settings: s)
             let dial = try! XCTUnwrap(q.result?.keyInUse?.name)
-            let k = AutoTuneSend.keyClass(key)!
+            let k = KeyNames.parse(key)!
             XCTAssertEqual(w.name(k.pitchClass, minor: k.minor), dial, key)
             // the hover card names it the same way
             let tip = w.tip(for: try! XCTUnwrap(w.manualSection))
             XCTAssertTrue(tip.title == dial || tip.title.hasPrefix(dial + " · "), "\(tip.title) vs \(dial)")
             // every top-3 key is named on the wheel as in the top-3 row
             for (name, _) in q.result?.keys.prefix(3) ?? [] {
-                let c = AutoTuneSend.keyClass(name)!
+                let c = KeyNames.parse(name)!
                 XCTAssertEqual(w.name(c.pitchClass, minor: c.minor), name, "\(key) top-3")
             }
             // and every one of the 24 labels is Auto-Tune's name
@@ -152,13 +152,10 @@ final class SpellingMenuBarTests: XCTestCase {
         XCTAssertLessThan(b.redComponent, 0.2)
     }
 
-    // MARK: renders (ORION_SNAPSHOT_DIR=<dir> swift test --filter SpellingMenuBarTests/testRender)
+    // MARK: renders (swift test --filter SpellingMenuBarTests/testRender)
 
     @MainActor
     func testRenderSpellingAndMenuBar() throws {
-        guard let dir = ProcessInfo.processInfo.environment["ORION_SNAPSHOT_DIR"] else {
-            throw XCTSkip("set ORION_SNAPSHOT_DIR to write the spelling / menu-bar PNGs")
-        }
         guard #available(macOS 13.0, *) else { throw XCTSkip("ImageRenderer is macOS 13+") }
         let shared = SpellingSettings.shared
         let savedManual = shared.manualKey
@@ -167,8 +164,7 @@ final class SpellingMenuBarTests: XCTestCase {
             Pocket.snapshot = false
             shared.manualKey = savedManual
         }
-        let out = URL(fileURLWithPath: dir)
-        try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
+        let out = try SnapshotOutput.folder(for: self)
         func write<V: View>(_ v: V, _ name: String) throws {
             let r = ImageRenderer(content: v.environment(\.colorScheme, .dark))
             r.scale = 2

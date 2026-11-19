@@ -23,6 +23,23 @@ BPM_MIN, BPM_MAX = 30, 285                   # class i = 30 + i, 256 classes
 FACTORS = tuple(round(0.80 + 0.04 * i, 2) for i in range(11))   # 0.80 .. 1.20, Schreiber & Mueller 2018
 
 sys.path.insert(0, str(ROOT))
+
+
+# Key names for scoring: every enharmonic spelling is the same pitch class, so names are read
+# onto sharps here. This is not the display table (that is bpm.py's MAJOR_NOTES / MINOR_NOTES).
+NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+FLAT = {"Db": "C#", "Eb": "D#", "Gb": "F#", "Ab": "G#", "Bb": "A#", "Cb": "B", "Fb": "E", "E#": "F", "B#": "C"}
+
+
+def norm(s):
+    """'Eb minor' / 'D#m' / 'F major' / 'F' -> (pitch class, 'major'|'minor')"""
+    s = s.strip()
+    minor = s.endswith("minor") or (s.endswith("m") and not s.endswith("major"))
+    tonic = s.replace("minor", "").replace("major", "").strip()
+    if tonic.endswith("m"):
+        tonic = tonic[:-1]
+    tonic = FLAT.get(tonic, tonic)
+    return NOTES.index(tonic), "minor" if minor else "major"
 import tempocnn_np  # noqa: E402  (numpy only at import time)
 
 

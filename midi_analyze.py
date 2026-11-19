@@ -130,7 +130,7 @@ def analyze_midi(path):
     us = tempo_us(tempos, last)
     exact = 60_000_000 / us
     if len(notes) < MIN_NOTES:
-        keys = [('C', 0.0), ('Am', 0.0), ('G', 0.0)]
+        keys = list(core.NO_KEYS)
     else:
         pcp = pitch_class_profile(notes)
         scores = core.key_scores(pcp / pcp.max(), core.BGATE)

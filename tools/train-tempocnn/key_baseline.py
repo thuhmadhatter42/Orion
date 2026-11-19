@@ -38,22 +38,9 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import common  # noqa: E402  (puts the checkout root on sys.path, so `import bpm` works)
 
-NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-FLAT = {"Db": "C#", "Eb": "D#", "Gb": "F#", "Ab": "G#", "Bb": "A#", "Cb": "B", "Fb": "E", "E#": "F", "B#": "C"}
 CATS = ("exact", "relative", "fifth", "parallel", "other")
 MIREX = {"exact": 1.0, "fifth": 0.5, "relative": 0.3, "parallel": 0.2, "other": 0.0}
 log = logging.getLogger("key_baseline")
-
-
-def norm(s):
-    """'Eb minor' / 'D#m' / 'F major' / 'F' -> (pitch class, 'major'|'minor')"""
-    s = s.strip()
-    minor = s.endswith("minor") or (s.endswith("m") and not s.endswith("major"))
-    tonic = s.replace("minor", "").replace("major", "").strip()
-    if tonic.endswith("m"):
-        tonic = tonic[:-1]
-    tonic = FLAT.get(tonic, tonic)
-    return NOTES.index(tonic), "minor" if minor else "major"
 
 
 def category(truth, pred):
@@ -79,7 +66,7 @@ def detect(bpm, path):
     """-> {'bgate': [top3 (pc, mode)], 'edma': [...]} via the app's own decode + HPCP chain."""
     a_key, _ = bpm.load_audio_essentia(path)
     H = bpm.hpcp_frames(a_key)
-    shipped = [norm(k) for k, _ in bpm.keys_from_hpcp(H)]          # exactly what the app shows
+    shipped = [common.norm(k) for k, _ in bpm.keys_from_hpcp(H)]          # exactly what the app shows
     pcp = bpm.hpcp_to_pcp12(H.mean(axis=0))
     return {"bgate": shipped, "edma": top3_from_scores(bpm.key_scores(pcp, bpm.EDMA))}
 
@@ -113,8 +100,8 @@ def parity(bpm, folder, limit):
             a44, _ = bpm.load_audio_essentia(f)
             down = es.Resample(inputSampleRate=44100, outputSampleRate=11025)(a44)
             up = es.Resample(inputSampleRate=11025, outputSampleRate=44100)(down)
-            k_full = [norm(k) for k, _ in bpm.detect_keys_essentia(a44)]
-            k_11k = [norm(k) for k, _ in bpm.detect_keys_essentia(up)]
+            k_full = [common.norm(k) for k, _ in bpm.detect_keys_essentia(a44)]
+            k_11k = [common.norm(k) for k, _ in bpm.detect_keys_essentia(up)]
             n += 1
             same1 += k_full[0] == k_11k[0]
             same3 += set(k_full) == set(k_11k)
@@ -153,7 +140,7 @@ def main():
     t0 = time.time()
     for sid, key, src, beat, mix in db_rows:
         try:
-            truth = norm(key)
+            truth = common.norm(key)
         except Exception as exc:
             log.error("pt%04d: truth key unparsable (%s)", sid, exc)
             failed.append(f"pt{sid:04d}")

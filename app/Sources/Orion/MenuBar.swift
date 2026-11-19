@@ -329,11 +329,11 @@ extension PocketActions {
         a.manualMenu = {
             guard let r = shown() else { NSSound.beep(); return }
             log("manual key menu")
-            let now = r.keyInUse.flatMap { AutoTuneSend.keyClass($0.name) }
+            let now = r.keyInUse.flatMap { KeyNames.parse($0.name) }
             PopupMenu.show(KeyChoice.allKeys.enumerated().flatMap { i, k -> [PopupMenu.Item] in
-                let kc = AutoTuneSend.keyClass(k)
+                let kc = KeyNames.parse(k)
                 let item = PopupMenu.Item(title: k, checked: kc?.pitchClass == now?.pitchClass && kc?.minor == now?.minor) {
-                    KeyTeach.pin(k, engine: engine, live: live, model: model)
+                    ManualMenu.pin(k, engine: engine, live: live, model: model)
                 }
                 return i == 12 ? [.separator, item] : [item]
             })

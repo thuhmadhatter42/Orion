@@ -1,5 +1,5 @@
 #!/bin/bash
-# Test stub for yt-dlp. STUB_MODE: ok | ok-weird-title | fail-network | fail-then-ok | fail-unavailable | fail-age | fail-bot | fail-members | fail-keychain | fail-cookie-missing | fail-cookie-blocked | cookie-warn-ok | fail-format | fail-region | cookie-ok | cookie-stale | hang | upgrade
+# Test stub for yt-dlp. STUB_MODE: ok | ok-weird-title | fail-network | fail-download | fail-unavailable | fail-age | fail-bot | fail-members | fail-keychain | fail-cookie-missing | fail-cookie-blocked | cookie-warn-ok | fail-format | fail-region | cookie-ok | cookie-stale | hang | upgrade
 # STUB_AUDIO = file to "download"; STUB_STATE = dir for state; STUB_ARGV_LOG = file to append argv to.
 MODE="${STUB_MODE:-ok}"
 STATE="${STUB_STATE:-/tmp}"
@@ -75,11 +75,6 @@ if [ "$MODE" = "hang" ]; then
   sleep 30
   exit 1
 fi
-if [ "$MODE" = "fail-then-ok" ] && [ ! -e "$STATE/upgraded" ]; then
-  echo "ERROR: Unable to extract stuff" >&2
-  exit 1
-fi
-
 dump=0; out=""; prev=""
 for a in "$@"; do
   [ "$a" = "--dump-json" ] && dump=1
@@ -94,6 +89,12 @@ if [ $dump = 1 ]; then
     echo '{"title": "Test Beat"}'
   fi
   exit 0
+fi
+
+# metadata works, the download itself never does
+if [ "$MODE" = "fail-download" ]; then
+  echo "ERROR: [youtube] xxxxxxxxxxx: Requested format is not available. Use --list-formats for a list of available formats" >&2
+  exit 1
 fi
 
 # Download: the template minus its .%(ext)s suffix, plus .mp3

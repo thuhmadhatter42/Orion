@@ -12,13 +12,13 @@ final class DAWSendTests: XCTestCase {
     // MARK: payload, detection
 
     func testParseKey() {
-        XCTAssertEqual(SendPayload.parseKey("Cm")?.pc, 0); XCTAssertEqual(SendPayload.parseKey("Cm")?.minor, true)
-        XCTAssertEqual(SendPayload.parseKey("F#")?.pc, 6); XCTAssertEqual(SendPayload.parseKey("F#")?.minor, false)
-        XCTAssertEqual(SendPayload.parseKey("Ebm")?.pc, 3)
-        XCTAssertEqual(SendPayload.parseKey("Cb")?.pc, 11)
-        XCTAssertEqual(SendPayload.parseKey("B♭")?.pc, 10)
-        XCTAssertNil(SendPayload.parseKey("H"))
-        XCTAssertNil(SendPayload.parseKey(""))
+        XCTAssertEqual(KeyNames.parse("Cm")?.pitchClass, 0); XCTAssertEqual(KeyNames.parse("Cm")?.minor, true)
+        XCTAssertEqual(KeyNames.parse("F#")?.pitchClass, 6); XCTAssertEqual(KeyNames.parse("F#")?.minor, false)
+        XCTAssertEqual(KeyNames.parse("Ebm")?.pitchClass, 3)
+        XCTAssertEqual(KeyNames.parse("Cb")?.pitchClass, 11)
+        XCTAssertEqual(KeyNames.parse("B♭")?.pitchClass, 10)
+        XCTAssertNil(KeyNames.parse("H"))
+        XCTAssertNil(KeyNames.parse(""))
     }
 
     func testPayloadFromResultUsesDecimalBPM() {

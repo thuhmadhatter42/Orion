@@ -179,18 +179,14 @@ final class AccentTests: XCTestCase {
         XCTAssertFalse(d.advancedLinkUsed)
     }
 
-    // MARK: offscreen renders (ORION_SNAPSHOT_DIR=<dir> swift test --filter AccentTests/testRender)
+    // MARK: offscreen renders (swift test --filter AccentTests/testRender)
 
     @MainActor
     func testRenderColours() throws {
-        guard let dir = ProcessInfo.processInfo.environment["ORION_SNAPSHOT_DIR"] else {
-            throw XCTSkip("set ORION_SNAPSHOT_DIR to write the colour PNGs")
-        }
         guard #available(macOS 13.0, *) else { throw XCTSkip("ImageRenderer is macOS 13+") }
         Pocket.snapshot = true
         defer { Pocket.snapshot = false }
-        let out = URL(fileURLWithPath: dir)
-        try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
+        let out = try SnapshotOutput.folder(for: self)
         var palette = Palette()
         func write<V: View>(_ v: V, _ name: String, crop bottom: CGFloat? = nil) throws {
             let r = ImageRenderer(content: v.environment(\.palette, palette).environment(\.colorScheme, .dark))

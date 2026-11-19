@@ -10,8 +10,8 @@ One JSON object per stdout line, flushed. Exit code 0 unless the process itself 
 Output matches run.sh: rename "<stem> (<bpm> BPM <k1> <k2> <k3>).<ext>", log entry
 "Input URL: <url>\\nDownloaded: <name>\\n\\n" in "<Downloads>/(YY-M-D) Youtube DL LINKS.txt".
 The Downloads folder comes from ORION_DOWNLOADS (default ~/Downloads).
-ORION_YTDLP = the yt-dlp to use (the app's copy in Application Support). It runs the downloads
-and is the only file `-U` ever touches; unset or missing = no upgrade step (never PATH).
+ORION_YTDLP = the yt-dlp to use (the app's copy in Application Support); unset or missing = the
+one on PATH. This script never upgrades it: the app does that at launch (weekly) and in Run Doctor.
 ORION_YTDLP_TIMEOUT = seconds allowed per yt-dlp call (default 600).
 ORION_DENO = the bundled JavaScript runtime, passed to yt-dlp as --js-runtimes deno:<path>.
 Every download writes its yt-dlp stderr to ~/Library/Logs/Beat Key/last-run.log (ORION_LOG_DIR
@@ -82,6 +82,14 @@ def rename_file(path, bpm, keys, overwrite=False):
     """The one renamer: `path` becomes renamed_name(...) in its own folder; returns the new Path.
     Never replaces another file unless overwrite (a re-download does; the app's rename never)."""
     path = Path(path)
+    try:
+        usable = float(bpm) > 0
+    except (TypeError, ValueError):
+        usable = False
+    if not usable:
+        raise ValueError(f"not renaming {path.name}: {bpm!r} is not a BPM")
+    if not keys:
+        raise ValueError(f"not renaming {path.name}: no key to put in the name")
     new = path.with_name(renamed_name(path.stem, path.suffix.lstrip("."), bpm, keys))
     if overwrite:
         os.replace(path, new)
@@ -197,21 +205,6 @@ def _attempt(url, cookies_file=None, raw=None):
     return path, msg
 
 
-def _upgrade_ytdlp():
-    """`yt-dlp -U` on ORION_YTDLP only. Returns False (and does nothing) when that is unset or
-    missing: never PATH, which could be the copy inside the signed bundle."""
-    exe = ytdlp_path()
-    if not exe:
-        return False
-    try:
-        r = subprocess.run([exe, "-U"], capture_output=True, text=True, timeout=180)
-        if r.returncode != 0:
-            log(f"yt-dlp -U exit {r.returncode}: {(r.stderr or r.stdout).strip()[-300:]}")
-    except (subprocess.TimeoutExpired, OSError) as exc:
-        log(f"yt-dlp -U failed: {exc}")
-    return True
-
-
 LOGIN_MESSAGES = {
     "age": "This video is age-restricted. A YouTube login is needed.",
     "bot": "YouTube wants a login before it will serve this video.",
@@ -297,22 +290,6 @@ def _cmd_download(url, cookies_file, outcome):
             outcome[0] = f"needs_login: {reason}"
             needs_login(reason)
             return
-    if not cookies_file:
-        # A dead link (private / unavailable / removed / invalid) or a timeout: an upgrade will
-        # not help and a retry would only repeat the wait. Report it.
-        hopeless = msg == downloader.TIMEOUT_MESSAGE or msg in downloader._FINAL_MESSAGES
-        if not path and not hopeless and ytdlp_path():
-            emit(stage="updating")
-            if _upgrade_ytdlp():
-                emit(stage="downloading")
-                raw = []
-                path, msg = _attempt(url, raw=raw)
-                if not path:
-                    reason = downloader.login_reason(raw)
-                    if reason:
-                        outcome[0] = f"needs_login: {reason}"
-                        needs_login(reason)
-                        return
     if not path:
         msg = msg or "Download failed for an unknown reason."
         outcome[0] = f"error: {msg}"
@@ -408,6 +385,10 @@ def cmd_rename(raw, bpm, key_names):
     except OSError as exc:
         log(f"rename failed for {path.name}: {exc!r}")
         emit(stage="rename_failed", file=str(path), errno=exc.errno or 0, message=exc.strerror or str(exc))
+        return
+    except ValueError as exc:                   # no usable BPM or key: refused, the file stays as it is
+        log(f"rename refused: {exc}")
+        emit(stage="rename_failed", file=str(path), errno=0, message=str(exc))
         return
     emit(stage="renamed", file=str(path), to=str(new), name=new.name)
 

@@ -54,11 +54,11 @@ enum MusicalTyping {
     /// listed); neither listed = the mode of its top key; no keys = major.
     static func minor(forRoot root: Int, keys: [(String, Int)]) -> Bool {
         let scored = keys.compactMap { k -> (minor: Bool, score: Int)? in
-            guard let c = AutoTuneSend.keyClass(k.0), c.pitchClass == root else { return nil }
+            guard let c = KeyNames.parse(k.0), c.pitchClass == root else { return nil }
             return (c.minor, k.1)
         }
         if let best = scored.max(by: { $0.score < $1.score }) { return best.minor }
-        return keys.first.flatMap { AutoTuneSend.keyClass($0.0)?.minor } ?? false
+        return keys.first.flatMap { KeyNames.parse($0.0)?.minor } ?? false
     }
 }
 
@@ -98,7 +98,7 @@ struct PlayState: Equatable {
     /// False = nothing to flip.
     mutating func toggle(shownKey: String?) -> Bool {
         if root == nil {
-            guard let k = shownKey.flatMap(AutoTuneSend.keyClass) else { return false }
+            guard let k = shownKey.flatMap(KeyNames.parse) else { return false }
             root = k.pitchClass; minor = k.minor
         }
         minor.toggle()

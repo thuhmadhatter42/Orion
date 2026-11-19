@@ -126,18 +126,14 @@ final class PocketTests: XCTestCase {
         XCTAssertFalse(KeyGlyphShape().path(in: CGRect(x: 0, y: 0, width: 22, height: 12)).isEmpty)
     }
 
-    // MARK: offscreen renders (ORION_SNAPSHOT_DIR=<dir> swift test --filter PocketTests/testRender)
+    // MARK: offscreen renders (swift test --filter PocketTests/testRender)
 
     @MainActor
     func testRenderPopoverStates() throws {
-        guard let dir = ProcessInfo.processInfo.environment["ORION_SNAPSHOT_DIR"] else {
-            throw XCTSkip("set ORION_SNAPSHOT_DIR to write the popover PNGs")
-        }
         guard #available(macOS 13.0, *) else { throw XCTSkip("ImageRenderer is macOS 13+") }
         Pocket.snapshot = true
         defer { Pocket.snapshot = false }
-        let out = URL(fileURLWithPath: dir)
-        try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
+        let out = try SnapshotOutput.folder(for: self)
 
         var idle = PocketState()
         idle.source = "System Audio"

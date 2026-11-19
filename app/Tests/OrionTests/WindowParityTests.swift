@@ -79,18 +79,14 @@ final class WindowParityTests: XCTestCase {
         XCTAssertEqual(log, ["download"])
     }
 
-    // MARK: offscreen renders (ORION_SNAPSHOT_DIR=<dir> swift test --filter WindowParityTests/testRender)
+    // MARK: offscreen renders (swift test --filter WindowParityTests/testRender)
 
     @MainActor
     func testRenderWindowStates() throws {
-        guard let dir = ProcessInfo.processInfo.environment["ORION_SNAPSHOT_DIR"] else {
-            throw XCTSkip("set ORION_SNAPSHOT_DIR to write the window PNGs")
-        }
         guard #available(macOS 13.0, *) else { throw XCTSkip("ImageRenderer is macOS 13+") }
         Pocket.snapshot = true
         defer { Pocket.snapshot = false }
-        let out = URL(fileURLWithPath: dir)
-        try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
+        let out = try SnapshotOutput.folder(for: self)
 
         var idle = PocketState()
         idle.source = "System Audio"
@@ -131,7 +127,7 @@ final class WindowParityTests: XCTestCase {
         login.readout = .login("THIS VIDEO IS AGE-RESTRICTED", Faceplate.loginNextLine, caption: nil)
 
         var drop = idle
-        drop.readout = .drop
+        drop.dropTargeted = true
 
         var doctorFailed = idle
         doctorFailed.readout = .doctor(DoctorReport(outcome: .failed, title: "DOWNLOADS BROKEN",

@@ -242,20 +242,6 @@ def explain_error(lines, url=""):
     return "Download failed for an unknown reason."
 
 
-_FINAL_MESSAGES = (
-    PRIVATE_MESSAGE,
-    UNAVAILABLE_MESSAGE,
-    REGION_MESSAGE,
-    INVALID_URL_MESSAGE,
-)
-
-
-def is_final_error(lines, url=""):
-    """True when the error says the link itself is dead (private / unavailable / removed /
-    region-locked / invalid): no other strategy, cookies or yt-dlp upgrade can fix it."""
-    return explain_error(lines, url) in _FINAL_MESSAGES
-
-
 TIMEOUT_MESSAGE = "Download timed out."
 
 
@@ -280,9 +266,6 @@ def run_download(url, silent=False, app_order=False, ytdlp=None, timeout=None, c
     (app mode never reads a browser's cookies), raw_errors = a list that receives yt-dlp's
     raw error lines when the download fails.
     """
-    info = None
-    meta_err = []
-    working_extra = None
     exe = "yt-dlp"
     if app_order:
         exe = ytdlp or "yt-dlp"
@@ -299,6 +282,13 @@ def run_download(url, silent=False, app_order=False, ytdlp=None, timeout=None, c
         print(msg, file=sys.stderr) if silent else print(msg)
         return None
 
+    # The one retry layer: each strategy fetches the metadata and downloads with the same
+    # arguments; the first strategy that gets the file wins. Nothing above this (no second pass
+    # over the strategies, no yt-dlp upgrade-and-repeat) retries the same failure again.
+    # yt-dlp is upgraded at bring-up (the app's weekly upgrade, Run Doctor; run.sh's weekly stamp).
+    meta_err, download_err = [], []
+    announced = reached_download = False
+    success, bl_path = False, None
     for extra in order:
         try:
             info, meta_err = fetch_info(url, extra_args=extra, **kw)
@@ -307,53 +297,32 @@ def run_download(url, silent=False, app_order=False, ytdlp=None, timeout=None, c
         except Exception as exc:
             meta_err = [str(exc)]
             info = None
-        if info:
-            working_extra = extra
-            break
-
-    if not info:
-        if raw_errors is not None:
-            raw_errors[:] = meta_err
-        msg = explain_error(meta_err, url)
-        if silent:
-            print(msg, file=sys.stderr)
-        else:
-            print(msg)
-        return None
-
-    title = safe_name(info.get("title") or "audio")
-    if not silent:
-        print("Downloading...")
-    baseline_tmpl = str(DOWNLOADS / f"{title}.%(ext)s")
-    last_err = []
-
-    strategies_to_try = [working_extra] + [s for s in order if s != working_extra]
-
-    success = False
-    bl_path = None
-
-    for extra in strategies_to_try:
+        if not info:
+            continue
+        title = safe_name(info.get("title") or "audio")
+        if not silent and not announced:
+            print("Downloading...")
+            announced = True
+        baseline_tmpl = str(DOWNLOADS / f"{title}.%(ext)s")
+        reached_download = True
         try:
-            success, bl_path, _, _, last_err = download_audio(
+            success, bl_path, _, _, download_err = download_audio(
                 url, "bestaudio/best", baseline_tmpl, extra_args=extra, **kw
             )
         except YtDlpTimeout:
             return _fail(TIMEOUT_MESSAGE)
         except Exception as exc:
-            last_err = [str(exc)]
+            download_err = [str(exc)]
             success = False
         if success:
             break
 
     if not success:
+        # a strategy that got as far as the download has the more useful error
+        errs = download_err if reached_download else meta_err
         if raw_errors is not None:
-            raw_errors[:] = last_err
-        msg = explain_error(last_err, url)
-        if silent:
-            print(msg, file=sys.stderr)
-        else:
-            print(msg)
-        return None
+            raw_errors[:] = errs
+        return _fail(explain_error(errs, url))
 
     if silent:
         # Print only the filepath so the caller can capture it

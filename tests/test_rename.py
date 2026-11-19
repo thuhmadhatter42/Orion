@@ -99,6 +99,17 @@ class TestRenameFile(Base):
         self.assertEqual(other.read_bytes(), b"theirs")
         self.assertEqual(p.read_bytes(), b"mine")
 
+    def test_no_usable_bpm_or_no_key_is_refused(self):
+        p = self.make("Beat.wav", b"mine")
+        for bpm, keys in (("0.0", [("Cm", 0)]), ("0", [("Cm", 0)]), ("", [("Cm", 0)]), (None, [("Cm", 0)]),
+                          ("nan", [("Cm", 0)]), ("142.0", [])):
+            with self.assertRaises(ValueError, msg=repr((bpm, keys))):
+                app_run.rename_file(p, bpm, keys)
+            with self.assertRaises(ValueError):
+                app_run.rename_file(p, bpm, keys, overwrite=True)
+        self.assertEqual(p.read_bytes(), b"mine")
+        self.assertEqual([f.name for f in self.dir.iterdir()], ["Beat.wav"])
+
     def test_the_download_path_may_overwrite(self):
         p = self.make("Beat.mp3", b"new")
         self.make("Beat (142.0 BPM Cm).mp3", b"old")
@@ -145,6 +156,13 @@ class TestRenameCommand(Base):
         self.assertEqual([e["stage"] for e in ev], ["rename_failed"])
         self.assertEqual(ev[0]["errno"], 1)
         self.assertTrue(p.is_file())
+
+    def test_a_zero_bpm_is_refused_and_reported(self):
+        p = self.make("Beat.wav", b"mine")
+        ev = self.run_cmd(app_run.cmd_rename, str(p), "0.0", ["Cm"])
+        self.assertEqual([e["stage"] for e in ev], ["rename_failed"])
+        self.assertIn("not a BPM", ev[0]["message"])
+        self.assertEqual(p.read_bytes(), b"mine")
 
     def test_the_unicode_name_survives(self):
         p = self.make("Béat ✦.wav")

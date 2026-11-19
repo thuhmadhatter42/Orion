@@ -232,18 +232,14 @@ final class MiniTests: XCTestCase {
         XCTAssertEqual(Tuning.meter(12, reference: 444)!.concertHz, Tuning.meter(12, reference: 440)!.concertHz, accuracy: 1e-9)
     }
 
-    // MARK: offscreen renders (ORION_SNAPSHOT_DIR=<dir> swift test --filter MiniTests/testRender)
+    // MARK: offscreen renders (swift test --filter MiniTests/testRender)
 
     @MainActor
     func testRenderMini() throws {
-        guard let dir = ProcessInfo.processInfo.environment["ORION_SNAPSHOT_DIR"] else {
-            throw XCTSkip("set ORION_SNAPSHOT_DIR to write the Mini PNGs")
-        }
         guard #available(macOS 13.0, *) else { throw XCTSkip("ImageRenderer is macOS 13+") }
         Pocket.snapshot = true
         defer { Pocket.snapshot = false }
-        let out = URL(fileURLWithPath: dir)
-        try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
+        let out = try SnapshotOutput.folder(for: self)
         func write<V: View>(_ v: V, _ name: String) throws {
             let rr = ImageRenderer(content: v.environment(\.colorScheme, .dark))
             rr.scale = 2

@@ -21,11 +21,8 @@ enum WavesTuneSend {
         return dirs.contains { fm.fileExists(atPath: "/Applications/Waves/\($0)/Waves Tune Real-Time.bundle") }
     }
 
-    static let majorSteps: Set<Int> = [0, 2, 4, 5, 7, 9, 11]
-    static let minorSteps: Set<Int> = [0, 2, 3, 5, 7, 8, 10]
-
     static func contents(pitchClass: Int, minor: Bool, keyName: String) -> String {
-        let steps = minor ? minorSteps : majorSteps
+        let steps = Set(minor ? Scale.naturalMinor : Scale.major)
         let notes = (0..<12).map { i in
             "                <Note NoteCents=\"\(i * 100)\" StatusIsForAllOctaves=\"true\">\n"
             + "                    <NoteStatus>\(steps.contains(i) ? "0" : "x")</NoteStatus>\n"
@@ -66,7 +63,7 @@ enum WavesTuneSend {
 
     @discardableResult
     static func write(key: String, to url: URL = presetURL) -> Bool {
-        guard let k = AutoTuneSend.keyClass(key) else { return false }
+        guard let k = KeyNames.parse(key) else { return false }
         let text = contents(pitchClass: k.pitchClass, minor: k.minor, keyName: key)
         let dir = url.deletingLastPathComponent()
         do {

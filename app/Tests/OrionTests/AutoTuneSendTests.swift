@@ -12,7 +12,7 @@ final class AutoTuneSendTests: XCTestCase {
         let names = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"]
         for (i, n) in names.enumerated() {
             for minor in [false, true] {
-                let k = AutoTuneSend.keyClass(n + (minor ? "m" : ""))
+                let k = KeyNames.parse(n + (minor ? "m" : ""))
                 XCTAssertEqual(k?.pitchClass, i, n)
                 XCTAssertEqual(k?.minor, minor, n)
                 let s = AutoTuneSend.contents(pitchClass: i, minor: minor, referencePitch: 440)
@@ -20,9 +20,9 @@ final class AutoTuneSendTests: XCTestCase {
                 XCTAssertTrue(s.contains("name=\"KeyType\" val=\"\(minor ? 1 : 0)\""))
             }
         }
-        XCTAssertEqual(AutoTuneSend.keyClass("C#m")?.pitchClass, 1)
-        XCTAssertEqual(AutoTuneSend.keyClass("G#m")?.pitchClass, 8)
-        XCTAssertNil(AutoTuneSend.keyClass("H"))
+        XCTAssertEqual(KeyNames.parse("C#m")?.pitchClass, 1)
+        XCTAssertEqual(KeyNames.parse("G#m")?.pitchClass, 8)
+        XCTAssertNil(KeyNames.parse("H"))
     }
 
     func testWriteAtomicCreatesDirAndCRLF() throws {

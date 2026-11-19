@@ -215,7 +215,7 @@ final class DisplaySettings: ObservableObject {
             defaults.set(pocket, forKey: DisplaySettings.pocketAdvancedKey)
             AppLog.log("advanced mode: menu bar setting created from the window's (\(pocket ? "on" : "off"))")
         }
-        matchKey = defaults.string(forKey: DisplaySettings.matchKeyKey).flatMap { AutoTuneSend.keyClass($0) == nil ? nil : $0 }
+        matchKey = defaults.string(forKey: DisplaySettings.matchKeyKey).flatMap { KeyNames.parse($0) == nil ? nil : $0 }
         chordQuality = defaults.string(forKey: DisplaySettings.qualityKey).flatMap(ChordQuality.init(rawValue:)) ?? .triad
         chordVoicing = defaults.string(forKey: DisplaySettings.voicingKey).flatMap(Voicing.init(rawValue:)) ?? .root
         let bars = defaults.integer(forKey: DisplaySettings.barsKey)

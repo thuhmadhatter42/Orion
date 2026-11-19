@@ -907,6 +907,11 @@ def main():
         sys.exit(1)
 
     bpm, keys, extras = analyze_full(path)
+    if not float(bpm) > 0:
+        # TempoCNN gives 0.0 for a clip under ~12 s. No BPM line, a non-zero exit: callers (run.sh,
+        # app_run.py) take that as "could not analyze" and never name a file "(0.0 BPM ...)".
+        print(f"Could not measure a tempo for {path.name} (the clip may be too short).", file=sys.stderr)
+        sys.exit(1)
 
     # Output for bash parsing: BPM on line 1, then each key on its own line; the app's extras
     # ("bpm_exact: 140.82", "tuning_cents: -12.0", "chroma: [1.0, 0.0, ...]") follow, so lines

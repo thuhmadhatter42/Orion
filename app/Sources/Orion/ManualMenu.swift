@@ -4,7 +4,7 @@ import Foundation
 // The MANUAL menu's reading lookup and pick. A pick pins the key like every other path
 // (SpellingSettings.setManualKey) and teaches nothing: it never makes Beat Key think a key is
 // more likely (J, 2026-11-18). There is no teach record any more.
-enum KeyTeach {
+enum ManualMenu {
     /// The reading as the analyzer gave it (no choice, no respelling).
     static func raw(_ state: ViewState, live: LiveState, page: Pager) -> Result? {
         if live.isActive { return live.result }

@@ -89,24 +89,7 @@ struct SendPayload: Equatable {
     }
 
     /// Pitch class of the tonic (C = 0 … B = 11) and minor, from the key name; nil = no key.
-    var tonic: (pc: Int, minor: Bool)? { key.flatMap(SendPayload.parseKey) }
-
-    static func parseKey(_ name: String) -> (pc: Int, minor: Bool)? {
-        var s = name.trimmingCharacters(in: .whitespaces)
-            .replacingOccurrences(of: "♯", with: "#").replacingOccurrences(of: "♭", with: "b")
-        var minor = false
-        if s.hasSuffix("m") { minor = true; s.removeLast() }
-        let letters: [Character: Int] = ["C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11]
-        guard let first = s.first, var pc = letters[first] else { return nil }
-        for c in s.dropFirst() {
-            switch c {
-            case "#": pc += 1
-            case "b": pc -= 1
-            default: return nil
-            }
-        }
-        return ((pc % 12 + 12) % 12, minor)
-    }
+    var tonic: (pc: Int, minor: Bool)? { key.flatMap(KeyNames.parse).map { ($0.pitchClass, $0.minor) } }
 
     /// "140.82 BPM · C minor" for results.
     var text: String {

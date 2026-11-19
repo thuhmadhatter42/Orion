@@ -18,8 +18,10 @@ Pro Tools tooltips; the Studio D capture, TOOLTIPS.md, never landed.)
    ("Click to unpin.").
 2. **Length.** Body target 3-8 words, **60 characters max** (the cap `HelpTip.maxBody`,
    held by `HelpTests` and by the launch self-check `HelpText.problems`, which logs any
-   tip over the cap to beatkey.log). Current table: median 38 characters, 7 words;
-   longest 51.
+   tip over the cap to beatkey.log). Current table (counted from `HelpText.all` on
+   2026-11-19): 69 tips in 11 sections, all titles unique; body median 38 characters,
+   7 words; longest 51. (A grep for `HelpTip(title:` finds fewer: the three permission
+   tips are built by a helper, so count `HelpText.all`, not the source text.)
 3. **J's words for things.** receive key, get BPM, auto get key, pin / unpin, listen,
    send to Auto-Tune, new song, hold. Not "manual selection", "detect", "analyze" when
    J says "get" or "read".

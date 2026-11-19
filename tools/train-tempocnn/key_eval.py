@@ -17,19 +17,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import common  # noqa: E402
 
-FLAT = {"Db": "C#", "Eb": "D#", "Gb": "F#", "Ab": "G#", "Bb": "A#", "Cb": "B", "Fb": "E", "E#": "F", "B#": "C"}
-NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-
-
-def norm(s):
-    """'Eb minor' / 'D#m' / 'F major' / 'F' -> (pitch class, 'major'|'minor')"""
-    s = s.strip()
-    minor = s.endswith("m") or s.endswith("minor")
-    tonic = s.replace("minor", "").replace("major", "").rstrip("m").strip()
-    tonic = FLAT.get(tonic, tonic)
-    return NOTES.index(tonic), "minor" if minor else "major"
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--full-dir", required=True, type=Path)
@@ -46,7 +33,7 @@ def main():
                        "AND bpm_confidence IN ('confirmed','tempo-only') AND beat_wav_path IS NOT NULL ORDER BY id").fetchall()
     res = []
     for sid, key, beat, mix in rows:
-        truth = norm(key)
+        truth = common.norm(key)
         for kind, wav, suf in (("beat", beat, ""), ("mix", mix, "m")):
             if not wav:
                 continue
@@ -55,7 +42,7 @@ def main():
                 print(f"pt{sid:04d}{suf}: full-rate file missing", file=sys.stderr)
                 continue
             a_key, _ = bpm.load_audio_essentia(f)
-            top3 = [norm(k) for k, _ in bpm.detect_keys_essentia(a_key)]
+            top3 = [common.norm(k) for k, _ in bpm.detect_keys_essentia(a_key)]
             res.append((f"pt{sid:04d}{suf}", kind, truth, top3))
             print(f"pt{sid:04d}{suf} {kind} done", flush=True)
     print("\n| group | n | top-1 exact | in top-3 |\n|---|---:|---:|---:|")
