@@ -14,7 +14,7 @@ Beat Key is the same tool as a normal Mac app. No Terminal, nothing to install f
 2. Click **Continue** through the installer. If Beat Key is open it asks you to quit it first. Beat Key goes into **Applications** and opens by itself when the installer finishes.
 3. Next time, open **Beat Key** from Applications.
 4. Paste a YouTube link and press Return. The MP3 lands in your Downloads folder with the BPM and key in its name, for example `Some Beat (140.0 BPM Cm Eb Gm).mp3`.
-5. To read the BPM and key of a file you already have, drop the audio file onto the Beat Key window. The file isn't changed.
+5. To read the BPM and key of a file you already have, drop any number of audio files onto the Beat Key window, menu-bar icon or Dock icon; they queue. The file isn't changed unless you say yes to the rename prompt (see Files below).
 
 If macOS asks whether Beat Key may access your Downloads folder, click **Allow**. Needs macOS 12 or newer, on Apple Silicon or Intel. yt-dlp updates itself weekly, and Beat Key updates itself too (Beat Key > Check for Updates, plus a daily check; Sparkle); there is nothing to maintain. Beat Key is the free product on fourletterrecords.com (download behind a Four Letter Records account). Age-restricted videos ask you to log in to YouTube once, inside Beat Key's own window; it never reads your browser or asks for Full Disk Access. Licences for every bundled part are under Beat Key › Licenses and in `THIRD-PARTY-LICENSES.md`.
 
@@ -22,13 +22,13 @@ If macOS asks whether Beat Key may access your Downloads folder, click **Allow**
 
 Everything is under the menus or in Settings (Beat Key > Settings, ⌘,). The global shortcuts work in any app and can be changed or turned off in Settings.
 
-- **Live listening.** Reading > Start Listening (⌃⌥⌘K) reads the BPM and key of whatever is playing, as it plays, and keeps refining. It listens to the Mac's sound (macOS 13 or newer; every app except Beat Key itself), the default input, or a microphone or interface you pick, one channel or all. It starts over after 2, 3, 5 or 10 seconds of silence (your choice). Nothing is recorded or saved.
+- **Live listening.** Reading > Start Listening (⌃⌥⌘K) reads the BPM and key of whatever is playing, as it plays, and keeps refining. It listens to the Mac's sound (macOS 13 or newer; every app except Beat Key itself), one open app you pick (Input > Add App, macOS 13 or newer; apps playing now are listed first on macOS 14.2 or newer), the default input, or a microphone or interface you pick, one channel or all. It starts over after 2, 3, 5 or 10 seconds of silence (your choice). Nothing is recorded or saved.
 - **Menu-bar readout.** The coloured key and BPM (for example `Ebm 128`) sit in the menu bar; no key is shown until the reading has locked. Click it to start or stop listening, analyze a file, or open Settings.
 - **Confidence lights and shapes.** Green octagon = locked, amber triangle = unsure, red circle = listening or analyzing. The shape means colour is never the only signal. View > High Contrast Readout (also in Settings) makes the display brighter.
 - **Decimal BPM, half and double.** The BPM shows with two decimals (`140.82`). Reading > Half / Double Tempo, or clicking the BPM on the display, cycles between the reading, double and half.
 - **Advanced Mode.** View > Advanced Mode (⌥⌘A, or Settings > Display, off by default) widens the window with the Camelot code and relative key, a key wheel (click a key to choose it), the notes heard, a chord strip (click to hear, drag a chord into a DAW as a .mid) and a MATCH TO row (−6 to +6).
 - **Tuning.** The display shows how many cents sharp or flat the track sits against a reference pitch. Reading > Reference Pitch: A = 432, 436, 438, 440, 442, 444, 450, or Custom (400 to 480 Hz).
-- **Files.** MP3, WAV, AIFF, FLAC, M4A, AAC, OGG, CAF, MP4, M4V, MOV and MIDI (.mid). For video the audio track is read. The file isn't changed.
+- **Files.** MP3, WAV, AIFF, FLAC, M4A, AAC, OGG, CAF, MP4, M4V, MOV and MIDI (.mid). For video the audio track is read. The file isn't changed unless you allow it: after a reading Beat Key can ask to add the key and BPM to the file name (`Beat (141.0 BPM Ebm F# Bbm).wav`). Settings > File names: Ask me each time, Always or Never; files already tagged are left alone, and a file inside a Pro Tools session's Audio Files folder always asks first.
 - **Analyze a File.** File > Analyze a File… (⌃⌥⌘F, global), drop files on the window or the Dock icon, Open With, or in Finder right-click > Services > Analyze with Beat Key.
 - **Recent readings.** File > Recent Readings puts an earlier reading back on the display. Clear Menu empties it.
 - **Send to DAW.** Reading > Send to DAW (⌃⌥⌘S) sends the decimal BPM and top key to the DAW you used last; Send to All DAWs (⌃⌥⌘D) sends to every open one. What each gets:
@@ -37,7 +37,8 @@ Everything is under the menus or in Settings (Beat Key > Settings, ⌘,). The gl
   - Pro Tools, Logic Pro, Studio One: tempo and key, typed into the DAW's own tempo and key controls through Accessibility. If a value can't be confirmed, nothing is sent (Export MIDI makes a file for any DAW).
   - FL Studio, Reason, Cubase: a MIDI file with tempo and key to import (they can't be told a tempo from outside).
 - **Analyze Selection.** Reading > Analyze Selection (no shortcut by default; give it one in Settings › Shortcuts, works in any app) reads the clip you have selected in Pro Tools, Ableton Live or REAPER. Other DAWs: export the clip and drop it on Beat Key.
-- **Choose the key.** The top 3 keys are clickable: click key 2 or 3 and that becomes THE key for every send (New Song clears it).
+- **Pin the key.** Click any of the top 3 keys, a key on the wheel, or pick one from the MANUAL menu, and that key is pinned: it is THE key for every send, the Artemis broadcast and the rename. The detector keeps running and the other slots keep updating; a pick never makes Beat Key think that key is likelier. Click the pinned key again to unpin (a new live song clears it).
+- **Artemis broadcast.** Beat Key posts its key, BPM and a song id as macOS distributed notifications (`com.jshriver.orion.reading`) and answers `com.jshriver.orion.request` with one reading. Contract: `docs/protocol-beatkey-broadcast.md`. No song names are ever sent.
 - **Send to Auto-Tune.** One button (Reading > Send to Auto-Tune, ⌃⌥⌘A) hands the chosen key and your reference pitch to Auto-Tune Pro, in any open instance with Auto Key Detection on, and also writes a Waves Tune preset. Waves Tune does not change by itself: load the "Beat Key" preset in the plug-in (as of 0.1.31). Antares doesn't document the hand-off, so tell us if a version doesn't pick it up.
 - **Export MIDI Tempo/Key file.** File > Export MIDI Tempo/Key File… (⌃⌥⌘E) saves a small `.mid` with the tempo and key, for any DAW.
 - **Open at login.** Settings > General > Open at Login.

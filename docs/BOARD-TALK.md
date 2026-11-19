@@ -8,8 +8,8 @@ J's complaint that started it: the old tips read "psychotic, very verbose"; "it 
 be a pop-up that's ten words where it could be three."
 
 Model: Pro Tools hover tooltips. A short title, at most one short line under it.
-(Length rule below is Beat Key's own; to be checked against TOOLTIPS.md, the Studio D
-capture of real Pro Tools tooltips, when that lands.)
+(Length rule below is Beat Key's own. Still open 2026-11-18: not yet checked against real
+Pro Tools tooltips; the Studio D capture, TOOLTIPS.md, never landed.)
 
 ## The rules
 
