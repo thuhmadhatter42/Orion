@@ -50,7 +50,7 @@ struct LCD: View {
         VStack(alignment: .leading, spacing: 0) {
             top.frame(maxWidth: .infinity).frame(height: LCD.bandHeight, alignment: .topLeading)
             // the hairline sits mid-row: pull the strip up half a row so the line ends the band
-            KeyStrip(state: state, onTeach: actions.teachKey, keyboardHeight: FaceplateView.keyboardHeight)
+            KeyStrip(state: state, onManual: actions.manualMenu, keyboardHeight: FaceplateView.keyboardHeight)
                 .padding(.top, -KeyStrip.ruleRowHeight / 2)
         }
         .padding(.bottom, Theme.S.l)

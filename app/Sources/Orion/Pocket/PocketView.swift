@@ -14,8 +14,8 @@ struct PocketActions {
     var newSong: () -> Void = {}
     /// Hold / Release: freeze the reading on show (never automatic).
     var toggleHold: () -> Void = {}
-    /// MANUAL ⌄: the 24-key menu; the pick becomes THE key and is saved as a teach record.
-    var teachKey: () -> Void = {}
+    /// MANUAL ⌄: the 24-key menu; the pick pins the key and teaches nothing.
+    var manualMenu: () -> Void = {}
     var pickSource: () -> Void = {}
     var analyzeFile: () -> Void = {}
     var sendDAW: () -> Void = {}
@@ -577,7 +577,7 @@ private struct PocketLCD: View {
                 right.frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(height: Dial.side)
-            KeyStrip(state: state, onTeach: actions.teachKey, keyboardHeight: Pocket.keyboardHeight).padding(.top, Theme.S.s)
+            KeyStrip(state: state, onManual: actions.manualMenu, keyboardHeight: Pocket.keyboardHeight).padding(.top, Theme.S.s)
         }
         .padding(Theme.S.l)
         .lcdGlass(radius: Theme.R.well)
@@ -667,7 +667,7 @@ struct KeyStrip: View {
     @Environment(\.palette) private var palette
     let state: PocketState
     /// MANUAL ⌄: the 24-key menu (nil = not shown).
-    var onTeach: (() -> Void)? = nil
+    var onManual: (() -> Void)? = nil
     var keyboardHeight: CGFloat = Pocket.keyboardHeight
     /// The hairline's row (MANUAL's height); the line runs through its middle.
     static let ruleRowHeight: CGFloat = Theme.H.sm
@@ -677,8 +677,8 @@ struct KeyStrip: View {
             // the hairline runs into the menu at the strip's right edge (the % column's edge)
             HStack(spacing: Theme.S.m) {
                 Rectangle().fill(palette.a4).frame(height: 1)
-                if let teach = onTeach {
-                    ManualKeyMenu(enabled: state.result != nil, action: teach).helpTip(HelpText.manual)
+                if let manual = onManual {
+                    ManualKeyMenu(enabled: state.result != nil, action: manual).helpTip(HelpText.manual)
                 }
             }
             .frame(height: KeyStrip.ruleRowHeight)
@@ -803,7 +803,7 @@ struct TuningMeterRow: View {
 }
 
 /// MANUAL ⌄: set the key by hand. The LCD's one chip recipe with a chevron that says it drops a
-/// list: the 24 keys; the pick becomes THE key and the reading is saved to teach Beat Key. Dim
+/// list: the 24 keys; the pick pins the key and teaches nothing. Dim
 /// with no reading.
 struct ManualKeyMenu: View {
     let enabled: Bool
@@ -812,9 +812,9 @@ struct ManualKeyMenu: View {
 
     var body: some View {
         ChipMenuButton(title: "MANUAL", enabled: enabled, action: action)
-            .nativeHelp("Set the key by hand: pick it from all 24 keys. It becomes the key, and the reading is saved to teach Beat Key")
+            .nativeHelp("Set the key by hand: pick it from all 24 keys. It pins that key")
             .accessibility(label: Text("Manual key"))
-            .accessibility(hint: Text("Opens a menu of all 24 keys. The pick becomes the key and teaches Beat Key"))
+            .accessibility(hint: Text("Opens a menu of all 24 keys. The pick pins the key"))
     }
 }
 
