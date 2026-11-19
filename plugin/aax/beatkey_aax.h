@@ -1,0 +1,90 @@
+/*
+ * beatkey_aax.h: the AAX Native shim (plan step 13).  
+ * The shim knows host types and nothing of the core: it calls bkp_* (plugin/shared/bkp.h) and nothing else of
+ * Beat Key.  Declared here so a harness can build the real data-model object and call the real process entry.
+ *
+ * Threads: construct / destruct, EffectInit, chunk calls (AAX_eProperty_RequiresChunkCallsOnMainThread),
+ * TimerWakeup, GetCustomData and notifications run on the host's main thread; the process proc runs on the
+ * audio thread and calls bkp_process only (no lock, no allocation, no log).
+ */
+#ifndef BEATKEY_AAX_H
+#define BEATKEY_AAX_H
+
+#include "AAX.h"
+#include "AAX_CEffectParameters.h"
+#include "../shared/bkp.h"
+
+/* IDs (permanent once shipped: Pro Tools sessions name the plug-in by them). */
+constexpr AAX_CTypeID kBeatKeyAaxManufacturerID = 'FLRc'; // the AU's manufacturer code
+constexpr AAX_CTypeID kBeatKeyAaxProductID = 'BtKy';      // the AU's subtype
+constexpr AAX_CTypeID kBeatKeyAaxChunkID = 'BKst';        // the one chunk: the layer's state blob
+constexpr int32_t kBeatKeyAaxChunkVersion = 1;            // the blob carries its own version inside
+constexpr AAX_CTypeID kBeatKeyAaxViewTokenBlock = 'BKtk'; // GetCustomData: the face's token (uint64_t)
+#define BEATKEY_AAX_EFFECT_ID "com.jshriver.orion.plugin"
+#define BEATKEY_AAX_BUNDLE_ID "com.jshriver.orion.plugin.aax"
+
+/* The algorithm context: audio in, audio out, buffer length, and the instance (private data the data model
+ * fills in ResetFieldData).  Bypass and the host tempo reach the instance from the data model, not here. */
+struct BeatKeyAaxContext {
+	float** mInputPP;
+	float** mOutputPP;
+	int32_t* mBufferSize;
+	bkp_instance** mInstance;
+};
+enum {
+	eBeatKeyAaxField_AudioIn = AAX_FIELD_INDEX(BeatKeyAaxContext, mInputPP),
+	eBeatKeyAaxField_AudioOut = AAX_FIELD_INDEX(BeatKeyAaxContext, mOutputPP),
+	eBeatKeyAaxField_BufferSize = AAX_FIELD_INDEX(BeatKeyAaxContext, mBufferSize),
+	eBeatKeyAaxField_Instance = AAX_FIELD_INDEX(BeatKeyAaxContext, mInstance),
+};
+
+/* AUDIO THREAD.  For every context in [begin, end): bkp_process with nch in = nch out.  A null context, a null
+ * instance or a non-positive length never crashes (skipped; with no instance the audio is copied through). */
+void beatkey_aax_process_instances(BeatKeyAaxContext* const begin[], const void* end, int nch);
+
+template <int kChannels>
+void AAX_CALLBACK BeatKeyAax_Process(BeatKeyAaxContext* const begin[], const void* end)
+{
+	beatkey_aax_process_instances(begin, end, kChannels);
+}
+
+class BeatKeyAaxParameters : public AAX_CEffectParameters {
+public:
+	static AAX_CEffectParameters* AAX_CALLBACK Create();
+	BeatKeyAaxParameters();
+	~BeatKeyAaxParameters() AAX_OVERRIDE;
+
+	AAX_Result EffectInit() AAX_OVERRIDE;
+	AAX_Result ResetFieldData(AAX_CFieldIndex inFieldIndex, void* oData, uint32_t inDataSize) const AAX_OVERRIDE;
+	AAX_Result UpdateParameterNormalizedValue(AAX_CParamID iParameterID, double iValue, AAX_EUpdateSource iSource) AAX_OVERRIDE;
+	AAX_Result TimerWakeup() AAX_OVERRIDE;
+
+	AAX_Result GetNumberOfChunks(int32_t* oNumChunks) const AAX_OVERRIDE;
+	AAX_Result GetChunkIDFromIndex(int32_t iIndex, AAX_CTypeID* oChunkID) const AAX_OVERRIDE;
+	AAX_Result GetChunkSize(AAX_CTypeID iChunkID, uint32_t* oSize) const AAX_OVERRIDE;
+	AAX_Result GetChunk(AAX_CTypeID iChunkID, AAX_SPlugInChunk* oChunk) const AAX_OVERRIDE;
+	AAX_Result SetChunk(AAX_CTypeID iChunkID, const AAX_SPlugInChunk* iChunk) AAX_OVERRIDE;
+	AAX_Result CompareActiveChunk(const AAX_SPlugInChunk* iChunkP, AAX_CBoolean* oIsEqual) const AAX_OVERRIDE;
+	AAX_Result GetCustomData(AAX_CTypeID iDataBlockID, uint32_t inDataSize, void* oData, uint32_t* oDataWritten) const AAX_OVERRIDE;
+	AAX_Result NotificationReceived(AAX_CTypeID inNotificationType, const void* inNotificationData, uint32_t inNotificationDataSize) AAX_OVERRIDE;
+
+	bkp_instance* instance() const { return mInst; }
+	uint64_t viewToken() const { return mViewToken; }
+
+private:
+	void prepareForHostRate();
+
+	bkp_instance* mInst = nullptr;
+	uint64_t mViewToken = 0;
+	double mRate = 0;
+	// GetChunkSize stages the bytes GetChunk then writes (the AAX interface makes both const)
+	mutable uint8_t mStaged[BKP_STATE_CAP];
+	mutable size_t mStagedLen = 0;
+	mutable bool mSized = false;
+};
+
+/* The GUI (beatkey_aax_view.mm): an AAX_CEffectGUI hosting the face (bkp_view_create). */
+class AAX_IEffectGUI;
+AAX_IEffectGUI* AAX_CALLBACK BeatKeyAaxGUI_Create();
+
+#endif
