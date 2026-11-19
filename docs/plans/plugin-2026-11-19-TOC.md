@@ -7,7 +7,7 @@ Steps 3-6 (core) and 7-8 (shims) can run side by side. Steps 9-11 and 16 touch `
 - [x] 2. Freeze Python goldens → §2
 - [x] 3. Core skeleton and ring → §3
 - [x] 4. Core key parity → §4
-- [ ] 5. Core BPM parity → §5
+- [x] 5. Core BPM parity → §5
 - [ ] 6. Core streaming and worker → §6
 - [ ] 7. Plug-in instance layer → §7
 - [ ] 8. VST3 + AU, validator gate → §8
@@ -62,3 +62,18 @@ Next: §4 gates the key half against the goldens.
 - FFT: Accelerate vDSP in double (the plan's choice), not FFTW; the answers above are with it.
 - Awkward parts copied on purpose (each is commented where it lives): zero-phase windowing, essentia's float arithmetic in peaks / whitening / HPCP, numpy's float32 means and pairwise sums, CPython's `round`, the float32 comparison with the 0.2 gate.
 Next: §5 gates the tempo half and measures the time of a reading.
+
+**5 → 6 (2026-11-19).** The tempo half reproduces the Python outputs on every golden file.
+- **BPM parity: 99/99 clips = 100 % on the arm64 slice, 99/99 = 100 % on the x86_64 slice (Rosetta), 10/10 on Sofia's own Intel CPU (subset).** Per clip: the same TempoCNN class on every patch the reference defines (1627 of 1636; the other 9 are digital silence, random in the reference, step 2), the same global BPM, refined BPM within 0.01. Tighter than the rule: the refined BPM is identical on all 98 clips that have one (largest difference 0). No tolerance was touched.
+- By layer, on the five dumped clips (arm64): mel bands within 4.3e-5 relative, CNN output (softmax) within 7.2e-7. Closest call in the whole set: one patch wins by 1.6e-4 (softmax units), about 200 times the largest CNN difference seen.
+- Port notes: the mel front end is essentia's streaming FrameCutter + TensorflowInputTempoCNN rebuilt (frame count measured against essentia for 23 lengths: ceil(n / 512) + 1); the silent-frame noise is reproduced as a mechanism (clock-seeded Mersenne Twister, ±1e-10), including the reference's quirk that a silent first frame is noise alone; the network runs on Accelerate's sgemm; z-score and softmax use numpy's pairwise float32 sums; `refine_bpm` uses numpy's own `arange` fill rule.
+- Sofia's CPU, confirmed as the plan asked: `Intel Xeon E5-2697 v2`, `machdep.cpu` lists AVX1.0 only (no AVX2). The x86_64 slice is plain x86_64 and ran there natively.
+- Time, measured (and logged per reading by the worker: "... NN.N ms" in `plugin.log`):
+  | Where | One whole clip (120 s of audio) | One live reading (key + BPM) | Live, share of one core in real time |
+  |---|---|---|---|
+  | MacBook Pro, arm64 slice (M1 Pro, load average about 4) | median 770 ms, worst 798 ms (80 clips) | median 80 ms, worst push 121 ms | 3.4 % |
+  | MacBook Pro, x86_64 slice under Rosetta | median 1057 ms, worst 1194 ms (80 clips) | median 105 ms, worst push 130 ms | 4.4 % |
+  | Sofia, x86_64 native (2013 Xeon, load average 5-6) | median 2141 ms, worst 2179 ms (4 clips) | median 214 ms, worst push 228 ms | 10.0 % |
+  Sofia ran a subset: 10 clips (3 bench, 7 smoke) copied to a scratch folder under `/tmp` there, the thin x86_64 test binary run over ssh, the answers copied back and judged here (`parity.py --no-run --ids ...`): key 10/10, tempo 10/10, stream 7/7, resampler bit-identical on 10/10. The scratch folder was removed and checked gone. Nothing was installed on Sofia.
+- Where the time goes in one live reading (MacBook Pro, profiled by stage): resampling the 12 s window 44.1 → 11.025 kHz with the reference's sinc converter is about 80 % (61 ms of ~75); the decimal BPM 9 ms; TempoCNN 1.5 ms; mel 1 ms; key under 1 ms. The resampler cannot be swapped without leaving parity.
+Next: §6 gates the streaming port and soaks the worker.
