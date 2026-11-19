@@ -1,0 +1,4 @@
+AudioUnitSDK 1.4.0, unmodified.
+Source: https://github.com/apple/AudioUnitSDK tag AudioUnitSDK-1.4.0, commit bd98b31feff57a15989fcfab4cd86dc63382b1ac ("AudioUnitSDK - version 1.4.0").
+Licence: Apache-2.0 (LICENSE.txt, copied as shipped). Copied dirs: include/, src/. Fetched 2026-11-05.
+Never edit these files; upgrade by replacing the folder.

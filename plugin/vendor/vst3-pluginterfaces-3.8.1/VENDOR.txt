@@ -1,0 +1,6 @@
+VST3 pluginterfaces 3.8.1 (build 84), unmodified.
+Source: https://github.com/steinbergmedia/vst3_pluginterfaces tag v3.8.1_build_84, commit 4f547e8e102b47de4a8b8aaf343c73b700786372.
+Licence: MIT (LICENSE.txt, copied as shipped, Copyright 2026 Steinberg Media Technologies GmbH). Fetched 2026-11-05.
+Copied dirs: base/, gui/, vst/, placed under pluginterfaces/ so `#include "pluginterfaces/base/funknown.h"` resolves with -I<this folder>.
+Not copied: test/ (itest.h), README.md. No full SDK, no VSTGUI, no public.sdk.
+Never edit these files; upgrade by replacing the folder.

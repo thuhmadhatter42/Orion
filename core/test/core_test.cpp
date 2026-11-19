@@ -209,6 +209,10 @@ void test_bringup() {
     char err[256];
     CHECK(std::string(bk_version()).find('.') != std::string::npos, "version '%s'", bk_version());
     CHECK(bk_ready() == 0, "ready before any weights were loaded");
+    CHECK(bk_key_index("C") == 0 && bk_key_index("Cm") == 1 && bk_key_index("F#") == 12 && bk_key_index("Ebm") == 7 &&
+              bk_key_index("Bm") == 23, "bk_key_index on the core's own names");
+    CHECK(bk_key_index("C#") == -1 && bk_key_index("Dbm") == -1 && bk_key_index("") == -1 && bk_key_index(nullptr) == -1 &&
+              bk_key_index("Cmm") == -1, "bk_key_index accepted a name the core never reads out");
 
     std::vector<float> x = clip(44100, 1.0, 120);
     bk_reading r;

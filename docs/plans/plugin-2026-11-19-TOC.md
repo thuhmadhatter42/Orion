@@ -9,7 +9,7 @@ Steps 3-6 (core) and 7-8 (shims) can run side by side. Steps 9-11 and 16 touch `
 - [x] 4. Core key parity → §4
 - [x] 5. Core BPM parity → §5
 - [x] 6. Core streaming and worker → §6
-- [ ] 7. Plug-in instance layer → §7
+- [x] 7. Plug-in instance layer → §7
 - [ ] 8. VST3 + AU, validator gate → §8
 - [ ] 9. SwiftUI face, house kit → §9
 - [ ] 10. SEND AUTO-TUNE button → §10
@@ -96,3 +96,12 @@ Next: §6 gates the streaming port and soaks the worker.
 - Nothing blocks §7. Two things for the main session to know (neither is a blocker):
   1. At 48, 96 and 192 kHz a reading comes every 2.5 s, not 2 s: the reference's chunk arithmetic (each resampled half-second is 22049 samples, measured, so four of them fall just short of 2 s; at 44.1 and 88.2 kHz it is 22050 and the hop is 2 s). Parity keeps it.
   2. At rates other than 44.1 kHz the live path resamples each half-second on its own, so the converter starts cold twice a second. That is the reference's behaviour (`LiveAnalyzer` with `rate` set) and the goldens hold the core to it. A continuous resampler would be cleaner for a plug-in at 48 kHz, but it is a change to the reference first (bpm.py + new goldens), not a core-only change.
+
+**7 → 8 (2026-11-19).** The instance layer exists and its gate is green on both slices.
+- `plugin/shared/bkp.{h,cpp}`: `bkp_instance`, the one object every shim owns. Plain C API. It owns bring-up (`bk_load_weights` once, the analyzer for the host's rate, swapped on a rate change with the reading kept), THE audio function `bkp_process` (N in = N out, float or double, in place, extra outputs silent, then the tap into the core's ring; bypass = still a pass-through, the analyzer hears nothing), the host-tempo slot, pin / x2 / ÷2, the values the two buttons send (`bkp_key_in_use`, `bkp_bpm_in_use`) and their log line (`bkp_log_send`), the session blob, and the crash marker (A7: `~/Library/Logs/Beat Key/running/<pid>-<format>` while an instance is open; a dead process's marker is logged `HOST DIED ...` once and removed).
+- The audio thread never waits: `bkp_prepare` swaps the analyzer with an atomic exchange, then waits (on the host thread) until the audio thread is out of `bkp_process`. Proven by a test that changes the rate six times while another thread keeps calling `bkp_process`.
+- State blob v1: `BKPS`, version, 16-byte header with a checksum, 173-byte payload (pin, x2 / ÷2, the last reading), 189 bytes; cap 4096. Refused, logged, instance unchanged: garbage, cut short, trailing bytes, over the cap, a newer version, version 0, damaged checksum, a pin or key that is not one of the core's 24 names, multiplier out of range, NaN / out-of-range values, unknown flags.
+- Core: one addition, `bk_key_index(name)` (the 24 names the core reads out; the layer validates pins and saved keys against it, so key spelling keeps one owner). `core/test.sh`: 248 checks, 0 failed, both slices.
+- `plugin/test.sh`: builds the core and `bkp_test` universal, runs it on arm64 and on x86_64 (Rosetta) under the core's tripwire: **132 checks, 0 failed, on each slice**; the audio path (float, double, bypass, 80 channels, host tempo) made 0 allocations and 0 locks.
+- Logging (one owner each): the core logs analyzer created / destroyed, readings, drops, refusals; the layer logs `plug-in opened: host ..., Beat Key <format> <version>`, `plug-in closed`, rate changes, weights and state refusals, sends, the crash marker.
+Next: §8, the VST3 and AU shims on top of `bkp_*`, and the validator gate.
