@@ -5,7 +5,7 @@ import XCTest
 
 /// J 2026-11-09 14:23: the footer's actions all one chip, the readout bigger and centred in its
 /// band. Offscreen renders for docs/research/footer-readout-2026-11-09/
-/// (ORION_SNAPSHOT_DIR=<dir> swift test --filter FooterReadoutRenderTests).
+/// (swift test --filter FooterReadoutRenderTests).
 final class FooterReadoutRenderTests: XCTestCase {
     private func result(_ name: String = "Beat A.wav") -> Result {
         Result(file: URL(fileURLWithPath: "/x/Beats/\(name)"), name: name, bpm: "141.98",
@@ -14,14 +14,10 @@ final class FooterReadoutRenderTests: XCTestCase {
 
     @MainActor
     func testRenderFooterAndReadout() throws {
-        guard let dir = ProcessInfo.processInfo.environment["ORION_SNAPSHOT_DIR"] else {
-            throw XCTSkip("set ORION_SNAPSHOT_DIR to write the footer / readout PNGs")
-        }
         guard #available(macOS 13.0, *) else { throw XCTSkip("ImageRenderer is macOS 13+") }
         Pocket.snapshot = true
         defer { Pocket.snapshot = false }
-        let out = URL(fileURLWithPath: dir)
-        try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
+        let out = try SnapshotOutput.folder(for: self)
         func write<V: View>(_ v: V, _ name: String, crop bottom: CGFloat? = nil) throws {
             let r = ImageRenderer(content: v.environment(\.colorScheme, .dark))
             r.scale = 2

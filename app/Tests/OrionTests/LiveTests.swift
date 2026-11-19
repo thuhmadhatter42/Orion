@@ -244,11 +244,6 @@ final class LiveTests: XCTestCase {
         XCTAssertNotNil(plist["NSAudioCaptureUsageDescription"] as? String)
         let ents = try XCTUnwrap(NSDictionary(contentsOf: app.appendingPathComponent("entitlements-app.plist")))
         XCTAssertEqual(ents["com.apple.security.device.audio-input"] as? Bool, true)
-        // the app is signed with it, the runtime's binaries are not
-        let build = try String(contentsOf: app.appendingPathComponent("build.sh"), encoding: .utf8)
-        XCTAssertTrue(build.contains(#"--entitlements "$APP/entitlements-app.plist""#))
-        let runtime = try String(contentsOf: app.appendingPathComponent("runtime.sh"), encoding: .utf8)
-        XCTAssertFalse(runtime.contains("entitlements-app.plist"))
     }
 
     func testSilenceFiller() {

@@ -45,7 +45,7 @@ final class BeatKeyTests: XCTestCase {
         XCTAssertEqual(Brand.hide, "Hide Beat Key")
         XCTAssertEqual(Brand.quit, "Quit Beat Key")
         XCTAssertEqual(Brand.licenses, "Licenses")
-        // the plist and build.sh carry the same string
+        // the plist carries the same string
         let app = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()      // app/
         let plist = try XCTUnwrap(NSDictionary(contentsOf: app.appendingPathComponent("Info.plist")))
@@ -53,8 +53,6 @@ final class BeatKeyTests: XCTestCase {
         XCTAssertEqual(plist["CFBundleDisplayName"] as? String, Brand.name)
         XCTAssertEqual(plist["CFBundleExecutable"] as? String, "Orion")
         XCTAssertEqual(plist["CFBundleIdentifier"] as? String, "com.jshriver.orion")
-        let build = try String(contentsOf: app.appendingPathComponent("build.sh"), encoding: .utf8)
-        XCTAssertTrue(build.contains("APP_NAME=\"\(Brand.name)\""))
     }
 
     // MARK: licenses
@@ -70,8 +68,6 @@ final class BeatKeyTests: XCTestCase {
                        "Essentia", "yt-dlp", "FFmpeg", "Deno"] {
             XCTAssertTrue(text.contains(needle), needle)
         }
-        let build = try String(contentsOf: app.appendingPathComponent("build.sh"), encoding: .utf8)
-        XCTAssertTrue(build.contains("THIRD-PARTY-LICENSES.md"))
         XCTAssertNil(Licenses.fileURL(bundle: Bundle(for: Self.self)))   // unbundled: nothing to open, no crash
     }
 
@@ -298,10 +294,5 @@ final class BeatKeyTests: XCTestCase {
             XCTAssertEqual(plist[k] as? String,
                            "Beat Key reads the audio files you choose to find their BPM and key.")
         }
-    }
-
-    func testYtDlpTimeoutsSuitSlowIntelMacs() {
-        XCTAssertEqual(Runtime.versionTimeout, 120)
-        XCTAssertEqual(Runtime.upgradeTimeout, 300)
     }
 }

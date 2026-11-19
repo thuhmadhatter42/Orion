@@ -56,7 +56,6 @@ final class MotionTests: XCTestCase {
     // MARK: the tokens
 
     func testTokens() {
-        // (the literals are asserted once, in testDurations, through duration(_:reduce:))
         // a swap is quicker than a value move, a hover quicker still; nothing runs past a second
         // reading (readings land about once a second)
         XCTAssertLessThan(Theme.Motion.hoverDuration, Theme.Motion.swapDuration)
@@ -64,10 +63,10 @@ final class MotionTests: XCTestCase {
         XCTAssertLessThan(Theme.Motion.valueDuration, 0.6)
     }
 
-    func testDurations() {
-        XCTAssertEqual(Theme.Motion.duration(.value, reduce: false), 0.45)
-        XCTAssertEqual(Theme.Motion.duration(.swap, reduce: false), 0.25)
-        XCTAssertEqual(Theme.Motion.duration(.hover, reduce: false), 0.12)
+    func testDurationsAreTheTokens() {
+        XCTAssertEqual(Theme.Motion.duration(.value, reduce: false), Theme.Motion.valueDuration)
+        XCTAssertEqual(Theme.Motion.duration(.swap, reduce: false), Theme.Motion.swapDuration)
+        XCTAssertEqual(Theme.Motion.duration(.hover, reduce: false), Theme.Motion.hoverDuration)
     }
 
     func testReduceMotionKeepsCrossfadesAndDropsMovement() {

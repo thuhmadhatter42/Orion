@@ -499,18 +499,14 @@ final class HelpTests: XCTestCase {
         XCTAssertEqual(crowded, [], "a card covers part of a control in the real window")
     }
 
-    // MARK: offscreen renders (ORION_SNAPSHOT_DIR=<dir> swift test --filter HelpTests/testRender)
+    // MARK: offscreen renders (swift test --filter HelpTests/testRender)
 
     @MainActor
     func testRenderHelpMode() throws {
-        guard let dir = ProcessInfo.processInfo.environment["ORION_SNAPSHOT_DIR"] else {
-            throw XCTSkip("set ORION_SNAPSHOT_DIR to write the help-mode PNGs")
-        }
         guard #available(macOS 13.0, *) else { throw XCTSkip("ImageRenderer is macOS 13+") }
         Pocket.snapshot = true
         defer { Pocket.snapshot = false }
-        let out = URL(fileURLWithPath: dir)
-        try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
+        let out = try SnapshotOutput.folder(for: self)
         let r = Result(file: URL(fileURLWithPath: "/x/Beats/Beat A.wav"), name: "Beat A.wav", bpm: "142.0",
                        keys: [("Cm", 64), ("Eb", 18), ("Gm", 9)], bpmExact: 141.98, tuningCents: 12,
                        chroma: [1.0, 0.08, 0.42, 0.81, 0.06, 0.37, 0.1, 0.93, 0.62, 0.05, 0.48, 0.12])
