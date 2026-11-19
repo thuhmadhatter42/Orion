@@ -258,35 +258,27 @@ struct Palette: Equatable {
     var cap: CapWhite.Face { CapWhite.face(accent: accent, highContrast: highContrast) }
     private var capRGB: (Double, Double, Double) { CapWhite.rgb(accent: accent, highContrast: highContrast) }
 
-    /// A Manual Key Selection's white (ManualLook): High Contrast pure white, no glow. Deliberately
-    /// not tinted (it marks "not the display colour", and the menu-bar key must stay neutral), so it
-    /// is not a cap white; it is a lit state, not a button.
-    var manualWhite: Color { highContrast ? Theme.rgb(255, 255, 255) : Theme.rgb(244, 244, 247) }
+    /// A Manual Key Selection's white (ManualLook, and the menu-bar key): the cap white, so it leans toward
+    /// the display colour by the same tint; High Contrast pure white, no glow.
+    var manualWhite: Color { capWhite }
 }
 
-/// The one owner of "white" on a button (J 2026-11-19: the caps read as yellow teeth). Pure white
-/// (or silver) mixed toward the display colour by ONE constant, `tint`; every white button
-/// (SSLCapStyle: key caps, send caps, popover caps) takes its
-/// colours from here, and no off-white is written anywhere else. High Contrast: pure white, no tint.
+/// The one owner of "white" (J 2026-11-19: the caps read as yellow teeth; "tinted towards the user
+/// selected colour, that's it"). Pure white mixed toward the display colour by ONE constant, `tint`;
+/// every white button (SSLCapStyle: key caps, send caps, popover caps) and the Manual Key Selection's
+/// white (`Palette.manualWhite`, which the menu-bar key uses too) take their colours from here, and
+/// no off-white is written anywhere else. High Contrast: pure white, no tint.
 enum CapWhite {
     /// How far toward the display colour the white leans (0...1). The one number to change.
     static let tint = 0.04
-    /// The white being tinted: pure white. (Silver, a cool grey-white, was the alternative: #E6E8EB.)
-    static let base: (Double, Double, Double) = (255, 255, 255)
-    /// The silver option, for renders and comparison.
-    static let silver: (Double, Double, Double) = (230, 232, 235)
+    private static let white = 255.0
 
-    /// Tests / comparison renders only: replace `tint` and `base` for one render.
-    static var tintOverride: Double?
-    static var baseOverride: (Double, Double, Double)?
-
-    /// `base` mixed toward `accent` by `tint` (sRGB 0...255). High Contrast: pure white.
-    static func rgb(accent: Accent, highContrast: Bool, tint t: Double? = nil,
-                    base b: (Double, Double, Double)? = nil) -> (Double, Double, Double) {
-        if highContrast { return (255, 255, 255) }
-        let t = min(1, max(0, t ?? tintOverride ?? tint))
-        let b = b ?? baseOverride ?? base
-        return (b.0 + (accent.r - b.0) * t, b.1 + (accent.g - b.1) * t, b.2 + (accent.b - b.2) * t)
+    /// Pure white mixed toward `accent` by `tint` (sRGB 0...255). High Contrast: pure white.
+    /// `tint` is a parameter only so tests can pin the maths; clamped to 0...1.
+    static func rgb(accent: Accent, highContrast: Bool, tint t: Double = CapWhite.tint) -> (Double, Double, Double) {
+        if highContrast { return (white, white, white) }
+        let t = min(1, max(0, t))
+        return (white + (accent.r - white) * t, white + (accent.g - white) * t, white + (accent.b - white) * t)
     }
 
     /// The cap's shading, as fractions of the white: top, middle, bottom. A pressable cap and an
@@ -306,7 +298,7 @@ enum CapWhite {
         let w = rgb(accent: accent, highContrast: highContrast)
         func shaded(_ k: [Double]) -> [Color] { k.map { Theme.rgb(w.0 * $0, w.1 * $0, w.2 * $0) } }
         // the legend leans the same way, by the same tint (High Contrast: neutral dark)
-        let t = highContrast ? 0 : min(1, max(0, tintOverride ?? tint))
+        let t = highContrast ? 0 : min(1, max(0, tint))
         let l = legendBase
         let lg = (l.0 + (accent.r - l.0) * t, l.1 + (accent.g - l.1) * t, l.2 + (accent.b - l.2) * t)
         return Face(ready: shaded(readyShade), unavailable: shaded(unavailableShade),
