@@ -1,6 +1,10 @@
 # PICKUP — beat_dl
 
-## CURRENT STATE — 2026-11-19 12:48
+## CURRENT STATE — 2026-11-19 15:00
+**Beat Key 0.1.79 PUBLIC** (J ran publish.sh 14:1x; it lost the Sofia link mid-pkg copy and was finished by hand: logs app/build/publish-0.1.79-finish*.log). Verified 15:00: GitHub release Beat-Key-0.1.79 on Orion not draft, Latest, assets dmg 293330469 + pkg 304999627 (= local) + appcast; live appcast shortVersionString 0.1.79; Sofia pkg 304999627 + dmg present; beat-key-latest.json 0.1.79; download page 303. Installed on Sofia: 0.1.79 + all 6 plug-ins.
+Still J-only: (1) Pro Tools helper password once on Sofia → then agent runs AAX/AudioSuite/MIDI Pro Tools tests + tooltip check; (2) Live 12 on Sofia: its plug-in scan stopped at the Auto-Tune iLok prompt; (3) Automation denials on Sofia (Spotify, Brave) if he wants now-playing titles. Next version text fix: What's New says "Update Plug-ins… any time" but the item shows only when plug-ins are outdated. Folder move after this session (plan file).
+
+## (previous) 2026-11-19 12:48
 
 ALL PLUG-IN + APP CODE MERGED on main (pushed). Release is **0.1.79** (VERSION d5bb2d3; 0.1.78 was built but never published and is superseded).
 - Plug-in plan docs/plans/plugin-2026-11-19-TOC.md: steps 1-11, 13 (AAX, PACE-signed with J's iLok on the MBP), 14 (AudioSuite Analyze), 15 (MIDI AU/VST3/AAX), 16-17 (one installer with 6 plug-in choices, Update Plug-ins, uninstall, pages), 19 (app on the C++ core; downloader in Swift; NO Python in the app; app 918→563 MB) all built and merged. Gates: swift 752/0, core 268/0 both slices, validators green.
