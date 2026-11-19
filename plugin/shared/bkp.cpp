@@ -19,6 +19,7 @@
 #include <unistd.h>
 
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
@@ -26,6 +27,7 @@
 #include <mutex>
 #include <new>
 #include <string>
+#include <vector>
 
 #ifndef BKP_VERSION
 #error "BKP_VERSION is not defined: build the plug-in with plugin/build.sh (it reads the repo's VERSION)"
@@ -221,6 +223,18 @@ struct bkp_instance {
     bk_reading held{};                          // the last reading seen or restored
     char pin[4] = {0};
     int mult = 0;
+
+    // whole clips (AudioSuite Analyze): their own lock, never held together with mu, so a long analysis never
+    // blocks the face (bkp_view_read) or the host's main thread
+    std::atomic<bool> clips{false};
+    std::atomic<int> clip_busy{0};
+    std::mutex cmu;
+    bool clip_open = false;
+    std::string clip_refused;                   // "" = fine; else why this clip will not be read (logged once)
+    double clip_rate = 0.0;
+    uint64_t clip_want = 0;                     // 0 = the host did not say how long
+    int clip_ch = 0;                            // the channel count of the clip's first window
+    std::vector<float> clip;                    // the mono downmix so far
 };
 
 namespace {
@@ -649,5 +663,211 @@ int bkp_state_load(bkp_instance *p, const uint8_t *buf, size_t len, char *err, s
 }
 
 const char *bkp_format(const bkp_instance *p) { return p ? p->format.c_str() : ""; }
+
+}  // extern "C"
+
+// ---- a whole clip (AudioSuite Analyze) ----
+
+namespace {
+
+bool clip_rate_ok(double r) { return std::isfinite(r) && r >= 8000.0 && r <= 384000.0; }
+
+void say(char *err, size_t cap, const std::string &why) {
+    if (err && cap) snprintf(err, cap, "%s", why.c_str());
+}
+
+// Empties the clip slot (caller holds cmu).
+void clip_reset(bkp_instance *p) {
+    p->clip.clear();
+    p->clip.shrink_to_fit();
+    p->clip_open = false;
+    p->clip_refused.clear();
+    p->clip_ch = 0;
+}
+
+// Marks the open clip refused (caller holds cmu): logged once; the clip's end says it again.
+void clip_refuse(bkp_instance *p, const std::string &why) {
+    if (!p->clip_refused.empty()) return;
+    p->clip_refused = why;
+    bkp_log(p, "REFUSED: whole clip: %s; this selection will not be read", why.c_str());
+}
+
+}  // namespace
+
+extern "C" {
+
+void bkp_use_clips(bkp_instance *p) {
+    if (!p) return;
+    p->clips.store(true);
+    {
+        std::lock_guard<std::mutex> g(p->mu);
+        if (bk_ready()) p->why_not.clear();   // no playback to wait for: the face says how to get a reading
+    }
+    bkp_log(p, "reads whole clips (AudioSuite): no live analyzer, one reading per Analyze");
+}
+
+int bkp_clip_state(bkp_instance *p) {
+    if (!p || !p->clips.load()) return 0;
+    return p->clip_busy.load() ? 2 : 1;
+}
+
+int bkp_clip_begin(bkp_instance *p, double rate, uint64_t frames, char *err, size_t err_cap) {
+    if (err && err_cap) err[0] = 0;
+    if (!p) return -1;
+    std::lock_guard<std::mutex> g(p->cmu);
+    clip_reset(p);
+    char b[160] = {0};
+    if (!p->clips.load()) snprintf(b, sizeof b, "this instance plays live; it does not read whole clips");
+    else if (!clip_rate_ok(rate)) snprintf(b, sizeof b, "the host's sample rate %.1f Hz is outside 8000..384000", rate);
+    else if ((double)frames > rate * BKP_CLIP_MAX_SECS)
+        snprintf(b, sizeof b, "the selection is %.0f minutes; Beat Key reads up to %d", (double)frames / rate / 60.0,
+                 BKP_CLIP_MAX_SECS / 60);
+    if (!b[0]) {
+        try {
+            p->clip.reserve((size_t)frames);
+        } catch (const std::exception &) {
+            snprintf(b, sizeof b, "out of memory for %.0f s of audio", (double)frames / rate);
+        }
+    }
+    if (b[0]) {
+        say(err, err_cap, b);
+        bkp_log(p, "REFUSED: whole clip: %s", b);
+        return -1;
+    }
+    p->clip_open = true;
+    p->clip_rate = rate;
+    p->clip_want = frames;
+    {
+        // a new selection: the last one's refusal no longer stands (lock order cmu -> mu; never the reverse)
+        std::lock_guard<std::mutex> m(p->mu);
+        if (bk_ready()) p->why_not.clear();
+    }
+    return 0;
+}
+
+long bkp_clip_add(bkp_instance *p, const float *const *ch, int n, uint32_t frames) {
+    if (!p) return -1;
+    std::lock_guard<std::mutex> g(p->cmu);
+    if (!p->clip_open) {
+        if (p->clips.load()) bkp_log(p, "REFUSED: whole clip: audio came before the clip began; not kept");
+        return -1;
+    }
+    if (!p->clip_refused.empty()) return -1;
+    if (n < 1 || n > 64 || !ch) {
+        clip_refuse(p, "the host gave " + std::to_string(n) + " channels (1..64 are read)");
+        return -1;
+    }
+    for (int c = 0; c < n; c++)
+        if (!ch[c]) {
+            clip_refuse(p, "the host gave no audio for channel " + std::to_string(c + 1));
+            return -1;
+        }
+    if (p->clip_ch == 0) p->clip_ch = n;
+    else if (p->clip_ch != n) {
+        clip_refuse(p, "the host changed the channel count mid-clip (" + std::to_string(p->clip_ch) + " -> " + std::to_string(n) + ")");
+        return -1;
+    }
+    const size_t have = p->clip.size();
+    size_t k = frames;
+    if (p->clip_want && have + k > p->clip_want) k = have < p->clip_want ? (size_t)(p->clip_want - have) : 0;
+    if ((double)(have + k) > p->clip_rate * BKP_CLIP_MAX_SECS) {
+        clip_refuse(p, "the selection runs past " + std::to_string(BKP_CLIP_MAX_SECS / 60) + " minutes");
+        return -1;
+    }
+    try {
+        p->clip.resize(have + k);
+    } catch (const std::exception &) {
+        clip_refuse(p, "out of memory after " + std::to_string((long)((double)have / p->clip_rate)) + " s of audio");
+        return -1;
+    }
+    float *dst = p->clip.data() + have;
+    if (n == 1) {
+        if (k) memcpy(dst, ch[0], k * sizeof(float));
+    } else {
+        // the core's live downmix (bk_analyzer_push_channels), so a clip and a playback hear the same mono:
+        // the plain mean, stereo = 0.5 * (L + R) (Essentia's MonoMixer, what the app's file path uses)
+        const float inv = (float)n;
+        for (size_t i = 0; i < k; i++) {
+            float sum = ch[0][i];
+            for (int c = 1; c < n; c++) sum += ch[c][i];
+            dst[i] = sum / inv;
+        }
+    }
+    return (long)k;
+}
+
+void bkp_clip_progress(bkp_instance *p, uint64_t *have, uint64_t *want) {
+    if (have) *have = 0;
+    if (want) *want = 0;
+    if (!p) return;
+    std::lock_guard<std::mutex> g(p->cmu);
+    if (!p->clip_open) return;
+    if (have) *have = p->clip.size();
+    if (want) *want = p->clip_want;
+}
+
+int bkp_clip_end(bkp_instance *p, const char *how, bk_reading *out, char *err, size_t err_cap) {
+    if (err && err_cap) err[0] = 0;
+    if (out) *out = bk_reading{};
+    if (!p) return -1;
+    const char *run = how && *how ? how : "whole clip";
+    std::vector<float> mono;
+    std::string why;
+    double rate = 0.0;
+    int nch = 0;
+    {
+        std::lock_guard<std::mutex> g(p->cmu);
+        if (!p->clip_open) why = "no clip was begun";
+        else if (!p->clip_refused.empty()) why = p->clip_refused;
+        else if (p->clip.empty()) why = "the selection held no audio";
+        mono.swap(p->clip);
+        rate = p->clip_rate;
+        nch = p->clip_ch;
+        clip_reset(p);
+    }
+    bk_reading r{};
+    double ms = 0.0;
+    if (why.empty()) {
+        char cerr[256] = {0};
+        p->clip_busy.store(1);
+        const auto t0 = std::chrono::steady_clock::now();
+        const int rc = bk_analyze_buffer(mono.data(), mono.size(), rate, &r, cerr, sizeof cerr);
+        ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+        p->clip_busy.store(0);
+        if (rc != BK_OK) why = cerr[0] ? cerr : "the analyzer refused the clip";
+    }
+    const double secs = rate > 0 ? (double)mono.size() / rate : 0.0;
+    if (!why.empty()) {
+        say(err, err_cap, why);
+        {
+            std::lock_guard<std::mutex> g(p->mu);
+            p->why_not = "Couldn't read the selection: " + why;
+        }
+        bkp_log(p, "%s REFUSED: %s (%d ch, %.1f s at %.0f Hz); the reading the instance had is kept", run, why.c_str(), nch,
+                secs, rate);
+        return -1;
+    }
+    {
+        std::lock_guard<std::mutex> g(p->mu);
+        p->held = r;
+        p->has_held = true;
+        if (bk_ready()) p->why_not.clear();
+    }
+    if (out) *out = r;
+    bkp_log(p,
+            "%s: %d ch, %.1f s at %.0f Hz -> %s %.1f%% / %s %.1f%% / %s %.1f%%, tuning %s%+.1f c, %.1f BPM (%.2f), read in %.0f ms",
+            run, nch, secs, rate, r.keys[0].name, r.keys[0].percent, r.keys[1].name, r.keys[1].percent, r.keys[2].name,
+            r.keys[2].percent, r.has_tuning ? "" : "(none) ", r.tuning_cents, r.bpm, r.bpm_exact, ms);
+    return 0;
+}
+
+void bkp_clip_cancel(bkp_instance *p, const char *why) {
+    if (!p) return;
+    std::lock_guard<std::mutex> g(p->cmu);
+    if (!p->clip_open) return;
+    bkp_log(p, "whole clip dropped after %.1f s: %s", p->clip_rate > 0 ? (double)p->clip.size() / p->clip_rate : 0.0,
+            why && *why ? why : "no reason given");
+    clip_reset(p);
+}
 
 }  // extern "C"
