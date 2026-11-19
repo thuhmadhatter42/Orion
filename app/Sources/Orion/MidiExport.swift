@@ -116,7 +116,7 @@ struct ExportMidiMenuItem: View {
         let r = MidiExport.current(engine.state)
         let usable = r.map { $0.bpm != nil || !$0.keys.isEmpty } ?? false
         Button("Export MIDI Tempo/Key File…") { if let r { MidiExport.runPanel(for: r) } }
-            .keyboardShortcut("e", modifiers: [.control, .option, .command])
+            .quickKey("exportMidi")
             .disabled(!usable)
     }
 }

@@ -301,12 +301,14 @@ struct FaceplateFace: View {
 
     // MARK: footer
 
-    /// RECENT ▾ · SETTINGS · COLOR · HELP, one chip each (FooterChip), 16 apart; ADVANCED on the right.
+    /// RECENT ▾ · SETTINGS · COLOR · REPORT · HELP, one chip each (FooterChip), 16 apart; ADVANCED on the right.
+    /// REPORT is the house kit's Report button (Help > Send Report… is the same sheet), in the window's own chip look.
     private var footer: some View {
         HStack(spacing: Theme.S.l) {
             RecentLink(state: state, action: actions.showRecents)
             FooterChip(title: "SETTINGS", label: "Settings", action: actions.settings).helpTip(HelpText.settings)
             ColorChip()
+            FooterChip(title: "REPORT", label: "Send a report", action: { ReportCenter.shared.open() }).helpTip(HelpText.report)
             HelpChip(on: state.help, action: actions.toggleHelp)
             Spacer(minLength: 0)
             AdvancedBox(on: state.advanced, action: actions.toggleAdvanced)

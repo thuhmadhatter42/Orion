@@ -319,13 +319,13 @@ struct DAWSendMenuItems: View {
         let target = watcher.target
         Divider()
         Button(target.map { "Send to \($0.name)" } ?? "Send to DAW") { if let r { DAWSendController.send(r, toAll: false) } }
-            .keyboardShortcut("s", modifiers: [.control, .option, .command])
+            .quickKey("sendDAW")
             .disabled(!usable)
         Button("Send to All DAWs") { if let r { DAWSendController.send(r, toAll: true) } }
-            .keyboardShortcut("d", modifiers: [.control, .option, .command])
+            .quickKey("sendAllDAWs")
             .disabled(!usable)
         Button(target.map { "Analyze Selection in \($0.name)" } ?? "Analyze Selection") { DAWSendController.analyzeSelection() }
-            .optionalShortcut(shortcuts.shortcut(.analyzeSelection)?.menuShortcut)
+            .quickKey("analyzeSelection")
             .disabled(engine.state.isBusy || !(target?.canAnalyzeSelection ?? false))
     }
 }

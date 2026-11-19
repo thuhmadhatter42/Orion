@@ -1,5 +1,6 @@
 import AppKit
 import Carbon.HIToolbox
+import Combine
 import SwiftUI
 
 /// A global shortcut: a virtual key code plus Carbon modifier bits (what RegisterEventHotKey
@@ -50,16 +51,25 @@ struct Shortcut: Codable, Equatable {
               let u = c.unicodeScalars.first, !(0xF700...0xF8FF).contains(u.value) else { return nil }
         return c
     }
+}
 
-    /// The same keys as a SwiftUI menu shortcut, when the key is a plain character.
-    var menuShortcut: KeyboardShortcut? {
-        guard key.count == 1, let ch = key.lowercased().first else { return nil }
-        var m: SwiftUI.EventModifiers = []
-        if modifiers & UInt32(controlKey) != 0 { m.insert(.control) }
-        if modifiers & UInt32(optionKey) != 0 { m.insert(.option) }
-        if modifiers & UInt32(shiftKey) != 0 { m.insert(.shift) }
-        if modifiers & UInt32(cmdKey) != 0 { m.insert(.command) }
-        return KeyboardShortcut(KeyEquivalent(ch), modifiers: m)
+extension Shortcut {
+    /// The Quick Keys chord as a Carbon shortcut. nil = unassigned, or no key on this keyboard layout types it.
+    init?(chord: QuickChord) {
+        guard chord.isAssigned, let code = QuickKeys.keyCode(forKey: chord.key),
+              let name = Shortcut.keyName(keyCode: code, characters: chord.key) else { return nil }
+        self.init(keyCode: UInt32(code), modifiers: Shortcut.carbonModifiers(chord.mods), key: name)
+    }
+
+    /// This shortcut as a Quick Keys chord.
+    var chord: QuickChord {
+        var mods: NSEvent.ModifierFlags = []
+        if modifiers & UInt32(controlKey) != 0 { mods.insert(.control) }
+        if modifiers & UInt32(optionKey) != 0 { mods.insert(.option) }
+        if modifiers & UInt32(shiftKey) != 0 { mods.insert(.shift) }
+        if modifiers & UInt32(cmdKey) != 0 { mods.insert(.command) }
+        let name = UInt16(exactly: keyCode).flatMap { QuickKeys.keyName(keyCode: $0) } ?? key.lowercased()
+        return QuickChord(key: name, mods: mods)
     }
 }
 
@@ -79,64 +89,90 @@ enum HotkeyAction: String, CaseIterable, Identifiable {
         }
     }
 
-    /// nil = no keys until the user sets some in Settings › Shortcuts.
+    /// The default keys: this action's row in Quick Keys (QuickKeyTable.swift), the one table.
+    /// nil = no keys until the user sets some in Quick Keys (⇧⌃K): Analyze Selection ships unassigned.
     var defaultShortcut: Shortcut? {
-        let ctrlOptCmd = UInt32(controlKey | optionKey | cmdKey)
-        switch self {
-        case .listen: return Shortcut(keyCode: UInt32(kVK_ANSI_K), modifiers: ctrlOptCmd, key: "K")
-        case .analyzeFile: return Shortcut(keyCode: UInt32(kVK_ANSI_F), modifiers: ctrlOptCmd, key: "F")
-        case .newSong: return Shortcut(keyCode: UInt32(kVK_ANSI_R), modifiers: ctrlOptCmd, key: "R")
-        case .hold: return Shortcut(keyCode: UInt32(kVK_ANSI_H), modifiers: ctrlOptCmd, key: "H")
-        // Unassigned by default: ⌃⌥⌘L (J, 2026-11-05) and ⌥⌘B (J, 2026-11-08, Bounce) are Pro Tools' own.
-        case .analyzeSelection: return nil
-        }
+        QuickKeys.appRows.first { $0.id == rawValue }.flatMap { Shortcut(chord: $0.chord) }
     }
 
     var hotKeyID: UInt32 { UInt32(HotkeyAction.allCases.firstIndex(of: self)! + 1) }
 }
 
-/// The shortcuts, remembered between launches. Never set = the default; cleared = off.
+/// The system-wide shortcuts, as Carbon wants them. NOT a second store: the keys live in Quick Keys
+/// (QuickKeys.swift: the table is QuickKeyTable.swift, the user's changes are UserDefaults `quickKeys`),
+/// and this reads and writes the `.global` rows there. A rebind in ⇧⌃K re-registers the hot keys.
+@MainActor
 final class ShortcutStore: ObservableObject {
-    private let defaults: UserDefaults
-    @Published private(set) var shortcuts: [HotkeyAction: Shortcut] = [:]
+    private let keys: QuickKeys
+    private var subscriptions: [AnyCancellable] = []
 
-    static func key(_ a: HotkeyAction) -> String { "hotkey.\(a.rawValue)" }
-
-    init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-        for a in HotkeyAction.allCases { shortcuts[a] = load(a) }
+    /// `keys: nil` = the app's one table. Shortcuts saved before Quick Keys (UserDefaults `hotkey.<id>`) move
+    /// into it once, here.
+    init(keys: QuickKeys? = nil, defaults: UserDefaults = .standard) {
+        self.keys = keys ?? .shared
+        ShortcutMigration.run(into: self.keys, defaults: defaults)
+        self.keys.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }.store(in: &subscriptions)
     }
 
-    private func load(_ a: HotkeyAction) -> Shortcut? {
-        guard let data = defaults.data(forKey: ShortcutStore.key(a)) else { return a.defaultShortcut }
-        return (try? JSONDecoder().decode(Shortcut?.self, from: data)) ?? nil
+    func shortcut(_ a: HotkeyAction) -> Shortcut? { Shortcut(chord: keys.chord(for: a.rawValue)) }
+
+    /// The title of the other row already on these keys, if any (a key does one thing).
+    func conflict(_ s: Shortcut, for a: HotkeyAction) -> String? {
+        let chord = s.chord
+        return keys.defs.first { $0.id != a.rawValue && keys.chord(for: $0.id) == chord }?.title
     }
 
-    func shortcut(_ a: HotkeyAction) -> Shortcut? { shortcuts[a] ?? nil }
-
-    /// The other action already on these keys, if any (a key does one thing).
-    func conflict(_ s: Shortcut, for a: HotkeyAction) -> HotkeyAction? {
-        HotkeyAction.allCases.first { $0 != a && shortcut($0).map { $0.keyCode == s.keyCode && $0.modifiers == s.modifiers } == true }
-    }
-
-    /// nil turns the shortcut off. False = refused (another action has those keys).
+    /// nil turns the shortcut off. False = refused (another row has those keys, or macOS holds them).
     @discardableResult
     func set(_ s: Shortcut?, for a: HotkeyAction) -> Bool {
-        if let s = s, conflict(s, for: a) != nil { return false }
-        shortcuts[a] = s
-        if let data = try? JSONEncoder().encode(s) { defaults.set(data, forKey: ShortcutStore.key(a)) }
-        return true
+        guard let s else { keys.clear(a.rawValue); return true }
+        return keys.set(a.rawValue, to: s.chord) == .ok
     }
 
-    func reset(_ a: HotkeyAction) {
-        defaults.removeObject(forKey: ShortcutStore.key(a))
-        shortcuts[a] = a.defaultShortcut
-        if let d = a.defaultShortcut, conflict(d, for: a) != nil { set(nil, for: a) }
+    /// Keep Carbon in step with the table: register now, re-register after every change, and drop the
+    /// registrations while a Quick Keys chip listens (the old keys must not fire while the new ones are typed).
+    func keepRegistered(with center: HotkeyCenter = .shared) {
+        center.apply(self)
+        keys.$overrides.dropFirst().receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in guard let self else { return }; center.apply(self) }
+            .store(in: &subscriptions)
+        keys.$listening.dropFirst().removeDuplicates().receive(on: DispatchQueue.main)
+            .sink { [weak self] id in
+                guard let self else { return }
+                if id == nil { center.apply(self) } else { center.unregisterAll() }
+            }
+            .store(in: &subscriptions)
+    }
+}
+
+/// Shortcuts saved by the old Settings › Global shortcuts (UserDefaults `hotkey.<id>`, a JSON Shortcut or null for
+/// "off") move into Quick Keys once; the old key is then removed, so nothing reads it twice.
+enum ShortcutMigration {
+    @MainActor static func run(into keys: QuickKeys, defaults: UserDefaults) {
+        for a in HotkeyAction.allCases {
+            let old = "hotkey.\(a.rawValue)"
+            guard let data = defaults.data(forKey: old) else { continue }
+            defer { defaults.removeObject(forKey: old) }
+            guard keys.overrides[a.rawValue] == nil else { continue }       // Quick Keys already has the user's word
+            let saved = (try? JSONDecoder().decode(Shortcut?.self, from: data)) ?? nil
+            if let saved {
+                guard saved.chord != keys.chord(for: a.rawValue) else { continue }
+                if case .ok = keys.set(a.rawValue, to: saved.chord) {
+                    AppLog.log("shortcuts: \(a.rawValue) \(saved.display) moved into Quick Keys")
+                } else {
+                    AppLog.log("shortcuts: \(a.rawValue) \(saved.display) could not move into Quick Keys (taken); the default stays")
+                }
+            } else if keys.chord(for: a.rawValue).isAssigned {
+                keys.clear(a.rawValue)                                       // it was switched off
+                AppLog.log("shortcuts: \(a.rawValue) was off; still off in Quick Keys")
+            }
+        }
     }
 }
 
 /// Registers the shortcuts system-wide with Carbon's RegisterEventHotKey (works in any app,
 /// needs no Accessibility permission). Main thread only.
+@MainActor
 final class HotkeyCenter {
     static let shared = HotkeyCenter()
     static let signature: OSType = 0x424B_6579   // 'BKey'
@@ -186,15 +222,8 @@ final class HotkeyCenter {
             let st = GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
                                        nil, MemoryLayout<EventHotKeyID>.size, nil, &id)
             guard st == noErr, id.signature == HotkeyCenter.signature else { return OSStatus(eventNotHandledErr) }
-            DispatchQueue.main.async { HotkeyCenter.shared.fire(id.id) }
+            DispatchQueue.main.async { MainActor.assumeIsolated { HotkeyCenter.shared.fire(id.id) } }
             return noErr
         }, 1, &spec, nil, &handler)
-    }
-}
-
-extension View {
-    /// `.keyboardShortcut` when there is one (a cleared shortcut leaves the menu item bare).
-    @ViewBuilder func optionalShortcut(_ s: KeyboardShortcut?) -> some View {
-        if let s = s { keyboardShortcut(s) } else { self }
     }
 }

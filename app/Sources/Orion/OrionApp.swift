@@ -40,6 +40,9 @@ struct OrionApp: App {
             FaceplateView(engine: engine, model: model, login: login, tuning: tuning, live: live, display: display,
                           recents: recents, shortcuts: shortcuts, extras: extras, actions: windowActions)
                 .background(WindowConfigurator())
+                .quickKeysSheet()    // house kit: Quick Keys (⇧⌃K), Send Report…, Uninstall: each is a sheet of the window
+                .reportSheet(extra: Self.reportFacts)
+                .uninstallSheet(what: "Beat Key and the tools it downloaded")
                 .onAppear(perform: launch)
         }
         .windowStyle(HiddenTitleBarWindowStyle())
@@ -51,7 +54,7 @@ struct OrionApp: App {
             // one window: no File > New; the File menu is for reading files instead
             CommandGroup(replacing: .newItem) {
                 Button("Analyze a File…") { Intake.analyzeAFile() }
-                    .optionalShortcut(shortcuts.shortcut(.analyzeFile)?.menuShortcut)
+                    .quickKey("analyzeFile")
                     .disabled(engine.state.isBusy)
                 Menu("Recent Readings") {
                     ForEach(Array(recents.readings.enumerated()), id: \.offset) { _, r in
@@ -65,13 +68,13 @@ struct OrionApp: App {
             }
             CommandMenu("Reading") {
                 Button(live.state.isActive ? "Stop Listening" : "Start Listening") { toggleListening() }   // the computed closure, run now
-                    .optionalShortcut(shortcuts.shortcut(.listen)?.menuShortcut)
+                    .quickKey("listen")
                     .disabled(engine.state.isBusy && !live.state.isActive)
                 Button("New Song (Reset Listening)") { newSong() }
-                    .optionalShortcut(shortcuts.shortcut(.newSong)?.menuShortcut)
+                    .quickKey("newSong")
                     .disabled(!live.state.isActive)
                 Toggle("Hold Reading", isOn: Binding(get: { live.isHeld }, set: { _ in toggleHold() }))
-                    .optionalShortcut(shortcuts.shortcut(.hold)?.menuShortcut)
+                    .quickKey("hold")
                     .disabled(!live.isHeld && !(live.state.isActive && live.state.result != nil))
                 Divider()
                 Menu("Reference Pitch") {
@@ -91,7 +94,7 @@ struct OrionApp: App {
             // View menu: Advanced Mode (orra-parity §2.1) and the readout's accessibility switch (plan 5.1)
             CommandGroup(before: .toolbar) {
                 Toggle("Advanced Mode", isOn: $display.advanced)
-                    .keyboardShortcut("a", modifiers: [.option, .command])
+                    .quickKey("advancedMode")
                 Toggle("High Contrast Readout", isOn: $display.highContrast)
             }
             // Help menu: the in-app Help window (⌘?) and the HELP chip's switch (no shortcut:
@@ -102,6 +105,10 @@ struct OrionApp: App {
                 Divider()
                 Toggle("Help Mode", isOn: $help.isOn)
             }
+            // House kit: App > Quick Keys (⇧⌃K) and Uninstall Beat Key…, Help > Send Report…
+            QuickKeysCommands()
+            UninstallCommands()
+            ReportCommands()
             // The app menu says Beat Key whatever the process is called (swift run = "Orion").
             CommandGroup(replacing: .appInfo) {
                 Button(Brand.about) {
@@ -127,8 +134,13 @@ struct OrionApp: App {
             }
         }
         Settings {
-            SettingsView(shortcuts: shortcuts, loginItem: loginItem, live: live.settings, display: display, rename: rename)
+            SettingsView(loginItem: loginItem, live: live.settings, display: display, rename: rename)
         }
+    }
+
+    /// App facts in every Report (the log has the rest): what Beat Key was listening to and the DAW it saw.
+    private static func reportFacts() -> [String] {
+        ["Architecture: \(Runtime.detectArch())"]
     }
 
     /// Reading › Start / Stop Listening, the global shortcut and the menu-bar item. Not while a
@@ -257,7 +269,7 @@ struct OrionApp: App {
             Intake.analyzeAFile()
         }
         HotkeyCenter.shared.actions[.analyzeSelection] = { DAWSendController.analyzeSelection() }
-        HotkeyCenter.shared.apply(shortcuts)
+        shortcuts.keepRegistered()   // registers the system-wide rows of Quick Keys, and again after every rebind
         // Play to find the key (the computer keyboard as a piano) + ⇧⌘A, while Beat Key is in front.
         let l = live
         PlayToFind.shared.install(shown: { PocketState.shown(e.state, live: l.state, page: m.pager) },
