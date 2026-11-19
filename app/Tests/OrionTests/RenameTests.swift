@@ -343,7 +343,7 @@ final class RenameTests: XCTestCase {
 
     func testEngineRunsTheHelperRenameWithTheKeysInOrder() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f, jobs: f)
+        let e = Engine(runtime: rt(), jobs: f)
         let r = reading()
         e.rename([RenameItem.make(r, choice: nil)!])
         spin()
@@ -355,7 +355,7 @@ final class RenameTests: XCTestCase {
         let f = FakeLauncher()
         let recents = RecentStore(defaults: defaults())
         let spelling = SpellingSettings()
-        let e = Engine(runtime: rt(), launcher: f, jobs: f, recents: recents)
+        let e = Engine(runtime: rt(), jobs: f, recents: recents)
         e.spelling = spelling
         let r = reading()
         e.state = .analyzed([r])
@@ -380,7 +380,7 @@ final class RenameTests: XCTestCase {
 
     func testRenamedAlsoMovesAPageOfSeveralFiles() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f, jobs: f)
+        let e = Engine(runtime: rt(), jobs: f)
         let a = reading("/m/A.wav"), b = reading("/m/B.wav")
         e.state = .analyzed([a, b])
         e.rename([RenameItem.make(b, choice: nil)!]); spin()
@@ -392,7 +392,7 @@ final class RenameTests: XCTestCase {
 
     func testAFailedRenameKeepsTheReadingAndSaysSoOnTheReadout() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f, jobs: f)
+        let e = Engine(runtime: rt(), jobs: f)
         let r = reading()
         e.state = .analyzed([r])
         e.rename([RenameItem.make(r, choice: nil)!]); spin()
@@ -407,7 +407,7 @@ final class RenameTests: XCTestCase {
 
     func testAHelperThatDiesWithoutAnEventIsAFailureToo() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f, jobs: f)
+        let e = Engine(runtime: rt(), jobs: f)
         let r = reading()
         e.state = .analyzed([r])
         e.rename([RenameItem.make(r, choice: nil)!]); spin()
@@ -418,7 +418,7 @@ final class RenameTests: XCTestCase {
 
     func testASkippedRenameIsLoggedAndChangesNothing() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f, jobs: f)
+        let e = Engine(runtime: rt(), jobs: f)
         let r = reading()
         e.state = .analyzed([r])
         e.rename([RenameItem.make(r, choice: nil)!]); spin()
@@ -431,7 +431,7 @@ final class RenameTests: XCTestCase {
 
     func testSeveralItemsRunOneAfterAnother() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f, jobs: f)
+        let e = Engine(runtime: rt(), jobs: f)
         let a = reading("/m/A.wav"), b = reading("/m/B.wav")
         e.rename([RenameItem.make(a, choice: nil)!, RenameItem.make(b, choice: nil)!]); spin()
         XCTAssertEqual(f.launches.count, 1, "the second waits for the first")
@@ -442,7 +442,7 @@ final class RenameTests: XCTestCase {
 
     func testRenameDoesNotTouchABusyState() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f, jobs: f)
+        let e = Engine(runtime: rt(), jobs: f)
         let r = reading()
         e.rename([RenameItem.make(r, choice: nil)!]); spin()
         XCTAssertEqual(e.state, .idle, "the rename is quiet: no WORKING readout")
@@ -450,7 +450,7 @@ final class RenameTests: XCTestCase {
 
     func testAnalysisOffersTheResultsAfterTheyAreOnShow() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f, jobs: f)
+        let e = Engine(runtime: rt(), jobs: f)
         var offered: [[Result]] = []
         e.afterAnalysis = { offered.append($0) }
         e.analyze([URL(fileURLWithPath: "/a.wav")])
@@ -465,7 +465,7 @@ final class RenameTests: XCTestCase {
 
     func testADownloadIsNeverOffered() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f, jobs: f)
+        let e = Engine(runtime: rt(), jobs: f)
         var offered = 0
         e.afterAnalysis = { _ in offered += 1 }
         e.download("u")

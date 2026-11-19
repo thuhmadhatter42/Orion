@@ -5,11 +5,11 @@ import os
 /// Beat Key's own log: ~/Library/Logs/Beat Key/beatkey.log (also in Console under subsystem
 /// com.jshriver.orion). Every launch, quit, crash, engine and Listen state change lands here, and
 /// a run that ended without a clean quit (crash, force quit, kill) is named at the next launch.
-/// Rotates at 5 MB to beatkey.1.log. The download helper's stderr goes to analyzer.log beside it; the
-/// analysis core's lines come here (Core.routeLog).
+/// Rotates at 5 MB to beatkey.1.log. The analysis core's lines come here (Core.routeLog), and so does
+/// a failed download with yt-dlp's stderr tail; last-run.log beside it holds the last download's calls.
 ///
 /// House kit (logging module): this stays Beat Key's own log, not the kit's AppLog.swift, because it
-/// carries what the kit's lacks (the crash catcher, the unclean-quit marker, analyzer.log, the test
+/// carries what the kit's lacks (the crash catcher, the unclean-quit marker, the test
 /// sink). `AppLog.shared` at the bottom gives the pasted house modules (Report, Uninstall, Quick Keys)
 /// the kit's calls (`info`, `error`, `log(level,...)`, `logFiles()`), all writing into this one file.
 /// `ORION_LOG_DIR` (House.logDirEnv) points the log folder elsewhere.
@@ -21,7 +21,8 @@ struct AppLog {
         return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/\(House.logFolder)")
     }()
     static let url = dir.appendingPathComponent("beatkey.log")
-    static let analyzerURL = dir.appendingPathComponent("analyzer.log")
+    /// The last download's yt-dlp calls and their stderr (Downloader.writeLastRun).
+    static let lastRunURL = dir.appendingPathComponent("last-run.log")
     private static let marker = dir.appendingPathComponent("running.marker")
     private static let queue = DispatchQueue(label: "com.jshriver.orion.log")
     private static let os = Logger(subsystem: "com.jshriver.orion", category: "app")
@@ -86,25 +87,6 @@ struct AppLog {
             h.write(Data(text.utf8))
             try? h.close()
         }
-    }
-
-    /// The analyzer's / helper's stderr (failure lines, warnings, Python tracebacks), appended,
-    /// after a timestamped "---- <header>" line so it lines up with beatkey.log. Tests: no file.
-    static func analyzerHandle(header: String) -> FileHandle? {
-        guard !testing else { return nil }
-        let fm = FileManager.default
-        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
-        if let a = try? fm.attributesOfItem(atPath: analyzerURL.path), (a[.size] as? Int ?? 0) > 5_000_000 {
-            try? fm.removeItem(at: analyzerURL)
-        }
-        if !fm.fileExists(atPath: analyzerURL.path) { fm.createFile(atPath: analyzerURL.path, contents: nil) }
-        guard let h = try? FileHandle(forWritingTo: analyzerURL) else {
-            log("analyzer.log could not be opened; the helper's stderr is lost this run")
-            return nil
-        }
-        h.seekToEndOfFile()
-        h.write(Data("---- \(stamp.string(from: Date())) \(header)\n".utf8))
-        return h
     }
 
     /// At launch: name an unclean end of the previous run, start this one, catch crashes.
@@ -174,11 +156,11 @@ extension AppLog {
     func warn(_ category: String, _ message: String) { log(.warn, category, message) }
     func error(_ category: String, _ message: String) { log(.error, category, message) }
 
-    /// Every log file, live first: this launch's beatkey.log, the rotated beatkey.1.log, analyzer.log.
+    /// Every log file, live first: this launch's beatkey.log, the rotated beatkey.1.log, last-run.log.
     /// A Report attaches these (the live one always).
     func logFiles() -> [URL] {
         let fm = FileManager.default
         let older = AppLog.dir.appendingPathComponent("beatkey.1.log")
-        return [AppLog.url, older, AppLog.analyzerURL].filter { fm.fileExists(atPath: $0.path) }
+        return [AppLog.url, older, AppLog.lastRunURL].filter { fm.fileExists(atPath: $0.path) }
     }
 }

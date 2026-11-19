@@ -28,8 +28,6 @@ struct Runtime {
         let legacy = arch == "arm64" && osMajor == 11
         return root.appendingPathComponent(arch).appendingPathComponent(legacy ? "bin-legacy" : "bin")
     }
-    var python: URL { root.appendingPathComponent(arch).appendingPathComponent("python/bin/python3") }
-    var script: URL { root.appendingPathComponent("scripts/app_run.py") }
     var supportBin: URL { support.appendingPathComponent("bin") }
     var ytdlp: URL { supportBin.appendingPathComponent("yt-dlp") }
     var bundledYtDlp: URL { root.appendingPathComponent(arch).appendingPathComponent("bin/yt-dlp") }
@@ -39,21 +37,10 @@ struct Runtime {
     var hasJSRuntime: Bool { osMajor >= 12 }
     var stamp: URL { support.appendingPathComponent(".last-ytdlp-upgrade") }
 
+    /// The whole environment yt-dlp runs in (Downloader): PATH = the App Support yt-dlp, then the
+    /// bundled tools (yt-dlp's --extract-audio finds ffmpeg there), then the system's.
     func environment(passing env: [String: String] = ProcessInfo.processInfo.environment) -> [String: String] {
-        var e = [
-            "PATH": "\(supportBin.path):\(binDir.path):/usr/bin:/bin",
-            "ORION_BIN": binDir.path,
-            "PYTHONDONTWRITEBYTECODE": "1",
-            "PYTHONNOUSERSITE": "1",
-            "PIP_CONFIG_FILE": "/dev/null",
-            // The one yt-dlp the helper may run and upgrade (never the copy inside the signed bundle).
-            "ORION_YTDLP": ytdlp.path,
-        ]
-        // downloader.py hands it to yt-dlp as --js-runtimes deno:<path>.
-        if hasJSRuntime { e["ORION_DENO"] = deno.path }
-        // Test/debug override of the output folder, read by app_run.py; unset = ~/Downloads.
-        if let d = env["ORION_DOWNLOADS"], !d.isEmpty { e["ORION_DOWNLOADS"] = d }
-        return e
+        ["PATH": "\(supportBin.path):\(binDir.path):/usr/bin:/bin", "HOME": NSHomeDirectory()]
     }
 
     static let versionTimeout: TimeInterval = 120

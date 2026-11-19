@@ -1,15 +1,13 @@
 #!/bin/bash
 # Builds and signs the bundled tool runtime: app/build/runtime/{arm64,x86_64}/
-#   python/  (python-build-standalone 3.11, standard library only: it runs the download helper.
-#            The analyzer is the core inside the app since plug-in plan step 19, so essentia and
-#            numpy (vendor/*/wheels, still used by deps.sh for the command-line reference) stay out.)
 #   bin/     ffmpeg ffprobe yt-dlp deno   (arm64 also gets bin-legacy/ = ffmpeg 7.1.1 for macOS 11)
 #            deno = the JavaScript runtime yt-dlp needs for YouTube's JS challenges (EJS). Official
 #            denoland release zips, vendor/macos-<arch>/deno.zip, sha256-pinned below. Both are
 #            built for macOS 12.0 (LC_BUILD_VERSION minos), so bin-legacy/ (macOS 11) gets none.
-#   scripts/ downloader.py app_run.py
-# Usage: app/runtime.sh build | scripts | sign | all
-#   scripts = refresh only scripts/ (+ their .pyc) in an already built runtime: fast; build.sh runs it every time
+# No Python: the analyzer is the core and the download is Swift inside the app (plug-in plan step 19).
+# vendor/*/python.tar.gz and vendor/*/wheels stay in git for deps.sh (the command-line tool and the
+# Python reference the goldens were frozen from); nothing here reads them.
+# Usage: app/runtime.sh build | sign | all
 set -euo pipefail
 APP="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$APP/.." && pwd)"
@@ -24,20 +22,10 @@ DENO_SHA256_arm64=9f0bf660393da2eaff044cdc7444cb08c73f235849b61d224d825a194ce7c9
 DENO_SHA256_x86_64=4b2f5edd2639b7470f034238b321d7002d8dfb4726d8558f52c17afac370eb2c   # deno-x86_64-apple-darwin.zip
 ARCHES="arm64 x86_64"
 
-export PYTHONNOUSERSITE=1 PIP_CONFIG_FILE=/dev/null PYTHONDONTWRITEBYTECODE=1
-unset PYTHONPATH PYTHONHOME
-
-run_arch() {  # run a command natively for arch $1
-  local a="$1"; shift
-  if [ "$a" = x86_64 ]; then arch -x86_64 "$@"; else "$@"; fi
-}
-
 build_arch() {
   local a="$1" v="$ROOT/vendor/macos-$1" d="$OUT/$1"
   echo "== build $a"
   rm -rf "$d"; mkdir -p "$d/bin"
-  tar -xzf "$v/python.tar.gz" -C "$d"
-  [ -x "$d/python/bin/python3" ] || { echo "python/ not found after untar"; exit 1; }
   unzip -oq "$v/ffmpeg.zip" -d "$d/bin"; unzip -oq "$v/ffprobe.zip" -d "$d/bin"
   cp -f "$ROOT/vendor/yt-dlp" "$d/bin/yt-dlp"
   local want="DENO_SHA256_$a" got
@@ -52,32 +40,14 @@ build_arch() {
   fi
   chmod +x "$d"/bin/* 2>/dev/null || true
   [ -d "$d/bin-legacy" ] && chmod +x "$d"/bin-legacy/*
-  rm -rf "$d/python/include" "$d/python/share"
-}
-
-build_scripts() {
-  local s="$OUT/scripts" f
-  rm -rf "$s"; mkdir -p "$s"
-  for f in downloader.py app_run.py; do cp -f "$ROOT/$f" "$s/"; done
-}
-
-precompile() {
-  # Each arch's own python writes its .pyc; the signed tree is never written at run time.
-  local a
-  for a in $ARCHES; do
-    run_arch "$a" "$OUT/$a/python/bin/python3" -m compileall -q "$OUT/$a/python" >/dev/null || true  # the stdlib's own test fixtures include files that do not compile
-  done
-  "$OUT/arm64/python/bin/python3" -m compileall -q "$OUT/scripts"
-  # pip is never run on a user's Mac: drop its bytecode
-  find "$OUT" -type d -name __pycache__ -path '*/site-packages/pip/*' -prune -exec rm -rf {} +
+  return 0
 }
 
 do_build() {
   mkdir -p "$OUT"
   local a
+  rm -rf "$OUT/scripts"                      # an older runtime's Python scripts
   for a in $ARCHES; do build_arch "$a"; done
-  build_scripts
-  precompile
   echo "built: $OUT"
 }
 
@@ -107,8 +77,7 @@ do_sign() {
 
 case "${1:-}" in
   build) do_build ;;
-  scripts) build_scripts; "$OUT/arm64/python/bin/python3" -m compileall -q "$OUT/scripts" ;;
   sign) do_sign ;;
   all) do_build; do_sign ;;
-  *) echo "usage: $0 build|scripts|sign|all"; exit 2 ;;
+  *) echo "usage: $0 build|sign|all"; exit 2 ;;
 esac

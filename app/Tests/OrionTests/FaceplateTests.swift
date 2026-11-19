@@ -224,7 +224,9 @@ final class FaceplateTests: XCTestCase {
         let rt = Runtime.appDefault(env: ["ORION_RUNTIME_ROOT": "/tmp/rt"])
         XCTAssertEqual(rt.root.path, "/tmp/rt")
         XCTAssertNotEqual(Runtime.appDefault(env: [:]).root.path, "/tmp/rt")
-        XCTAssertEqual(rt.environment(passing: ["ORION_DOWNLOADS": "/tmp/dl"])["ORION_DOWNLOADS"], "/tmp/dl")
-        XCTAssertNil(rt.environment(passing: [:])["ORION_DOWNLOADS"])
+        // the downloads folder override is read by the app itself (Doctor.downloadsFolder), not passed to yt-dlp
+        XCTAssertEqual(Doctor.downloadsFolder(env: ["ORION_DOWNLOADS": "/tmp/dl"]).path, "/tmp/dl")
+        XCTAssertEqual(Downloader.appDefault(rt, env: ["ORION_DOWNLOADS": "/tmp/dl"]).downloads.path, "/tmp/dl")
+        XCTAssertNil(rt.environment(passing: ["ORION_DOWNLOADS": "/tmp/dl"])["ORION_DOWNLOADS"])
     }
 }

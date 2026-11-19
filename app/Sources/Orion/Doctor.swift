@@ -12,12 +12,12 @@ struct DoctorReport: Equatable {
 ///   1 yt-dlp: Runtime.repairYtDlp now (ignores the weekly stamp); the LCD line comes from its result
 ///   2 ffmpeg / ffprobe: `-version` from the bin dir the Runtime picks
 ///   3 JS: `deno --version`, the JavaScript runtime yt-dlp needs for YouTube (none on macOS 11)
-///   4 analyzer + python: the analysis core loads its tempo weights (Core.load, the one readiness
-///     rule, in-process); then the bundled python runs `app_run.py --check` (the download helper
-///     and what it imports start)
+///   4 analyzer: the analysis core loads its tempo weights (Core.load, the one readiness rule,
+///     in-process). The app ships no Python since plan step 19; the core, ffmpeg, yt-dlp and deno
+///     are everything it runs.
 ///   5 the downloads folder is writable
 struct Doctor {
-    static let stages = ["doctor-ytdlp", "doctor-ffmpeg", "doctor-js", "doctor-python", "doctor-downloads"]
+    static let stages = ["doctor-ytdlp", "doctor-ffmpeg", "doctor-js", "doctor-analyzer", "doctor-downloads"]
     static let permissionHint = "Allow Downloads access in System Settings › Privacy & Security › Files and Folders"
 
     let runtime: Runtime
@@ -82,17 +82,11 @@ struct Doctor {
             if js.status != 0, problem == nil { problem = "JS RUNTIME WON'T RUN · REINSTALL \(Brand.wordmark)" }
         }
 
-        // 4 the analyzer (the core's own rule: its weights load), then python (the download helper)
+        // 4 the analyzer (the core's own rule: its weights load)
         progress(Doctor.stages[3])
         if let why = coreCheck() {
             AppLog.log("doctor: the analysis core is not ready: \(why)")
             if problem == nil { problem = "ANALYZER IS INCOMPLETE · REINSTALL \(Brand.wordmark)" }
-        }
-        let py = runner.run(runtime.python, [runtime.script.path, "--check"],
-                            environment: runtime.environment(), timeout: 120)
-        if py.status != 0 {
-            AppLog.log("doctor: app_run.py --check exit \(py.status): \(py.output.trimmingCharacters(in: .whitespacesAndNewlines).suffix(300))")
-            if problem == nil { problem = "PYTHON WON'T START · REINSTALL \(Brand.wordmark)" }
         }
 
         // 5 downloads folder

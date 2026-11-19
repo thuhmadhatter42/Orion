@@ -101,10 +101,9 @@ final class BeatKeyTests: XCTestCase {
         let rep = doctor(r).run { stages.append($0) }
         XCTAssertEqual(stages, Doctor.stages)
         XCTAssertEqual(rep, DoctorReport(outcome: .ok, title: "DOCTOR OK", line: "YT-DLP 2026.10.26 · ALL CHECKS PASSED"))
+        // no Python step: the app ships none (the analyzer is the core, asked in-process)
         XCTAssertEqual(r.calls, ["yt-dlp --version", "yt-dlp -U", "yt-dlp --version",
-                                 "ffmpeg -version", "ffprobe -version", "deno --version", "python3 /R/runtime/scripts/app_run.py"])
-        XCTAssertEqual(r.invocations.last!.exe, "/R/runtime/arm64/python/bin/python3")
-        XCTAssertEqual(r.invocations.last!.args, ["/R/runtime/scripts/app_run.py", "--check"])
+                                 "ffmpeg -version", "ffprobe -version", "deno --version"])
     }
 
     func testDoctorJsRuntimeWontRun() {
@@ -157,11 +156,9 @@ final class BeatKeyTests: XCTestCase {
         XCTAssertEqual(rep.line, "YT-DLP WON'T RUN · REINSTALL BEAT KEY")
     }
 
-    func testDoctorFfmpegPythonAndDownloadsFailures() {
+    func testDoctorFfmpegAnalyzerAndDownloadsFailures() {
         let ff = FakeRunner(); ff.answers["yt-dlp --version"] = [(0, "1")]; ff.answers["ffprobe -version"] = [(1, "")]
         XCTAssertEqual(doctor(ff).run { _ in }.line, "FFPROBE WON'T RUN · REINSTALL BEAT KEY")
-        let py = FakeRunner(); py.answers["yt-dlp --version"] = [(0, "1")]; py.answers["python3 /R/runtime/scripts/app_run.py"] = [(1, "Traceback")]
-        XCTAssertEqual(doctor(py).run { _ in }.line, "PYTHON WON'T START · REINSTALL BEAT KEY")
         // the analyzer: the core's own rule (its weights load), asked in-process
         let inc = FakeRunner(); inc.answers["yt-dlp --version"] = [(0, "1")]
         let rep2 = Doctor(runtime: rt, runner: inc, reseed: {}, downloadsWritable: { true },
@@ -178,17 +175,17 @@ final class BeatKeyTests: XCTestCase {
         XCTAssertEqual(Faceplate.stageText("doctor-ytdlp"), "DOCTOR · YT-DLP")
         XCTAssertEqual(Faceplate.stageText("doctor-ffmpeg"), "DOCTOR · FFMPEG")
         XCTAssertEqual(Faceplate.stageText("doctor-js"), "DOCTOR · JS")
-        XCTAssertEqual(Faceplate.stageText("doctor-python"), "DOCTOR · PYTHON")
-        XCTAssertEqual(Faceplate.doctorSteps("doctor-js").map { $0.0 }, ["YT-DLP", "FFMPEG", "JS", "PYTHON", "DOWNLOADS"])
+        XCTAssertEqual(Faceplate.stageText("doctor-analyzer"), "DOCTOR · ANALYZER")
+        XCTAssertEqual(Faceplate.doctorSteps("doctor-js").map { $0.0 }, ["YT-DLP", "FFMPEG", "JS", "ANALYZER", "DOWNLOADS"])
         XCTAssertEqual(Faceplate.doctorSteps("doctor-js").map { $0.1 }, [.done, .done, .on, .off, .off])
-        XCTAssertEqual(Faceplate.doctorSteps("doctor-python").map { $0.1 }, [.done, .done, .done, .on, .off])
+        XCTAssertEqual(Faceplate.doctorSteps("doctor-analyzer").map { $0.1 }, [.done, .done, .done, .on, .off])
     }
 
     func testEngineRunsDoctorOffMainAndIgnoresDownloads() {
         let f = FakeLauncher()
         let gate = DispatchSemaphore(value: 0)
         let r = FakeRunner(); r.answers["yt-dlp --version"] = [(0, "2026.10.26")]
-        let e = Engine(runtime: rt, launcher: f, jobs: f, doctor: { rt in
+        let e = Engine(runtime: rt, jobs: f, doctor: { rt in
             Doctor(runtime: rt, runner: r, reseed: {}, downloadsWritable: { gate.wait(); return true }, coreCheck: { nil })
         })
         e.runDoctor()
@@ -210,7 +207,7 @@ final class BeatKeyTests: XCTestCase {
         var checks = 0
         var stateAtCheck: ViewState?
         var e: Engine!
-        e = Engine(runtime: rt, launcher: FakeLauncher(), jobs: FakeLauncher(), doctor: { rt in
+        e = Engine(runtime: rt, jobs: FakeLauncher(), doctor: { rt in
             Doctor(runtime: rt, runner: r, reseed: {}, downloadsWritable: { true }, coreCheck: { nil })
         }, afterDoctor: { checks += 1; stateAtCheck = e.state })
         e.runDoctor()
@@ -257,7 +254,7 @@ final class BeatKeyTests: XCTestCase {
         started.wait()
         let r = FakeRunner(); r.answers["yt-dlp --version"] = [(0, "2026.10.26")]
         let f = FakeLauncher()
-        let e = Engine(runtime: rt, launcher: f, jobs: f, doctor: { rt in
+        let e = Engine(runtime: rt, jobs: f, doctor: { rt in
             Doctor(runtime: rt, runner: r, reseed: {}, downloadsWritable: { true }, coreCheck: { nil })
         })
         XCTAssertFalse(e.state.isBusy)             // the launch upgrade does not mark the Engine busy

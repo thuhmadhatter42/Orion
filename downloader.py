@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
-YouTube audio downloader — reliable, minimal, no fuss.
+YouTube audio downloader — reliable, minimal, no fuss. The command-line tool (run.sh,
+install.command). The Beat Key app has its own downloader in Swift (app/Sources/Orion/
+Downloader.swift, since plug-in plan step 19), with the app's rules: no browser cookies, its
+saved login, a timeout, last-run.log. Nothing in the app runs this file.
 Usage: python3 downloader.py
 """
 
@@ -8,7 +11,6 @@ import os
 import sys
 import json
 import shutil
-import signal
 import subprocess
 from pathlib import Path
 
@@ -26,51 +28,6 @@ _STRATEGIES = [
 ]
 
 
-def strategies(app_order, cookies_file=None):
-    """The strategy list. app_order=False (run.sh / CLI): the original order, cookies first.
-    app_order=True (Beat Key app): the non-cookie strategies only, never a browser-cookie one;
-    cookies_file=<path> instead gives exactly one `--cookies <path>` attempt (the login the
-    app saved from its own YouTube login window)."""
-    if not app_order:
-        return list(_STRATEGIES)
-    if cookies_file:
-        return [["--cookies", str(cookies_file)]]
-    return [s for s in _STRATEGIES if s[:1] != ["--cookies-from-browser"]]
-
-
-def login_reason(lines):
-    """'age' | 'bot' | 'members' when yt-dlp's error says a YouTube login would fix it, else None."""
-    text = " ".join(lines).lower().replace("\u2019", "'")
-    if "private video" in text:
-        return None
-    if "sign in to confirm your age" in text or "age-restricted" in text \
-            or "inappropriate for some users" in text:
-        return "age"
-    if "not a bot" in text:
-        return "bot"
-    if "members-only" in text or "members only" in text or "join this channel" in text:
-        return "members"
-    return None
-
-
-def cookies_stale(lines):
-    """True when yt-dlp says the --cookies login no longer works: YouTube rotated or signed it
-    out ("The provided YouTube account cookies are no longer valid", yt_dlp/extractor/youtube)."""
-    text = " ".join(lines).lower()
-    return "cookies are no longer valid" in text
-
-
-def js_runtime_args(env=None):
-    """yt-dlp's --js-runtimes for the JavaScript runtime the Beat Key app bundles (deno), which
-    solves YouTube's JS challenges (yt-dlp EJS). ORION_DENO = its path, set by the app; unset or
-    not executable = nothing passed (yt-dlp then looks for deno on PATH, its only default)."""
-    env = os.environ if env is None else env
-    p = env.get("ORION_DENO")
-    if p and os.path.isfile(p) and os.access(p, os.X_OK):
-        return ["--js-runtimes", f"deno:{p}"]
-    return []
-
-
 # ── Dependency check ──────────────────────────────────────────────────────────
 
 def check_deps():
@@ -82,45 +39,20 @@ def check_deps():
     return missing
 
 
+def strategies():
+    """The strategies, in order: browser cookies first, then the player clients, then none."""
+    return [list(s) for s in _STRATEGIES]
+
+
 # ── yt-dlp subprocess wrapper ─────────────────────────────────────────────────
 
-class YtDlpTimeout(Exception):
-    """A yt-dlp call ran past its timeout (app mode only; the CLI never sets one)."""
+def _run(*args):
+    result = subprocess.run(["yt-dlp"] + list(args), capture_output=True, text=True)
+    return result.returncode, result.stdout, result.stderr
 
 
-# App mode only: one (argv, exit code, stderr) per yt-dlp call, for app_run.py's last-run log.
-RUN_LOG = []
-
-
-def _run(*args, exe="yt-dlp", timeout=None):
-    if timeout is None:   # run.sh / CLI: exactly as before
-        result = subprocess.run(
-            [exe] + list(args),
-            capture_output=True,
-            text=True,
-        )
-        return result.returncode, result.stdout, result.stderr
-    p = subprocess.Popen([exe] + list(args), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                         text=True, start_new_session=True)
-    try:
-        out, err = p.communicate(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        try:
-            os.killpg(p.pid, signal.SIGKILL)   # yt-dlp's one-file build forks a child
-        except OSError:
-            p.kill()
-        try:
-            p.communicate(timeout=5)
-        except Exception:
-            pass
-        RUN_LOG.append(([exe] + list(args), None, "(timed out)"))
-        raise YtDlpTimeout()
-    RUN_LOG.append(([exe] + list(args), p.returncode, err or ""))
-    return p.returncode, out, err
-
-
-def fetch_info(url, extra_args=(), exe="yt-dlp", timeout=None):
-    code, out, err = _run("--dump-json", "--no-playlist", *extra_args, url, exe=exe, timeout=timeout)
+def fetch_info(url, extra_args=()):
+    code, out, err = _run("--dump-json", "--no-playlist", *extra_args, url)
     if code != 0 or not out.strip():
         return None, (out + err).splitlines()
     try:
@@ -129,7 +61,7 @@ def fetch_info(url, extra_args=(), exe="yt-dlp", timeout=None):
         return None, (out + err).splitlines()
 
 
-def download_audio(url, fmt_selector, outtmpl, extra_args=(), exe="yt-dlp", timeout=None):
+def download_audio(url, fmt_selector, outtmpl, extra_args=()):
     """
     Download audio. Returns (success, path_or_none, fmt_id, abr, error_lines).
     success=True whenever yt-dlp exits 0, regardless of whether we captured the path.
@@ -148,7 +80,7 @@ def download_audio(url, fmt_selector, outtmpl, extra_args=(), exe="yt-dlp", time
         "--print", "%(abr)s",
     ] + list(extra_args) + [url]
 
-    code, out, err = _run(*cmd_args, exe=exe, timeout=timeout)
+    code, out, err = _run(*cmd_args)
 
     if code != 0:
         return False, None, None, 0.0, (out + err).splitlines()
@@ -189,6 +121,7 @@ def download_audio(url, fmt_selector, outtmpl, extra_args=(), exe="yt-dlp", time
 
 # ── Error translation ─────────────────────────────────────────────────────────
 
+# The app's Downloader.explain reads the same yt-dlp phrases for the app's own sentences.
 # Every phrase matched below is one yt-dlp itself prints (yt_dlp/YoutubeDL.py,
 # yt_dlp/extractor/common.py, yt_dlp/extractor/youtube/_video.py), lowercased.
 PRIVATE_MESSAGE = "That video is private and cannot be downloaded."
@@ -242,9 +175,6 @@ def explain_error(lines, url=""):
     return "Download failed for an unknown reason."
 
 
-TIMEOUT_MESSAGE = "Download timed out."
-
-
 def safe_name(text):
     for ch in r'\/:*?"<>|[]':
         text = text.replace(ch, "_")
@@ -253,47 +183,24 @@ def safe_name(text):
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-def run_download(url, silent=False, app_order=False, ytdlp=None, timeout=None, cookies_file=None,
-                 raw_errors=None):
+def run_download(url, silent=False):
     """
     Download one URL. Returns the output Path on success, None on failure.
     If silent=True, errors go to stderr and only the filepath is printed to stdout
     (for use when called from a shell script).
-
-    The last four arguments are for the Beat Key app (app_order=True) and are ignored otherwise:
-    ytdlp = the yt-dlp executable, timeout = seconds per yt-dlp call (a timeout is reported as
-    "Download timed out."), cookies_file = run only one `--cookies <file>` attempt
-    (app mode never reads a browser's cookies), raw_errors = a list that receives yt-dlp's
-    raw error lines when the download fails.
     """
-    exe = "yt-dlp"
-    if app_order:
-        exe = ytdlp or "yt-dlp"
-    else:
-        timeout = None
-        cookies_file = None
-    order = strategies(app_order, cookies_file)
-    if app_order:
-        js = js_runtime_args()
-        order = [js + s for s in order]
-    kw = {"exe": exe, "timeout": timeout}
-
     def _fail(msg):
         print(msg, file=sys.stderr) if silent else print(msg)
         return None
 
     # The one retry layer: each strategy fetches the metadata and downloads with the same
-    # arguments; the first strategy that gets the file wins. Nothing above this (no second pass
-    # over the strategies, no yt-dlp upgrade-and-repeat) retries the same failure again.
-    # yt-dlp is upgraded at bring-up (the app's weekly upgrade, Run Doctor; run.sh's weekly stamp).
+    # arguments; the first strategy that gets the file wins. run.sh upgrades yt-dlp weekly.
     meta_err, download_err = [], []
     announced = reached_download = False
     success, bl_path = False, None
-    for extra in order:
+    for extra in strategies():
         try:
-            info, meta_err = fetch_info(url, extra_args=extra, **kw)
-        except YtDlpTimeout:
-            return _fail(TIMEOUT_MESSAGE)
+            info, meta_err = fetch_info(url, extra_args=extra)
         except Exception as exc:
             meta_err = [str(exc)]
             info = None
@@ -306,11 +213,7 @@ def run_download(url, silent=False, app_order=False, ytdlp=None, timeout=None, c
         baseline_tmpl = str(DOWNLOADS / f"{title}.%(ext)s")
         reached_download = True
         try:
-            success, bl_path, _, _, download_err = download_audio(
-                url, "bestaudio/best", baseline_tmpl, extra_args=extra, **kw
-            )
-        except YtDlpTimeout:
-            return _fail(TIMEOUT_MESSAGE)
+            success, bl_path, _, _, download_err = download_audio(url, "bestaudio/best", baseline_tmpl, extra_args=extra)
         except Exception as exc:
             download_err = [str(exc)]
             success = False
@@ -319,10 +222,7 @@ def run_download(url, silent=False, app_order=False, ytdlp=None, timeout=None, c
 
     if not success:
         # a strategy that got as far as the download has the more useful error
-        errs = download_err if reached_download else meta_err
-        if raw_errors is not None:
-            raw_errors[:] = errs
-        return _fail(explain_error(errs, url))
+        return _fail(explain_error(download_err if reached_download else meta_err, url))
 
     if silent:
         # Print only the filepath so the caller can capture it

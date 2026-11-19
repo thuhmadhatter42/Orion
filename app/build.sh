@@ -55,18 +55,16 @@ ARCHS="$(lipo -archs "$PROD/Orion")"
 case "$ARCHS" in *arm64*x86_64*|*x86_64*arm64*) ;; *) echo "binary is not universal: $ARCHS"; exit 1 ;; esac
 
 echo "== runtime"
-# The heavy part (python, ffmpeg, yt-dlp, deno) is rebuilt when what it is made from
+# The tools (ffmpeg, ffprobe, yt-dlp, deno; no Python since plug-in plan step 19) are rebuilt when what they are made from
 # changes, not merely when its folder is missing: the stamp is a hash of vendor/ and runtime.sh.
 RUNTIME_HASH="$(cd "$ROOT" && git ls-files -z vendor app/runtime.sh | xargs -0 shasum -a 256 | shasum -a 256 | cut -d' ' -f1)"
 [ -n "$RUNTIME_HASH" ] || { echo "could not hash the runtime inputs"; exit 1; }
-if [ ! -d "$B/runtime/arm64" ] || [ ! -d "$B/runtime/x86_64" ] || [ ! -d "$B/runtime/scripts" ] \
+if [ ! -d "$B/runtime/arm64" ] || [ ! -d "$B/runtime/x86_64" ] || [ -d "$B/runtime/scripts" ] \
    || [ "$(cat "$B/runtime/.inputs" 2>/dev/null)" != "$RUNTIME_HASH" ]; then
   "$APP/runtime.sh" build
   printf '%s\n' "$RUNTIME_HASH" > "$B/runtime/.inputs"
 fi
-# The scripts (downloader.py, app_run.py, ...) are refreshed on every build, so an edit never ships
-# stale behind an old runtime; only the heavy part (python, ffmpeg) is conditional.
-"$APP/runtime.sh" scripts
+[ ! -e "$B/runtime/arm64/python" ] && [ ! -e "$B/runtime/x86_64/python" ] || { echo "a Python is left in the runtime"; exit 1; }
 "$APP/runtime.sh" sign
 
 echo "== plug-ins (AU, VST3, AAX: built and signed by plugin/build.sh, packed by app/pkg/plugin-pkgs.sh)"

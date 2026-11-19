@@ -38,7 +38,7 @@ enum Faceplate {
         case "doctor-ytdlp": return "DOCTOR · YT-DLP"
         case "doctor-ffmpeg": return "DOCTOR · FFMPEG"
         case "doctor-js": return "DOCTOR · JS"
-        case "doctor-python": return "DOCTOR · PYTHON"
+        case "doctor-analyzer": return "DOCTOR · ANALYZER"
         case "doctor-downloads": return "DOCTOR · DOWNLOADS"
         default: return stage.uppercased()
         }
@@ -90,7 +90,7 @@ enum Faceplate {
 
     /// The doctor's five lights, done / on / off, for a doctor stage.
     static func doctorSteps(_ stage: String) -> [(String, Step)] {
-        let names = ["YT-DLP", "FFMPEG", "JS", "PYTHON", "DOWNLOADS"]
+        let names = ["YT-DLP", "FFMPEG", "JS", "ANALYZER", "DOWNLOADS"]
         let at = Doctor.stages.firstIndex(of: stage) ?? 0
         return names.enumerated().map { i, n in (n, i < at ? .done : (i == at ? .on : .off)) }
     }

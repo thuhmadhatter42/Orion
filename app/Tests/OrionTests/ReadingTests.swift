@@ -225,7 +225,7 @@ final class ReadingTests: XCTestCase {
         let f = FakeLauncher()
         let rt = Runtime(root: URL(fileURLWithPath: "/R/runtime"), arch: "arm64",
                          support: URL(fileURLWithPath: "/S/Orion"), osMajor: 14)
-        let e = Engine(runtime: rt, launcher: f, jobs: f, recents: store)
+        let e = Engine(runtime: rt, jobs: f, recents: store)
         e.analyze([URL(fileURLWithPath: "/a.mp3"), URL(fileURLWithPath: "/b.mp3")])
         let deadline = Date().addingTimeInterval(5)
         while f.launches.isEmpty && Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.01)) }
@@ -244,7 +244,7 @@ final class ReadingTests: XCTestCase {
     func testShowIsIgnoredWhileBusy() {
         let e = Engine(runtime: Runtime(root: URL(fileURLWithPath: "/R/runtime"), arch: "arm64",
                                         support: URL(fileURLWithPath: "/S/Orion"), osMajor: 14),
-                       launcher: FakeLauncher(), jobs: FakeLauncher())
+                       jobs: FakeLauncher())
         e.download("u")
         e.show(result())
         RunLoop.main.run(until: Date().addingTimeInterval(0.05))

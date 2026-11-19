@@ -1,8 +1,8 @@
 import Foundation
 
-// The app's file work, in-process since plan step 19 (it was app_run.py's `analyze` and `rename`):
-// reading files with the core, the tag Beat Key writes into a file's name, and the step after a
-// download (read, tag, links log). The Python helper is left with the download itself.
+// The app's file work, in-process since plan step 19 (it was app_run.py on the bundled Python):
+// the YouTube download (Downloader.swift), reading files with the core, the tag Beat Key writes
+// into a file's name, and the step after a download (read, tag, links log).
 
 /// Beat Key's tag in a file name: "<stem> (<bpm> BPM <k1> <k2> <k3>).<ext>". The ONE place its
 /// shape lives in the app: `name` writes it, `isTagged` reads it, `rename` applies it.
@@ -79,31 +79,47 @@ enum LinksLog {
     }
 }
 
-/// The Engine's file work: each job sends Events (the same ones the helper sent) and then ends
-/// with an exit code, so the Engine runs it exactly like a helper run. Callbacks on any queue.
-/// Tests fake it.
+/// The Engine's file work: each job sends Events (the ones the Python helper used to print) and
+/// then ends with an exit code. Callbacks on any queue. Tests fake it.
 protocol FileJobs: AnyObject {
+    /// "downloading", then `needsLogin` or `error`; a good download goes on as finishDownload does
+    /// ("analyzing", "renaming", `done`). cookiesFile = the saved YouTube login, one attempt only.
+    func download(_ url: String, cookiesFile: URL?, onEvent: @escaping (Event) -> Void, onExit: @escaping (Int32) -> Void)
     /// "analyzing" per file, one `analyzed` row per file, or one `error` for the whole job when
     /// the install is damaged.
     func analyze(_ files: [URL], onEvent: @escaping (Event) -> Void, onExit: @escaping (Int32) -> Void)
-    /// After the helper downloaded `file` from `url`: read it, tag its name (replacing an older
-    /// copy), add it to the links log; `done`, or `error` when the install is damaged or the file vanished.
-    func finishDownload(_ file: URL, url: String, onEvent: @escaping (Event) -> Void, onExit: @escaping (Int32) -> Void)
     /// The user's yes: `renamed`, `renameSkipped` (already tagged) or `renameFailed`.
     func rename(_ item: RenameItem, onEvent: @escaping (Event) -> Void, onExit: @escaping (Int32) -> Void)
 }
 
 final class CoreFileJobs: FileJobs {
     private let reader: () -> FileReader
-    /// One file at a time, off the main thread.
+    private let downloader: () -> Downloader
+    /// One job at a time, off the main thread.
     private let queue = DispatchQueue(label: "com.jshriver.orion.files", qos: .userInitiated)
 
     init(runtime: Runtime) {
         reader = { FileReader(binDir: runtime.binDir) }
+        downloader = { Downloader.appDefault(runtime) }
     }
 
-    init(reader: @escaping () -> FileReader) {
+    init(reader: @escaping () -> FileReader, downloader: (() -> Downloader)? = nil) {
         self.reader = reader
+        self.downloader = downloader ?? { Downloader.appDefault(.appDefault()) }
+    }
+
+    func download(_ url: String, cookiesFile: URL?, onEvent: @escaping (Event) -> Void, onExit: @escaping (Int32) -> Void) {
+        queue.async {
+            onEvent(.stage("downloading"))
+            switch self.downloader().download(url, cookiesFile: cookiesFile) {
+            case .downloaded(let file):
+                self.finish(file, url: url, onEvent: onEvent, onExit: onExit)
+            case .needsLogin(let reason, let stale):
+                onEvent(.needsLogin(reason: reason, message: Downloader.loginMessages[reason] ?? "", stale: stale)); onExit(0)
+            case .failed(let message):
+                onEvent(.error(message)); onExit(0)
+            }
+        }
     }
 
     func analyze(_ files: [URL], onEvent: @escaping (Event) -> Void, onExit: @escaping (Int32) -> Void) {
@@ -124,8 +140,14 @@ final class CoreFileJobs: FileJobs {
         }
     }
 
+    /// After a download: read the file, tag its name (replacing an older copy), add it to the
+    /// links log; `done`, or `error` when the install is damaged or the file vanished.
     func finishDownload(_ file: URL, url: String, onEvent: @escaping (Event) -> Void, onExit: @escaping (Int32) -> Void) {
-        queue.async {
+        queue.async { self.finish(file, url: url, onEvent: onEvent, onExit: onExit) }
+    }
+
+    private func finish(_ file: URL, url: String, onEvent: @escaping (Event) -> Void, onExit: @escaping (Int32) -> Void) {
+        do {
             onEvent(.stage("analyzing"))
             let r: Result
             switch self.reader().read(file) {

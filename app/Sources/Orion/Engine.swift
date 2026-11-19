@@ -20,54 +20,6 @@ struct LoginPrompt: Equatable {
     let reason: String      // "age" | "bot" | "members"
 }
 
-/// Launches a process and streams stdout lines (the download helper, app_run.py). Injected so tests
-/// never spawn Python.
-protocol ProcessLauncher {
-    /// onLine and onExit may be called from any queue; the Engine hops to main.
-    func launch(executable: URL, arguments: [String], environment: [String: String],
-                onLine: @escaping (String) -> Void, onExit: @escaping (Int32) -> Void)
-}
-
-final class RealLauncher: ProcessLauncher {
-    func launch(executable: URL, arguments: [String], environment: [String: String],
-                onLine: @escaping (String) -> Void, onExit: @escaping (Int32) -> Void) {
-        let p = Process()
-        p.executableURL = executable
-        p.arguments = arguments
-        p.environment = environment.merging(["HOME": NSHomeDirectory()]) { a, _ in a }
-        let out = Pipe()
-        p.standardOutput = out
-        // app_run.py's stderr (its failure lines and tracebacks) → analyzer.log
-        let what = arguments.dropFirst().first ?? "?"
-        p.standardError = AppLog.analyzerHandle(header: "app_run.py \(what)") ?? FileHandle.nullDevice
-        DispatchQueue.global(qos: .userInitiated).async {
-            do { try p.run() } catch {
-                AppLog.log("helper (app_run.py \(what)) failed to start: \(error)")
-                onExit(-1); return
-            }
-            var buf = Data()
-            let h = out.fileHandleForReading
-            while true {
-                let chunk = h.availableData
-                if chunk.isEmpty { break }
-                buf.append(chunk)
-                while let nl = buf.firstIndex(of: 0x0A) {
-                    let line = String(decoding: buf[buf.startIndex..<nl], as: UTF8.self)
-                    buf.removeSubrange(buf.startIndex...nl)
-                    onLine(line)
-                }
-            }
-            if !buf.isEmpty { onLine(String(decoding: buf, as: UTF8.self)) }
-            p.waitUntilExit()
-            if p.terminationStatus != 0 || p.terminationReason != .exit {
-                AppLog.log("helper (app_run.py \(what)) exited: status \(p.terminationStatus), "
-                           + "reason \(p.terminationReason == .exit ? "exit" : "signal"); details in analyzer.log")
-            }
-            onExit(p.terminationStatus)
-        }
-    }
-}
-
 final class Engine: ObservableObject {
     @Published var state: ViewState = .idle {
         didSet {
@@ -79,8 +31,7 @@ final class Engine: ObservableObject {
     /// Caption under a partial analysis ("2 FILES COULDN'T BE READ · ..."); nil otherwise.
     @Published var note: String?
     private let runtime: Runtime
-    private let launcher: ProcessLauncher
-    /// Reading files with the core, the tag, the step after a download (FileJobs.swift).
+    /// The download, reading files with the core, the tag (FileJobs.swift, Downloader.swift).
     private let jobs: FileJobs
     private var results: [Result] = []
     private var expected = 0
@@ -127,7 +78,7 @@ final class Engine: ObservableObject {
         return { Doctor.probeWritable(dir) }
     }
 
-    init(runtime: Runtime = .appDefault(), launcher: ProcessLauncher = RealLauncher(),
+    init(runtime: Runtime = .appDefault(),
          jobs: FileJobs? = nil,
          doctor: ((Runtime) -> Doctor)? = nil,
          doctorQueue: DispatchQueue = .global(qos: .userInitiated),
@@ -142,7 +93,6 @@ final class Engine: ObservableObject {
         self.savedLogin = savedLogin
         self.dropLogin = dropLogin
         self.runtime = runtime
-        self.launcher = launcher
         self.jobs = jobs ?? CoreFileJobs(runtime: runtime)
         self.makeDoctor = doctor ?? { Doctor(runtime: $0) }
         self.doctorQueue = doctorQueue
@@ -299,8 +249,8 @@ final class Engine: ObservableObject {
         }
     }
 
-    /// An analysis runs in-process on the core at once (it needs no yt-dlp). A download starts the
-    /// helper once yt-dlp is seeded and no maintenance (launch upgrade, doctor) is running.
+    /// An analysis runs at once (it needs no yt-dlp). A download starts once yt-dlp is seeded and
+    /// no maintenance (launch upgrade, doctor) is running.
     private func launchHelper(_ args: [String], gen: Int) {
         if args.first == "analyze" {
             jobs.analyze(activeFiles, onEvent: { e in
@@ -325,22 +275,14 @@ final class Engine: ObservableObject {
                 guard gen == self.generation else { return }
                 launched = true
                 if let s = stage { self.state = .working(stage: s) }
-                self.launcher.launch(
-                    executable: rt.python,
-                    arguments: [rt.script.path] + args,
-                    environment: rt.environment(),
-                    onLine: { line in
-                        guard let e = Event.parse(line: line) else {
-                            if !line.trimmingCharacters(in: .whitespaces).isEmpty {
-                                AppLog.log("helper printed a non-event line: \(line.prefix(200))")
-                            }
-                            return
-                        }
-                        DispatchQueue.main.async { if gen == self.generation { self.handle(e) } }
-                    },
-                    onExit: { code in
-                        DispatchQueue.main.async { if gen == self.generation { self.finish(code) } }
-                    })
+                // args = ["download", url] (+ ["--cookies-file", path]: the saved login)
+                let url = args.count > 1 ? args[1] : ""
+                let cookies = args.firstIndex(of: "--cookies-file").flatMap { $0 + 1 < args.count ? URL(fileURLWithPath: args[$0 + 1]) : nil }
+                self.jobs.download(url, cookiesFile: cookies, onEvent: { e in
+                    DispatchQueue.main.async { if gen == self.generation { self.handle(e) } }
+                }, onExit: { code in
+                    DispatchQueue.main.async { if gen == self.generation { self.finish(code) } }
+                })
             }
         }
     }
@@ -349,7 +291,7 @@ final class Engine: ObservableObject {
     static func failureNote(_ s: ViewState) -> String? {
         switch s {
         case .failed(let m):
-            return "engine FAILED: \(m) (yt-dlp runs: last-run.log; download helper stderr: analyzer.log; analysis: core lines in beatkey.log)"
+            return "engine FAILED: \(m) (yt-dlp runs: last-run.log; the download's or the core's lines above)"
         case .analyzed(let rs):
             let bad = rs.filter { $0.bpm == nil }
             guard !bad.isEmpty else { return nil }
@@ -381,17 +323,6 @@ final class Engine: ObservableObject {
             } else { state = .failed(m) }
         case .renamed, .renameSkipped, .renameFailed:
             handleRename(e)
-        case .downloaded(let path):
-            // the helper's part is over: read, tag and log the file here. A new generation, so the
-            // helper's own exit (which follows) is not taken as the end of the job.
-            generation += 1
-            let gen = generation
-            sawTerminal = false
-            jobs.finishDownload(URL(fileURLWithPath: path), url: pendingURL, onEvent: { e in
-                DispatchQueue.main.async { if gen == self.generation { self.handle(e) } }
-            }, onExit: { code in
-                DispatchQueue.main.async { if gen == self.generation { self.finish(code) } }
-            })
         case .needsLogin(let reason, _, let stale):
             sawTerminal = true
             if stale || usedLogin {

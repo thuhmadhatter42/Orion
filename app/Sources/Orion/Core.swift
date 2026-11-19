@@ -4,7 +4,7 @@ import Foundation
 // The analysis core (core/, beatkey.h) inside the app (plug-in plan step 19). The app and the
 // plug-ins read audio with ONE engine: files go through bk_analyze_buffer / bk_analyze_midi here,
 // Listen through bk_analyzer_* (CoreLive.swift). The Python analyzer (bpm.py, essentia, numpy) is
-// gone from the app; the bundled Python is left for the YouTube download (app_run.py) only.
+// gone from the app, and with the download in Swift (Downloader.swift) the app ships no Python.
 
 /// Bring-up: the core's log lines into beatkey.log, the tempo weights loaded once per process.
 enum Core {

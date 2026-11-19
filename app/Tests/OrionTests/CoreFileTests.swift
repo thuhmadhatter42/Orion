@@ -296,27 +296,4 @@ final class CoreFileTests: XCTestCase {
         XCTAssertEqual(ev.last, .done(Result(file: file, name: "Tiny.wav", bpm: nil, keys: [])))
         XCTAssertEqual(try String(contentsOf: LinksLog.url(), encoding: .utf8), LinksLog.line(url: "u", name: "Tiny.wav"))
     }
-
-    // MARK: the Engine's chain: helper download -> in-process read, tag, log
-
-    func testEngineChainsTheDownloadIntoTheFileJob() {
-        let f = FakeLauncher()
-        let e = Engine(runtime: Runtime(root: URL(fileURLWithPath: "/R/runtime"), arch: "arm64",
-                                        support: URL(fileURLWithPath: "/S/Orion"), osMajor: 14), launcher: f, jobs: f)
-        e.download("https://y/2")
-        let deadline = Date().addingTimeInterval(5)
-        while f.launches.isEmpty && Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.01)) }
-        f.onLine?(#"{"stage":"downloaded","file":"/D/Song.mp3","name":"Song.mp3"}"#)
-        RunLoop.main.run(until: Date().addingTimeInterval(0.1))
-        XCTAssertEqual(f.launches.count, 2)
-        XCTAssertEqual(Array(f.launches[1].dropFirst()), ["finish-download", "/D/Song.mp3", "https://y/2"])
-        f.exits[0](0)                      // the helper's own exit: not the end of the job
-        RunLoop.main.run(until: Date().addingTimeInterval(0.1))
-        XCTAssertTrue(e.state.isBusy, "\(e.state)")
-        f.onLine?(#"{"stage":"done","file":"/D/Song (90.0 BPM Am).mp3","name":"Song (90.0 BPM Am).mp3","bpm":"90.0","keys":[["Am",80]]}"#)
-        f.onExit?(0)
-        RunLoop.main.run(until: Date().addingTimeInterval(0.1))
-        guard case .done(let r) = e.state else { return XCTFail("\(e.state)") }
-        XCTAssertEqual(r.name, "Song (90.0 BPM Am).mp3")
-    }
 }
