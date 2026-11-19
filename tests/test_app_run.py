@@ -121,14 +121,29 @@ class TestDownload(Base):
         self.assertEqual(p.returncode, 0)
         self.assertEqual(ev[-1]["stage"], "error")
         self.assertTrue(ev[-1]["message"].startswith("Network error"), ev[-1])
-        self.assertEqual([e["stage"] for e in ev].count("updating"), 1)
+        self.assertNotIn("updating", [e["stage"] for e in ev])
 
-    def test_retry_after_upgrade(self):
-        p, ev = run_cli(["download", "https://example.com/v"], "fail-then-ok", self.dl, self.state)
-        stages = [e["stage"] for e in ev]
-        self.assertIn("updating", stages)
-        self.assertLess(stages.index("updating"), stages.index("done"))
-        self.assertEqual(stages[-1], "done")
+    def test_one_retry_layer_only(self):
+        # Metadata works, the download never does: each of the 3 strategies gets exactly one
+        # metadata call and one download call (no second pass over the strategies), and yt-dlp
+        # is never upgraded-and-repeated after the failure.
+        log = self.tmp / "argv.log"
+        p, ev = run_cli(["download", "https://example.com/v"], "fail-download", self.dl, self.state, argv_log=log)
+        self.assertEqual(ev[-1]["stage"], "error", ev)
+        self.assertEqual(ev[-1]["message"], downloader.BLOCKED_MESSAGE)
+        lines = log.read_text().splitlines()
+        self.assertEqual(sum("--dump-json" in l for l in lines), 3, lines)
+        self.assertEqual(sum("--extract-audio" in l for l in lines), 3, lines)
+        self.assertNotIn("-U", log.read_text().split())
+        self.assertNotIn("updating", [e["stage"] for e in ev])
+        self.assertFalse((self.state / "upgraded").exists())
+
+    def test_download_uses_the_strategy_whose_metadata_worked(self):
+        log = self.tmp / "argv.log"
+        p, ev = run_cli(["download", "https://example.com/v"], "ok", self.dl, self.state, argv_log=log)
+        self.assertEqual(ev[-1]["stage"], "done", ev)
+        lines = log.read_text().splitlines()
+        self.assertEqual(len(lines), 2, lines)      # one metadata call, one download call
 
     def test_unavailable_stops_before_cookies_and_upgrade(self):
         log = self.tmp / "argv.log"
@@ -149,21 +164,6 @@ class TestDownload(Base):
         self.assertEqual(ev[-1]["message"], "Download timed out.")
         self.assertNotIn("updating", [e["stage"] for e in ev])
 
-    def test_upgrade_only_touches_orion_ytdlp(self):
-        # ORION_YTDLP unset: no -U anywhere (PATH has the stub, which would log it)
-        log = self.tmp / "argv.log"
-        p, ev = run_cli(["download", "https://example.com/v"], "fail-then-ok", self.dl, self.state,
-                        argv_log=log, ytdlp=None)
-        self.assertEqual(ev[-1]["stage"], "error", ev)
-        self.assertNotIn("updating", [e["stage"] for e in ev])
-        self.assertNotIn("-U", log.read_text().split())
-        self.assertFalse((self.state / "upgraded").exists())
-        # ORION_YTDLP set to a missing path: same
-        p, ev = run_cli(["download", "https://example.com/v"], "fail-then-ok", self.dl, self.state,
-                        ytdlp=self.tmp / "nope")
-        self.assertEqual(ev[-1]["stage"], "error")
-        self.assertFalse((self.state / "upgraded").exists())
-
     def test_downloads_run_through_orion_ytdlp(self):
         # a wrapper that logs its own name proves ORION_YTDLP, not PATH, ran the downloads
         wrap = self.tmp / "my-ytdlp"
@@ -172,15 +172,6 @@ class TestDownload(Base):
         p, ev = run_cli(["download", "https://example.com/v"], "ok", self.dl, self.state, ytdlp=wrap)
         self.assertEqual(ev[-1]["stage"], "done", ev)
         self.assertTrue((self.tmp / "used.log").read_text().count("used") >= 2)
-
-    def test_retry_skips_cookie_strategies(self):
-        log = self.tmp / "argv.log"
-        p, ev = run_cli(["download", "https://example.com/v"], "fail-then-ok", self.dl, self.state, argv_log=log)
-        self.assertEqual(ev[-1]["stage"], "done")
-        # first pass: the 3 plain metadata attempts only; after -U: succeeds on the first plain one
-        lines = log.read_text().splitlines()
-        i = next(n for n, l in enumerate(lines) if l.split()[:1] == ["-U"])
-        self.assertNotIn("--cookies-from-browser", " ".join(lines[i + 1:]))
 
     def test_cli_downloader_has_no_timeout_or_cookie_stop(self):
         calls = []
@@ -208,7 +199,7 @@ class TestLogin(Base):
     URL = "https://www.youtube.com/watch?v=xxxxxxxxxxx"
 
     def test_app_never_reads_browser_cookies(self):
-        for mode in ("fail-age", "fail-bot", "fail-network", "fail-unavailable", "ok", "fail-then-ok"):
+        for mode in ("fail-age", "fail-bot", "fail-network", "fail-unavailable", "ok", "fail-download"):
             log = self.tmp / f"argv-{mode}.log"
             run_cli(["download", self.URL], mode, self.dl, self.state, argv_log=log)
             self.assertNotIn("--cookies", log.read_text(), mode)
@@ -335,9 +326,6 @@ class TestLogin(Base):
         self.assertTrue(e(["ERROR: Unsupported URL: https://example.com/"]).startswith("That doesn't look like"))
         # "images", "page", "message" contain "age"; none of them is an age restriction
         self.assertFalse(e(["WARNING: Only images are available"]).startswith("That video is age"))
-        # a region-locked video is final (no upgrade); a blocked download is not
-        self.assertTrue(downloader.is_final_error(["The uploader has not made this video available in your country"]))
-        self.assertFalse(downloader.is_final_error(["Requested format is not available"]))
 
     def test_reason_classifier(self):
         r = downloader.login_reason
@@ -362,10 +350,10 @@ class TestJsRuntimeAndLog(Base):
     def test_every_ytdlp_call_gets_the_bundled_deno(self):
         deno = self._deno()
         log = self.tmp / "argv.log"
-        p, ev = run_cli(["download", self.URL], "fail-then-ok", self.dl, self.state, argv_log=log,
+        p, ev = run_cli(["download", self.URL], "ok", self.dl, self.state, argv_log=log,
                         extra_env={"ORION_DENO": str(deno)})
         self.assertEqual(ev[-1]["stage"], "done", ev)
-        calls = [l for l in log.read_text().splitlines() if l.split()[:1] != ["-U"]]
+        calls = log.read_text().splitlines()
         self.assertTrue(calls)
         self.assertTrue(all(f"--js-runtimes deno:{deno}" in l for l in calls), calls)
         log.unlink()
@@ -458,6 +446,22 @@ class TestAnalyze(Base):
         self.assertIsNone(ev[-1]["bpm"])
         self.assertEqual(ev[-1]["keys"], [])
         self.assertEqual(ev[-1]["name"], "notes.txt")
+
+    def test_a_clip_too_short_to_measure_has_no_bpm(self):
+        # TempoCNN returns 0.0 under ~12 s: bpm.py exits non-zero, nobody names a file "(0.0 BPM ...)"
+        import wave
+        t = self.tmp / "short.wav"
+        with wave.open(str(t), "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(44100)
+            w.writeframes(b"\x00\x10" * 44100 * 3)
+        r = subprocess.run([sys.executable, str(ROOT / "bpm.py"), str(t)], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 1, r.stderr)
+        self.assertEqual(r.stdout, "")
+        self.assertIn("Could not measure a tempo", r.stderr)
+        p, ev = run_cli(["analyze", str(t)], "ok", self.dl, self.state)
+        self.assertIsNone(ev[-1]["bpm"])
 
     def test_analyze_audio(self):
         p, ev = run_cli(["analyze", str(WAV)], "ok", self.dl, self.state)

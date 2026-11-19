@@ -69,17 +69,10 @@ while true; do
 
     filepath=$("$PY" "$SCRIPT_DIR/downloader.py" "$url")
 
+    # downloader.py is the one retry layer (it walks its strategies); yt-dlp itself is
+    # upgraded weekly at start-up (maybe_upgrade_ytdlp), not after a failure.
     if [ $? -ne 0 ] || [ -z "$filepath" ]; then
-        # A failed download is usually a stale yt-dlp. Upgrade once and retry.
-        if [ -z "$upgraded_this_run" ]; then
-            upgraded_this_run=1
-            upgrade_ytdlp
-            echo "Retrying..."
-            filepath=$("$PY" "$SCRIPT_DIR/downloader.py" "$url")
-        fi
-        if [ $? -ne 0 ] || [ -z "$filepath" ]; then
-            continue
-        fi
+        continue
     fi
 
     analyze "$filepath"
