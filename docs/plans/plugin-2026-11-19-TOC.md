@@ -16,7 +16,7 @@ Steps 3-6 (core) and 7-8 (shims) can run side by side. Steps 9-11 and 16 touch `
 - [x] 11. SEND BPM through app → §11 (Live / Logic / Artemis checks open → §12)
 - [ ] 12. Milestone A, J's check → §12
 - [ ] 13. AAX Native, signed → §13 (built + PACE-signed + validator on the MacBook Pro; Pro Tools on Sofia open)
-- [ ] 14. AudioSuite Analyze pass → §14
+- [ ] 14. AudioSuite Analyze pass → §14 (built + signed + 80/80 app parity on the MacBook Pro; Pro Tools on Sofia open)
 - [ ] 15. MIDI variant → §15
 - [ ] 16. Installer and plug-in updates → §16
 - [ ] 17. Manual, What's New, licences → §17
@@ -157,3 +157,13 @@ For §12 (J's check, main session): build + install the app from this branch and
 - No harness test for the AAX shim yet (the VST3 has `vst3_harness.cpp`); the validator's data-model and parameter tests drove the real object.
 Next (main session): Pro Tools on Sofia, with the signed bundle installed in `/Library/Application Support/Avid/Audio/Plug-Ins` (ditto, never cp -R): it loads, reads, SEND AUTO-TUNE, SEND BPM through the app's Accessibility route with the read-back. Then tick 13.
 
+
+**14, first half (2026-11-19 12:30).** AudioSuite Analyze is built, PACE-signed and through Avid's validator on the MacBook Pro, and gives the app's answer on all 80 bench files; the Pro Tools check on Sofia is still open, so 14 is not ticked.
+- A second effect in the same `Beat Key.aaxplugin` (`plugin/aax/beatkey_aax_audiosuite.cpp`): effect id `com.jshriver.orion.plugin.audiosuite`, `FLRc` / product `BtKA` / AudioSuite id `BKas` (permanent), up to 48 tracks, `OptionalAnalysis` (Analyze button on; Pro Tools also analyzes before Render / Preview), the same data model (`BeatKeyAaxParameters::CreateAudioSuite`: no live analyzer) and the same face. Model: SDK `DemoDelay_HostProcessor`.
+- One owner: the host processor only hands windows to the instance layer's new `bkp_clip_*` (`plugin/shared/bkp.h`): the core's downmix (mean; stereo 0.5 * (L + R)), then `bk_analyze_buffer` (bpm.py analyze_full); the reading becomes the instance's, so SEND AUTO-TUNE, SEND BPM and the session state work unchanged. The analysis runs in the last `AnalyzeAudio` window (offline thread, under Pro Tools' progress bar), never holding the lock the face reads through.
+- Render cannot be refused: `AAX_Properties.h` has no such property (RequiresAnalysis greys Analyze, DisablePreview drops Preview) and an error from RenderAudio is a Pro Tools error dialog. Render copies the audio through bit for bit and logs it.
+- Not `MultiInputModeOnly`: the SDK's known issue PT-258560 says Pro Tools then forces mono mode (won't fix). In mono mode Pro Tools runs one pass per channel, so the face ends on the last channel's reading; multi-input mode matches the app.
+- Face: `bkp_view_state.clip_state`; AudioSuite lines "Select a clip, then press Analyze." / "Reading the selection…" / "Couldn't read the selection: <why>", CLEAR instead of NEW SONG, caption "AAX AudioSuite".
+- plugin.log: one line per run, `AudioSuite Analyze: 2 ch, 120.0 s at 44100 Hz -> Gm 87.9% / ..., 128.0 BPM (127.98), read in N ms`, or `AudioSuite Analyze REFUSED: <why>`; `AudioSuite Render: ... passed through unchanged`.
+- Tests: `bkp_test clip` (48 checks, both slices: same reading as the core on the same mono in odd windows, length clamp, state round-trip, every refusal); `sh plugin/test/audiosuite-parity.sh <bench root>` 80/80 key-bench + bpm-bench files give the app's keys, tuning and BPM (decoded as bpm.py decode_ffmpeg, 4096-frame windows); `plugin/test.sh` all PASS; `plugin/validate-aax.sh` 12 PASS (now incl. `info.support.audiosuite`), 2 excused. Two validator runs at once clash on its port ("bind: Address already in use", tests E_ABORTED): run one at a time.
+Next (main session): Pro Tools on Sofia (checks listed in the step 14 report), then tick 14.
