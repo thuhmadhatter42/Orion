@@ -1,6 +1,17 @@
 # PICKUP — beat_dl
 
-## CURRENT STATE — 2026-11-19 01:10
+## CURRENT STATE — 2026-11-19 12:48
+
+ALL PLUG-IN + APP CODE MERGED on main (pushed). Release is **0.1.79** (VERSION d5bb2d3; 0.1.78 was built but never published and is superseded).
+- Plug-in plan docs/plans/plugin-2026-11-19-TOC.md: steps 1-11, 13 (AAX, PACE-signed with J's iLok on the MBP), 14 (AudioSuite Analyze), 15 (MIDI AU/VST3/AAX), 16-17 (one installer with 6 plug-in choices, Update Plug-ins, uninstall, pages), 19 (app on the C++ core; downloader in Swift; NO Python in the app; app 918→563 MB) all built and merged. Gates: swift 752/0, core 268/0 both slices, validators green.
+- RUNNING: build+check agent for 0.1.79 (full build.sh with PACE signing + notarize → app/build/build-0.1.79.log; then Sofia install by drag-copy + app check + auval own bundles + Logic/Live load if no dialogs; evidence app/build/check-0.1.79/).
+- NEXT (agent): when it passes, alert J "0.1.79 checked. Publish: ! bash ~/dev/beat_dl/tools/publish.sh". Then verify PUBLISHED, gh release Latest on Orion, appcast 0.1.79.
+- J-ONLY: (1) publish; (2) plug-in in his DAWs (step 12 list in the TOC); (3) Pro Tools on Sofia asks for a helper password the first time it opens: J types it once, then an agent runs the AAX + AudioSuite + MIDI load tests (lists in the TOC 13→14, 14 hand-offs) and the Board Talk tooltip check.
+- AFTER this session ends: folder move beat_dl → beatkey from a fresh session in ~/dev using docs/plans/folder-move-beatkey-2026-11-19.md (also trash vault 10-dev/beatkey, J's pick; the trash was denied by the permission check).
+- Handoff written: handoff/TO-FLR-2026-11-19-beat-key-repo-renamed-orion.md (FLR links → Orion).
+- Rules learned today (memory): never stop with buildable steps; never offer to skip planned work; never auval -a / scans on the MBP; studio Macs are hands-off.
+
+## (previous) 2026-11-19 01:10
 
 J said "go" 00:50. The finish plan (docs/plans/finish-2026-11-19-TOC.md) is running with agents. Decisions are at the top of docs/plans/finish-2026-11-19.md; never re-ask them.
 - §2+§3 review fixes + KeyTeach rename + Board Talk count: agent running in worktree (branch worktree-agent-af793dcd5774a1422). On return: review, merge, run both suites on main.
