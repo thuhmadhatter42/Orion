@@ -25,7 +25,7 @@ const double kRetuneCents = 5.0;         // TUNING_RETUNE_CENTS
 const double kTuningMinConf = 50.0;      // TUNING_MIN_CONF
 const double kTuningMinHz = 200.0;       // TUNING_MIN_HZ
 
-using Scores = std::array<double, 24>;
+using Scores = KeyScores;
 
 // H[a:b].mean(axis=0): float32, frame after frame (numpy reduces along axis 0 in row order)
 HpcpFrame mean_frames(const std::vector<HpcpFrame> &H, size_t a, size_t b) {
@@ -68,14 +68,15 @@ std::array<float, 12> hpcp_to_pcp12(const HpcpFrame &avg) {
 
 // key_scores: Pearson r of the profile against all 24 keys, in the reference's own order:
 // (0, major), (0, minor), (1, major), ...
-Scores key_scores(const std::array<float, 12> &pcp) {
+template <typename T>
+Scores key_scores(const T *pcp) {
     Scores s;
     double rolled[12];
     for (int i = 0; i < 12; i++) {
         for (int k = 0; k < 12; k++) rolled[(k + i) % 12] = kBgateMajor[k];
-        s[(size_t)(2 * i)] = np::corrcoef(pcp.data(), rolled, 12);
+        s[(size_t)(2 * i)] = np::corrcoef(pcp, rolled, 12);
         for (int k = 0; k < 12; k++) rolled[(k + i) % 12] = kBgateMinor[k];
-        s[(size_t)(2 * i + 1)] = np::corrcoef(pcp.data(), rolled, 12);
+        s[(size_t)(2 * i + 1)] = np::corrcoef(pcp, rolled, 12);
     }
     return s;
 }
@@ -147,6 +148,10 @@ bool estimate_tuning(const std::vector<Peaks> &peaks, double &cents_out) {
 
 }  // namespace
 
+KeyScores key_scores_f64(const double pcp[12]) { return key_scores(pcp); }
+int key_winner(const KeyScores &s) { return winner(s); }
+void key_top3(const KeyScores &s, double agree, KeyGuess out[3]) { top3(s, agree, out); }
+
 std::string key_name(int index) {
     const int pc = index / 2;
     return index % 2 == 0 ? std::string(kMajor[pc]) : std::string(kMinor[pc]) + "m";
@@ -175,14 +180,15 @@ KeyReading key_reading(const std::vector<HpcpFrame> &frames_440, const std::vect
         out.keys[2] = {"G", 0.0};
     } else {
         const std::array<float, 12> pcp = hpcp_to_pcp12(mean_frames(*H, 0, H->size()));
-        const Scores scores = key_scores(pcp);
+        const Scores scores = key_scores(pcp.data());
         const int win = winner(scores);
         // agreement of the 10 s windows (a partial last window counts from half a window up)
         size_t wins = 0, count = 0;
         for (size_t i = 0; i < H->size(); i += (size_t)kSegmentFrames) {
             const size_t end = std::min(H->size(), i + (size_t)kSegmentFrames);
             if (end - i < (size_t)(kSegmentFrames / 2) && count > 0) break;
-            const Scores s = key_scores(hpcp_to_pcp12(mean_frames(*H, i, end)));
+            const std::array<float, 12> seg = hpcp_to_pcp12(mean_frames(*H, i, end));
+            const Scores s = key_scores(seg.data());
             wins += winner(s) == win;
             count++;
         }

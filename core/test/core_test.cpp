@@ -201,6 +201,22 @@ void test_log() {
     bk_log("unit", "this line has nowhere to go");
     CHECK(stat((blocker + "/sub/plugin.log").c_str(), &st) != 0, "a log appeared under a plain file");
     bk_log_set_dir((g_scratch + "/logs").c_str());
+
+    // a sink (the Mac app's own log): lines go there, not to the file; NULL = the file again
+    struct Got { std::string area, msg; int n = 0; } got;
+    bk_log_set_sink([](const char *area_, const char *msg, void *ctx) {
+        Got *g = (Got *)ctx;
+        g->area = area_;
+        g->msg = msg;
+        g->n++;
+    }, &got);
+    const size_t before = log_mark();
+    bk_log("unit", "to the sink %d", 7);
+    bk_log_set_sink(nullptr, nullptr);
+    CHECK(got.n == 1 && got.area == "unit" && got.msg == "to the sink 7", "sink got %d: %s %s", got.n, got.area.c_str(), got.msg.c_str());
+    CHECK(log_mark() == before, "a line given to the sink was also written to the file");
+    bk_log("unit", "back to the file");
+    CHECK(log_has_since(before, "back to the file"), "the file did not come back after the sink was cleared");
 }
 
 // ------------------------------------------------------------------ bring-up
@@ -278,6 +294,30 @@ void test_file() {
            r.keys[0].name, r.keys[0].percent, r.keys[1].name, r.keys[1].percent, r.keys[2].name, r.keys[2].percent,
            r.bpm, r.bpm_exact, r.has_tuning ? "" : "(none) ", r.tuning_cents);
     CHECK(std::string(r.keys[0].name) == "Am", "key %s", r.keys[0].name);
+    {
+        // a MIDI file (the full check against midi_analyze.py is tools/parity/midi_parity.py)
+        const uint8_t notmidi[] = {'R', 'I', 'F', 'F', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+        size_t mmark = log_mark();
+        CHECK(bk_analyze_midi(notmidi, sizeof notmidi, &r, err, sizeof err) == BK_ERR_BAD_ARG, "not-MIDI accepted");
+        CHECK(std::string(err).find("not a MIDI file") != std::string::npos, "err %s", err);
+        CHECK(log_has_since(mmark, "REFUSED: the MIDI file could not be read"), "no log line for the refusal");
+        // C E G C, a quarter each at 480 tpq, tempo 428000 us: 140.2 BPM (140.19), key C
+        std::vector<uint8_t> trk = {0x00, 0xFF, 0x51, 0x03, 0x06, 0x87, 0xE0};
+        for (int rep = 0; rep < 4; rep++)
+            for (uint8_t p : {60, 64, 67, 72}) {
+                const uint8_t on[] = {0x00, 0x90, p, 90, 0x83, 0x60, 0x80, p, 0};
+                trk.insert(trk.end(), on, on + sizeof on);
+            }
+        const uint8_t eot[] = {0x00, 0xFF, 0x2F, 0x00};
+        trk.insert(trk.end(), eot, eot + sizeof eot);
+        std::vector<uint8_t> f = {'M', 'T', 'h', 'd', 0, 0, 0, 6, 0, 1, 0, 1, 0x01, 0xE0, 'M', 'T', 'r', 'k', 0, 0,
+                                  (uint8_t)(trk.size() >> 8), (uint8_t)trk.size()};
+        f.insert(f.end(), trk.begin(), trk.end());
+        CHECK(bk_analyze_midi(f.data(), f.size(), &r, err, sizeof err) == BK_OK, "%s", err);
+        CHECK(r.bpm == 140.2 && r.bpm_exact == 140.19 && std::string(r.keys[0].name) == "C" && !r.has_tuning,
+              "MIDI: bpm %.2f (%.2f) key %s", r.bpm, r.bpm_exact, r.keys[0].name);
+    }
+    CHECK(bk_analyze_buffer(x.data(), x.size(), 48000, &r, err, sizeof err) == BK_OK, "%s", err);
     CHECK(std::fabs(r.bpm_exact - 120.0) < 0.05 || std::fabs(r.bpm_exact - 60.0) < 0.05 || std::fabs(r.bpm_exact - 240.0) < 0.05,
           "bpm %.1f exact %.2f", r.bpm, r.bpm_exact);
     CHECK(r.has_bpm == 1 && r.has_bpm_exact == 1, "file readings always carry a BPM");
@@ -413,6 +453,7 @@ void test_live() {
     }
     CHECK(s.song == 1 && s.reading_song == 0 && s.seq > seq_before, "song %llu reading_song %llu", (unsigned long long)s.song, (unsigned long long)s.reading_song);
     CHECK(log_has_since(mark, "new song: announced"), "no log line for the new song");
+    CHECK(s.song_why == BK_SONG_ANNOUNCED, "song_why %d after bk_analyzer_new_song", s.song_why);
 
     // silence: 3 s of it flips `silent`
     std::vector<float> zeros((size_t)rate * 4, 0.0f);
@@ -427,6 +468,7 @@ void test_live() {
         sleep_ms(10);
     }
     CHECK(s.silent == 1, "4 s of zeros did not read as silence");
+    CHECK(s.silence_db <= -50.0, "silence_db %.1f", s.silence_db);
     CHECK(log_has_since(mark, "silence: 3 s under -50 dB"), "no log line for the silence");
 
     // garbage from the host: refused, said, heard as silence; the analyzer keeps going

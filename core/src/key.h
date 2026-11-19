@@ -36,6 +36,14 @@ struct KeyReading {
 // frames: HPCP rows at A = 440; peaks: their spectral peaks (same count), or empty.
 KeyReading key_reading(const std::vector<HpcpFrame> &frames, const std::vector<Peaks> &peaks);
 
+// The pieces a profile that is not HPCP (a MIDI file's note durations) is read with, so key
+// scoring has one owner: key_scores (float64 profile, bin 0 = C), max(scores, key=scores.get),
+// top3_with_confidence.  Index as in KeyReading::scores.
+using KeyScores = std::array<double, 24>;
+KeyScores key_scores_f64(const double pcp[12]);
+int key_winner(const KeyScores &s);
+void key_top3(const KeyScores &s, double agree, KeyGuess out[3]);
+
 // "C", "Db", ... / "Cm", "C#m", ...: index as in KeyReading::scores.
 std::string key_name(int index);
 

@@ -14,9 +14,12 @@
 #include <cstddef>
 #include <string>
 
+#include "beatkey.h"
+
 namespace bk {
 
 void log_set_dir(const char *dir);            // NULL / "" = the env / default rule
+void log_set_sink(bk_log_sink sink, void *ctx);   // NULL = the file again
 void log_set_roll_bytes(size_t bytes);        // tests lower it; 0 = the 1 MB default
 std::string log_path();                       // "" when no folder can be found
 void logv(const char *area, const char *fmt, va_list ap);
