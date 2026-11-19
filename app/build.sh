@@ -298,7 +298,7 @@ spctl -a -vv -t install "$PKG"
 # enclosure is the release asset URL; APPCAST_DOWNLOAD_PREFIX overrides it for a local test feed.
 ED_FILE="${SPARKLE_ED_FILE:-$HOME/.config/beat-key/sparkle_ed25519_private}"
 SPARKLE_BIN="$APP/.build/artifacts/sparkle/Sparkle/bin"
-DL_PREFIX="${APPCAST_DOWNLOAD_PREFIX:-https://github.com/thuhmadhatter42/beat_dl/releases/download/Beat-Key-$VER/}"
+DL_PREFIX="${APPCAST_DOWNLOAD_PREFIX:-https://github.com/thuhmadhatter42/Orion/releases/download/Beat-Key-$VER/}"
 APPCAST="$B/appcast.xml"
 echo "== appcast ($APPCAST)"
 [ -f "$ED_FILE" ] || { echo "no Sparkle EdDSA signing file (app/RELEASING.md)"; exit 1; }
@@ -310,10 +310,10 @@ cat > "$APPCAST" <<XML
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
     <title>$APP_NAME</title>
-    <link>https://github.com/thuhmadhatter42/beat_dl/releases</link>
+    <link>https://github.com/thuhmadhatter42/Orion/releases</link>
     <item>
       <title>$APP_NAME $VER</title>
-      <link>https://github.com/thuhmadhatter42/beat_dl/releases/tag/Beat-Key-$VER</link>
+      <link>https://github.com/thuhmadhatter42/Orion/releases/tag/Beat-Key-$VER</link>
       <pubDate>$(LC_ALL=C date -u '+%a, %d %b %Y %H:%M:%S +0000')</pubDate>
       <sparkle:version>$VER</sparkle:version>
       <sparkle:shortVersionString>$VER</sparkle:shortVersionString>

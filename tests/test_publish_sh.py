@@ -43,7 +43,7 @@ echo "unexpected stub call: $name $*" >&2; exit 99
 APPCAST = """<rss><channel><item>
 <sparkle:version>{v}</sparkle:version>
 <sparkle:shortVersionString>{v}</sparkle:shortVersionString>
-<enclosure url="https://github.com/thuhmadhatter42/beat_dl/releases/download/Beat-Key-{v}/Beat-Key-{v}.dmg" />
+<enclosure url="https://github.com/thuhmadhatter42/Orion/releases/download/Beat-Key-{v}/Beat-Key-{v}.dmg" />
 </item></channel></rss>
 """
 

@@ -63,7 +63,7 @@ final class BeatKeyTests: XCTestCase {
         let file = app.deletingLastPathComponent()
             .appendingPathComponent("THIRD-PARTY-LICENSES.md")
         let text = try String(contentsOf: file, encoding: .utf8)
-        XCTAssertTrue(text.contains("Source for Beat Key and its modifications: https://github.com/thuhmadhatter42/beat_dl"))
+        XCTAssertTrue(text.contains("Source for Beat Key and its modifications: https://github.com/thuhmadhatter42/Orion"))
         for needle in ["GNU AFFERO GENERAL PUBLIC LICENSE", "GNU GENERAL PUBLIC LICENSE", "CC BY-NC-SA 4.0",
                        "Essentia", "yt-dlp", "FFmpeg", "Deno"] {
             XCTAssertTrue(text.contains(needle), needle)
@@ -229,7 +229,7 @@ final class BeatKeyTests: XCTestCase {
             .deletingLastPathComponent().deletingLastPathComponent()      // app/
         let plist = try XCTUnwrap(NSDictionary(contentsOf: app.appendingPathComponent("Info.plist")))
         XCTAssertEqual(plist["SUFeedURL"] as? String,
-                       "https://github.com/thuhmadhatter42/beat_dl/releases/latest/download/appcast.xml")
+                       "https://github.com/thuhmadhatter42/Orion/releases/latest/download/appcast.xml")
         let key = try XCTUnwrap(plist["SUPublicEDKey"] as? String)
         XCTAssertEqual(Data(base64Encoded: key)?.count, 32)               // an ed25519 public key
         XCTAssertEqual(plist["SUEnableAutomaticChecks"] as? Bool, true)   // no "check automatically?" prompt

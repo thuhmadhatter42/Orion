@@ -2,7 +2,7 @@
 
 Beat Key updates itself with Sparkle 2 (Beat Key › Check for Updates…, the daily automatic check,
 and the check at the end of Run Doctor). It reads
-`https://github.com/thuhmadhatter42/beat_dl/releases/latest/download/appcast.xml`, which GitHub
+`https://github.com/thuhmadhatter42/Orion/releases/latest/download/appcast.xml`, which GitHub
 redirects to the `appcast.xml` asset of the newest non-draft, non-prerelease release. So every
 release must carry an `appcast.xml`, or update checks fail with a 404.
 
@@ -29,7 +29,7 @@ release must carry an `appcast.xml`, or update checks fail with a 404.
    Sparkle updates only), both signed (the pkg with `Developer ID Installer: J Shriver (9WTFGV63S2)`,
    override `PKG_SIGN_IDENTITY`), notarized and stapled, and `app/build/appcast.xml` (one
    item for that DMG, EdDSA-signed, enclosure
-   `https://github.com/thuhmadhatter42/beat_dl/releases/download/Beat-Key-<ver>/Beat-Key-<ver>.dmg`).
+   `https://github.com/thuhmadhatter42/Orion/releases/download/Beat-Key-<ver>/Beat-Key-<ver>.dmg`).
 3. Commit everything (the script needs HEAD on `main` with tracked files clean), then publish with
    `bash tools/publish.sh`, which reads `VERSION`. Since 0.1.62 it does all of this in three phases
    and logs to `app/build/publish-<ver>.log`:
@@ -44,7 +44,7 @@ release must carry an `appcast.xml`, or update checks fail with a 404.
      `beat-key-latest.json` on Sofia names `<ver>`. Only then it prints `PUBLISHED <ver>`; any
      failure prints which public steps already happened.
    Auto mode may block public pushes; then J runs it: `! bash ~/dev/beat_dl/tools/publish.sh`.
-4. After it: `curl -sIL https://github.com/thuhmadhatter42/beat_dl/releases/latest/download/appcast.xml`
+4. After it: `curl -sIL https://github.com/thuhmadhatter42/Orion/releases/latest/download/appcast.xml`
    ends in `200` and the file names `<ver>`.
 
 ## The pkg installer
