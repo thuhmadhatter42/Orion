@@ -527,8 +527,6 @@ final class LiveController: ObservableObject {
     private var quitObserver: NSObjectProtocol?
     private let fillLock = NSLock()
     private var generation = 0
-    /// The last minute heard, for a "Wrong, it's X" teach record (fillLock guards it).
-    private var clip = ClipRing(seconds: 60, sampleRate: LiveProcess.sampleRate)
 
     init(settings: LiveSettings, launch: @escaping LiveLauncher,
          makeCapture: @escaping (LiveSource) -> AudioCapture? = LiveController.realCapture,
@@ -623,7 +621,7 @@ final class LiveController: ObservableObject {
         session.begin(why: songWhy)
         publish()
         songs.begin(signal: p as? SongSignal)
-        fillLock.lock(); filler = SilenceFiller(now: now()); clip.clear()
+        fillLock.lock(); filler = SilenceFiller(now: now())
         window = LevelWindow(); windowSince = now(); fillLock.unlock()
         run(cap, into: p, gen: gen)
         let t = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in self?.fillSilence() }
@@ -645,7 +643,7 @@ final class LiveController: ObservableObject {
             let pk = samples.reduce(Float(0)) { max($0, abs($1)) }
             self.fillLock.lock(); self.filler?.heard(at: self.now()); self.peak = max(self.peak, pk)
             self.window.add(samples, peak: pk)
-            self.clip.append(samples); self.fillLock.unlock()
+            self.fillLock.unlock()
             p?.write(samples)
         }, onError: { [weak self] message in
             DispatchQueue.main.async { self?.fail(message, gen: gen) }
@@ -729,12 +727,6 @@ final class LiveController: ObservableObject {
         case .input: return "input \(name)"
         case .app(let id): return "only the app \(id)"
         }
-    }
-
-    /// Up to the last minute of audio heard since Listen (or New Song) started.
-    func recentClip() -> [Float] {
-        fillLock.lock(); defer { fillLock.unlock() }
-        return clip.last
     }
 
     func fillSilence() {

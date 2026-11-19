@@ -50,7 +50,7 @@ One owner per behavior; each idea extends the module that already owns it. Read 
 5. **Broadcast to Artemis** — new chair `Broadcast`, fed only from the one reading source (live `LiveEvent.reading` and file results), never posted from views. Contract in the Artemis handoff §Protocol.
 
 ## 6. A picked key pins; the detector never stops (J, 02:58 on D-ed342f5288 item 1)
-- **[BUILT 0.1.77]** pinned key keeps its slot (Result.keyInUse; no reorder). Gap a and b below are both closed: b = J ruled 2026-11-18 a MANUAL-menu pick teaches nothing (74601be). Leftover: KeyTeach.save and its label types are unused (cleanup open).
+- **[BUILT 0.1.77]** pinned key keeps its slot (Result.keyInUse; no reorder). Gap a and b below are both closed: b = J ruled 2026-11-18 a MANUAL-menu pick teaches nothing (74601be). Cleanup done: KeyTeach.save, TeachStore, TeachLabel, TeachAudio, TeachSource, ClipRing, Wav, LiveController.recentClip removed; KeyTeach.teach renamed KeyTeach.pin.
 - Clicking a key (top-3 slot, wheel, MANUAL menu, keyboard: every path) pins it: dial, wheel, piano, chords show it, and it is what gets broadcast (Artemis, Auto-Tune send, rename tag).
 - The detector keeps running and showing its opinion. The pinned slot stays where it is (slot 2 stays B♭ in slot 2); the other slots keep updating.
 - Click the pinned slot again → unpinned, slot shows whatever the detector now has there.
