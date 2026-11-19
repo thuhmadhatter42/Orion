@@ -112,11 +112,11 @@ final class HelpPagesTests: XCTestCase {
         }
     }
 
-    /// The newest What's New section is 0.1.78 (the next ship; VERSION is bumped by the release, not here).
+    /// The newest What's New section is 0.1.79 (the next ship; VERSION is bumped by the release, not here).
     /// When a later version ships, add its section on top and change this line.
     func testWhatsNewHasTheCurrentVersion() throws {
         let text = try page("WhatsNew.html")
-        XCTAssertTrue(text.contains("<h2>0.1.78</h2>"))
+        XCTAssertTrue(text.contains("<h2>0.1.79</h2>"))
     }
 
     /// Licenses.txt is generated from THIRD-PARTY-LICENSES.md + LICENSE: both are in it.
