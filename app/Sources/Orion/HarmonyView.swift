@@ -457,7 +457,7 @@ struct KeyWheel: View {
         }
         .frame(width: KeyWheel.side, height: KeyWheel.side)
         // the hover card rides the surface's card layer, at the mouse (Help.swift)
-        .hoverCard(hover.map(tip(for:)), width: 196)
+        .hoverCard(hover.map(tip(for:)), width: 196, follow: true)
         .accessibilityElement(children: .contain)
         .accessibility(label: Text("Key wheel"))
     }
