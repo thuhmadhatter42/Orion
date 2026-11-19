@@ -1,0 +1,7 @@
+module CBeatKey [system] {
+    header "shim.h"
+    link "beatkey"
+    link "c++"
+    link framework "Accelerate"
+    export *
+}

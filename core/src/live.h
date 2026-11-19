@@ -4,7 +4,8 @@
  *     `bpm.py --stream` does); a rate other than 44.1 kHz is resampled chunk by chunk;
  *   - the last 12 s are kept for TempoCNN and the last 30 s of HPCP frames for the key;
  *   - a reading every 2 s of sound, once 4 s have been heard; a BPM once 12 s are buffered;
- *   - 3 s under -50 dB = a new song: one last reading, then everything is dropped ("reset");
+ *   - 3 s under -50 dB = a new song: one last reading, then everything is dropped ("reset")
+ *     (bpm.py --gap: another length of silence may be given; 0 = 3 s);
  *   - a new song with no pause is found by BoundaryDetector, or announced by new_song().
  * It returns events, exactly the dicts bpm.py prints.  Not thread-safe: the worker owns it.
  */
@@ -45,7 +46,9 @@ struct LiveEvent {
 
 class LiveAnalyzer {
 public:
-    explicit LiveAnalyzer(double rate);
+    explicit LiveAnalyzer(double rate, double gap = 0.0);
+    double gap() const { return gap_; }
+    void set_gap(double seconds) { gap_ = seconds; }   // 1..30, checked by the caller
     // Feed mono float32 at `rate`; the events it causes are appended to `events`.
     void push(const float *chunk, size_t n, std::vector<LiveEvent> &events);
     // "New song, start over" (the player's title changed, or the user said so).
@@ -66,6 +69,7 @@ private:
     bool reading(LiveEvent *out);
 
     double rate_;
+    double gap_;                           // seconds of silence that mean a new song
     BoundaryDetector detector_;
     std::vector<float> audio_;             // last 12 s at 44.1 kHz (tempo)
     std::vector<float> carry_;             // samples not yet framed for HPCP

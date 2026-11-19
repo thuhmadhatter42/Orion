@@ -202,22 +202,14 @@ final class ListenLogTests: XCTestCase {
 
     // MARK: proof: a synthetic song through the real live path → the log lines
 
-    /// A 120 BPM click over an A-minor drone, fed like a capture into the real `bpm.py --stream`
+    /// A 120 BPM click over an A-minor drone, fed like a capture into the real core (CoreLive)
     /// through LiveController: the log gets a level line each second and the readings as they change.
     func testSyntheticStreamThroughTheLivePathLogsLevelsAndReadings() throws {
-        let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .deletingLastPathComponent().deletingLastPathComponent()
-        let script = repo.appendingPathComponent("bpm.py")
-        let python = [repo.appendingPathComponent("bin/python/bin/python3"),
-                      URL(fileURLWithPath: "/Users/jshriver/dev/beat_dl/bin/python/bin/python3")]
-            .first { FileManager.default.isExecutableFile(atPath: $0.path) }
-        guard let py = python else { throw XCTSkip("no bundled Python (bin/python)") }
+        let weights = CoreTestSupport.weights
+        guard FileManager.default.fileExists(atPath: weights.path) else { throw XCTSkip("no core weights at \(weights.path)") }
         var clock = t0
         let cap = FakeCapture()
-        let launch: LiveLauncher = { gap, onLine, onExit in
-            LiveProcess(executable: py, arguments: [script.path, "--stream", "--rate", "44100", "--gap", String(gap)],
-                        environment: ["PATH": "/usr/bin:/bin"], onLine: onLine, onExit: onExit)
-        }
+        let launch = CoreLive.launcher(weights: weights)
         let c = LiveController(settings: LiveSettings(defaults: defaults(), systemAvailable: false),
                                launch: launch, makeCapture: { _ in cap }, now: { clock }, devices: { [] })
         c.start()
@@ -232,6 +224,7 @@ final class ListenLogTests: XCTestCase {
             cap.onSamples?(samples)
             clock += 0.1
             c.tickLevel()
+            Thread.sleep(forTimeInterval: 0.03)   // a capture is real time; the core's ring holds ~11 s
         }
         let deadline = Date().addingTimeInterval(120)
         func bpms() -> [Double] {
@@ -256,22 +249,14 @@ final class ListenLogTests: XCTestCase {
         XCTAssertFalse(got.contains { $0.hasPrefix("[LiveSession] listen: off · source ") && $0 == got.first }, text)
     }
 
-    /// The owner's complaint through the real `bpm.py --stream`: music, then a -60 dB RMS tone
+    /// The owner's complaint through the real core (CoreLive): music, then a -60 dB RMS tone
     /// (peaks at -57 dBFS, over the app's old -70 dB line, under the analyzer's -50 dB one). The
     /// analyzer's silence reaches the LCD as NO SOUND, with the reset, and music clears it.
     func testQuietSourceThroughTheRealAnalyzerShowsNoSound() throws {
-        let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .deletingLastPathComponent().deletingLastPathComponent()
-        let script = repo.appendingPathComponent("bpm.py")
-        let python = [repo.appendingPathComponent("bin/python/bin/python3"),
-                      URL(fileURLWithPath: "/Users/jshriver/dev/beat_dl/bin/python/bin/python3")]
-            .first { FileManager.default.isExecutableFile(atPath: $0.path) }
-        guard let py = python else { throw XCTSkip("no bundled Python (bin/python)") }
+        let weights = CoreTestSupport.weights
+        guard FileManager.default.fileExists(atPath: weights.path) else { throw XCTSkip("no core weights at \(weights.path)") }
         let cap = FakeCapture()
-        let launch: LiveLauncher = { gap, onLine, onExit in
-            LiveProcess(executable: py, arguments: [script.path, "--stream", "--rate", "44100", "--gap", String(gap)],
-                        environment: ["PATH": "/usr/bin:/bin"], onLine: onLine, onExit: onExit)
-        }
+        let launch = CoreLive.launcher(weights: weights)
         let c = LiveController(settings: LiveSettings(defaults: defaults(), systemAvailable: false),
                                launch: launch, makeCapture: { _ in cap }, devices: { [] })
         c.start()
@@ -284,15 +269,15 @@ final class ListenLogTests: XCTestCase {
             }
         }
         let quiet = (0..<4410).map { Float(0.001 * 2.0.squareRoot() * sin(2 * .pi * 1000 * Double($0) / sr)) }
-        for piece in 0..<50 { cap.onSamples?(music(piece)) }           // 5 s of music
-        for _ in 0..<60 { cap.onSamples?(quiet) }                       // 6 s at -60 dB RMS
+        for piece in 0..<50 { cap.onSamples?(music(piece)); Thread.sleep(forTimeInterval: 0.03) }           // 5 s of music
+        for _ in 0..<60 { cap.onSamples?(quiet); Thread.sleep(forTimeInterval: 0.03) }                       // 6 s at -60 dB RMS
         func wait(until ok: () -> Bool) {
             let deadline = Date().addingTimeInterval(120)
             while Date() < deadline, !ok() { RunLoop.main.run(until: Date().addingTimeInterval(0.1)) }
         }
         wait { c.notice != nil }
         XCTAssertEqual(c.notice, LiveController.noSoundNotice, logged().joined(separator: "\n"))
-        for piece in 0..<10 { cap.onSamples?(music(piece)) }           // music again
+        for piece in 0..<10 { cap.onSamples?(music(piece)); Thread.sleep(forTimeInterval: 0.03) }           // music again
         wait { c.notice == nil }
         XCTAssertNil(c.notice)
         c.stop(reason: "user stop")

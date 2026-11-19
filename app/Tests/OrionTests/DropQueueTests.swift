@@ -27,7 +27,7 @@ final class DropQueueTests: XCTestCase {
 
     func testFilesArrivingWhileADownloadRunsAreQueuedThenAnalysedWhenItEnds() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f)
+        let e = Engine(runtime: rt(), launcher: f, jobs: f)
         e.download("https://a"); waitLaunch(f, 1)
         e.submit([u("a.wav"), u("b.wav")])
         XCTAssertEqual(e.queued, 2)
@@ -44,7 +44,7 @@ final class DropQueueTests: XCTestCase {
 
     func testIdleSubmitStartsAtOnce() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f)
+        let e = Engine(runtime: rt(), launcher: f, jobs: f)
         e.submit([u("a.wav")]); waitLaunch(f, 1)
         XCTAssertEqual(args(f, 0), ["analyze", "/music/a.wav"])
         XCTAssertEqual(e.queued, 0)
@@ -52,7 +52,7 @@ final class DropQueueTests: XCTestCase {
 
     func testQueueIsFIFOAndAllResultsPageTogether() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f)
+        let e = Engine(runtime: rt(), launcher: f, jobs: f)
         e.submit([u("1.wav")]); waitLaunch(f, 1)
         e.submit([u("2.wav")]); e.submit([u("3.wav"), u("4.wav")])
         XCTAssertEqual(e.queued, 3)
@@ -68,7 +68,7 @@ final class DropQueueTests: XCTestCase {
 
     func testDuplicatePathsAreDroppedFromQueueAndFromTheRunningJob() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f)
+        let e = Engine(runtime: rt(), launcher: f, jobs: f)
         e.submit([u("a.wav"), u("a.wav")]); waitLaunch(f, 1)
         XCTAssertEqual(args(f, 0), ["analyze", "/music/a.wav"], "twice in one drop = once")
         e.submit([u("a.wav"), u("b.wav")])          // a is already running
@@ -80,7 +80,7 @@ final class DropQueueTests: XCTestCase {
 
     func testAFailedFileInTheQueueSurfacesAsAFailedResult() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f)
+        let e = Engine(runtime: rt(), launcher: f, jobs: f)
         e.submit([u("1.wav")]); waitLaunch(f, 1)
         e.submit([u("2.wav")])
         f.onLine?(line("1.wav")); f.onExit?(0); waitLaunch(f, 2)
@@ -93,7 +93,7 @@ final class DropQueueTests: XCTestCase {
 
     func testFailureOfTheMiddleJobDoesNotStopTheRestOfTheQueue() {
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f)
+        let e = Engine(runtime: rt(), launcher: f, jobs: f)
         e.submit([u("1.wav")]); waitLaunch(f, 1)
         e.submit([u("2.wav")])
         f.onExit?(1)                                   // job 1 dies without a result
@@ -110,7 +110,7 @@ final class DropQueueTests: XCTestCase {
         AppLog.sink = { lines.append($0) }
         defer { AppLog.sink = nil }
         let f = FakeLauncher()
-        let e = Engine(runtime: rt(), launcher: f)
+        let e = Engine(runtime: rt(), launcher: f, jobs: f)
         e.download("https://a"); waitLaunch(f, 1)
         e.submit([u("secret-name.wav"), u("secret-name.wav"), u("b.wav")])
         f.onLine?(#"{"stage":"done","file":"/d.mp3","name":"d.mp3","bpm":"90.0","keys":[]}"#); f.onExit?(0)

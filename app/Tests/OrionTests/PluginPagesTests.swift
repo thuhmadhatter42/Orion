@@ -105,7 +105,7 @@ final class PluginPagesTests: XCTestCase {
 
     func testThirdPartyListNamesAllThreePlugInSdks() throws {
         let third = try String(contentsOf: repo.appendingPathComponent("THIRD-PARTY-LICENSES.md"), encoding: .utf8)
-        for needle in ["VST3 plug-in interfaces", "AudioUnitSDK", "AAX SDK", "GPL-3.0, the SDK's own", "libsamplerate",
+        for needle in ["VST3 plug-in interfaces", "AudioUnitSDK", "AAX SDK", "GPL-3.0 (the SDK's open-source option", "libsamplerate",
                        "never compiled in"] {
             XCTAssertTrue(third.contains(needle), "THIRD-PARTY-LICENSES.md lacks \"\(needle)\"")
         }

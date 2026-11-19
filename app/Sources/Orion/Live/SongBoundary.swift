@@ -3,10 +3,10 @@ import Foundation
 
 // New-song detection for live listening (J, 2026-11-01: ten beats back to back with no pause held
 // one reading for 30 minutes). Two signals, one event:
-//  - the analyzer hears a break (`bpm.py --stream` BoundaryDetector: the old song's sustained parts
-//    vanish AND its beat grid breaks / the harmony jumps) and prints {"event":"boundary"};
+//  - the analyzer hears a break (the core's BoundaryDetector: the old song's sustained parts
+//    vanish AND its beat grid breaks / the harmony jumps) and says {"event":"boundary"};
 //  - the player says so: Spotify's track or a YouTube tab's title changed (NowPlayingWatcher). Beat
-//    Key then tells the analyzer to start over (SIGUSR1) and it answers with a "title" boundary.
+//    Key then tells the analyzer to start over (CoreLive.newSong) and it answers with a "title" boundary.
 // Either way the analyzer has flushed and the reading rebuilds from scratch. Each song heard long
 // enough becomes its own Recent Readings entry (SongTracker).
 
@@ -39,12 +39,6 @@ protocol SongSignal: AnyObject {
     func newSong()
 }
 
-extension LiveProcess: SongSignal {
-    /// bpm.py --stream flushes on SIGUSR1 and answers {"event":"boundary","reason":"title"}.
-    func newSong() {
-        if process.isRunning { kill(process.processIdentifier, SIGUSR1) }
-    }
-}
 
 // MARK: one song's log
 

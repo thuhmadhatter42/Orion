@@ -2,11 +2,11 @@ import AppKit
 import SwiftUI
 
 // Add key + BPM to a file's name (J, 2026-11-18, idea 2). Chairs, one owner each:
-//   the tag's FORMAT and its recogniser ... app_run.py (renamed_name / is_tagged / rename_file);
-//                                          Swift never builds or parses a name.
+//   the tag's FORMAT, its recogniser, the renamer ... FileTag (FileJobs.swift); nothing else
+//                                          builds or parses a name.
 //   the POLICY (ask / remember / Pro Tools guard) ... RenameCoordinator, below.
 //   the remembered choice ... RenameSettings (Settings shows and changes the same value).
-//   running the helper and refreshing the paths ... Engine.rename / Engine.applyRenamed.
+//   running the rename and refreshing the paths ... Engine.rename / Engine.applyRenamed.
 // Every step is logged to beatkey.log (counts and answers, never a file name).
 
 /// What Beat Key does after it reads a file: ask, or the remembered answer.
@@ -48,8 +48,8 @@ enum ProToolsGuard {
     }
 }
 
-/// One file to tag: the helper's `rename <file> <bpm> <key>...` arguments. `keys` = the key in use
-/// first, then the detector's others; the helper writes the first `KEY_COUNT` (app_run.py).
+/// One file to tag (FileJobs.rename). `keys` = the key in use first, then the detector's others;
+/// the name carries the first `FileTag.keyCount`.
 struct RenameItem: Equatable {
     let file: URL
     let bpm: String

@@ -19,7 +19,7 @@ struct OrionApp: App {
     /// The clipboard link and the source name, shared by the window and the popover.
     @StateObject private var extras = PocketExtras()
     @StateObject private var live = LiveController(settings: LiveSettings(),
-                                                   launch: LiveProcess.launcher(runtime: .appDefault()))
+                                                   launch: CoreLive.launcher())
 
     init() {
         let session = YouTubeSession()
