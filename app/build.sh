@@ -35,7 +35,7 @@ security find-identity -v -p codesigning | grep -qF "\"$IDENTITY\"" \
 # Installer certificates are not "codesigning" identities: list them all
 security find-identity -v | grep -qF "\"$PKG_IDENTITY\"" \
   || { echo "no '$PKG_IDENTITY' installer identity in the keychain"; exit 1; }
-for f in "$APP/pkg/distribution.xml" "$APP/pkg/postinstall"; do
+for f in "$APP/pkg/distribution.xml" "$APP/pkg/postinstall" "$APP/pkg/plugin-pkgs.sh" "$APP/pkg/plugin-postinstall" "$APP/pkg/plugins-distribution.xml"; do
   [ -f "$f" ] || { echo "missing $f"; exit 1; }
 done
 for f in "$APP/icon/Orion.icns" "$APP/icon/Assets.xcassets/AppIcon.appiconset/Contents.json" "$APP/dmg/background.png" "$APP/dmg/background@2x.png"; do
@@ -64,6 +64,15 @@ fi
 # stale behind an old runtime; only the heavy part (python, essentia, ffmpeg) is conditional.
 "$APP/runtime.sh" scripts
 "$APP/runtime.sh" sign
+
+echo "== plug-ins (AU, VST3, AAX: built and signed by plugin/build.sh, packed by app/pkg/plugin-pkgs.sh)"
+# They are choices inside this one installer and ride inside the app as Beat-Key-Plug-ins.pkg (Update Plug-ins…).
+# The packages are made BEFORE the app is assembled: the app's seal covers the package it carries.
+# BEATKEY_PLUGINS_PREBUILT=1 skips plugin/build.sh and packs what is already in plugin/build.noindex.
+export PKG_SIGN_IDENTITY="$PKG_IDENTITY" BEATKEY_VERSION="$VER" BEATKEY_PKG_LOG="$B/plugin-pkgs.log"
+mkdir -p "$B"; : > "$BEATKEY_PKG_LOG"
+[ "${BEATKEY_PLUGINS_PREBUILT:-0}" = 1 ] || sh "$ROOT/plugin/build.sh"
+"$APP/pkg/plugin-pkgs.sh" build "$B/plugin-pkgs" || { echo "the plug-in packages were refused (reason above, log $BEATKEY_PKG_LOG)"; exit 1; }
 
 echo "== assemble $OUTAPP"
 rm -rf "$OUTAPP"
@@ -94,6 +103,8 @@ for f in Manual.html WhatsNew.html; do
 done
 sh "$APP/tools/licenses.sh" "$OUTAPP/Contents/Resources/Licenses.txt" \
   || { echo "could not generate Licenses.txt (THIRD-PARTY-LICENSES.md + LICENSE)"; exit 1; }
+# The plug-ins alone, for Beat Key menu > Update Plug-ins… (opens it in Installer; PluginUpdate.swift)
+cp "$B/plugin-pkgs/Beat-Key-Plug-ins.pkg" "$OUTAPP/Contents/Resources/Beat-Key-Plug-ins.pkg"
 # House kit, Uninstall: App menu > Uninstall Beat Key… runs this script on this manifest (app/uninstall/)
 for f in uninstall.sh uninstall.manifest; do
   [ -f "$APP/uninstall/$f" ] || { echo "missing $APP/uninstall/$f"; exit 1; }
@@ -242,7 +253,8 @@ echo "== pkg"
 # Installs to /Applications/Beat Key.app and nowhere else: BundleIsRelocatable=false, or Installer
 # "upgrades" a copy it finds elsewhere (app/build/Beat Key.app, a DMG volume) instead.
 # distribution.xml's installation-check stops the installer while Beat Key is running;
-# postinstall opens Beat Key for the logged-in user (log lines "Beat Key postinstall:" in /var/log/install.log).
+# postinstall opens Beat Key for the logged-in user (log lines "Beat Key postinstall:" in /var/log/install.log and
+# in ~/Library/Logs/Beat Key/install.log; the plug-in packages log the same way).
 PK="$B/pkg-stage"
 rm -rf "$PK" "$PKG"
 mkdir -p "$PK/root" "$PK/scripts" "$PK/pkgs"
@@ -263,10 +275,12 @@ plutil -lint "$PK/component.plist" >/dev/null
 pkgbuild --root "$PK/root" --component-plist "$PK/component.plist" --scripts "$PK/scripts" \
   --identifier "$BUNDLE_ID.pkg" --version "$VER" --install-location /Applications \
   "$PK/pkgs/Beat-Key-component.pkg"
-sed "s/@VERSION@/$VER/g" "$APP/pkg/distribution.xml" > "$PK/distribution.xml"
-xmllint --noout "$PK/distribution.xml"
+# The plug-ins are choices in this same installer: one component package each (AU, VST3, AAX), built before the app.
+cp "$B/plugin-pkgs/components/"*.pkg "$PK/pkgs/"
+"$APP/pkg/plugin-pkgs.sh" distribution "$APP/pkg/distribution.xml" "$PK/distribution.xml" "$VER" "$B/plugin-pkgs"
 productbuild --distribution "$PK/distribution.xml" --package-path "$PK/pkgs" --sign "$PKG_IDENTITY" --timestamp "$PKG"
 pkgutil --check-signature "$PKG"
+"$APP/pkg/plugin-pkgs.sh" verify "$PKG"      # expand it, re-verify every bundle inside, check where each installs
 rm -rf "$PK"
 echo "pkg: $PKG ($(du -h "$PKG" | cut -f1))"
 
@@ -291,6 +305,7 @@ notarize_and_staple "$DMG"
 spctl -a -vv -t open --context context:primary-signature "$DMG"
 notarize_and_staple "$PKG"
 spctl -a -vv -t install "$PKG"
+"$APP/pkg/plugin-pkgs.sh" verify "$PKG"      # the stapled package, expanded again: every bundle still verifies
 
 # ---- BEGIN sparkle: appcast.xml for this DMG (attach both to the GitHub release) ----
 # One <item>: the stapled DMG, EdDSA-signed by sign_update with the exported signing file (no
