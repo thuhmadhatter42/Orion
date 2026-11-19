@@ -2,10 +2,24 @@
 # Beat Key installer, postinstall. Runs as root, after the files are in place. Opens Beat Key for the
 # person who is logged in at the screen (never as root). Never fails the install: whatever happens
 # here, the exit is 0. Installer scripts' output goes to /var/log/install.log; every line is
-# prefixed "Beat Key postinstall:" and also sent to syslog (logger -t BeatKeyInstaller).
+# prefixed "Beat Key postinstall:", sent to syslog (logger -t BeatKeyInstaller) and, for the person at the
+# screen, appended to ~/Library/Logs/Beat Key/install.log (written AS that person, so a link in their
+# folder cannot aim root at a system file; no /tmp). The plug-in packages log the same way
+# (app/pkg/plugin-postinstall).
 # $1 = package path, $2 = install location, $3 = target volume, $4 = installer's script directory.
 APP="/Applications/Beat Key.app"
-say() { echo "Beat Key postinstall: $*"; /usr/bin/logger -t BeatKeyInstaller "postinstall: $*" 2>/dev/null; }
+CU=""
+if [ "${3:-/}" = "/" ]; then
+  CU="$(/usr/bin/stat -f%Su /dev/console 2>/dev/null)"
+  case "$CU" in ''|root|loginwindow) CU="" ;; esac
+fi
+say() {
+  echo "Beat Key postinstall: $*"; /usr/bin/logger -t BeatKeyInstaller "postinstall: $*" 2>/dev/null
+  [ -n "$CU" ] || return 0
+  H="$(/usr/bin/dscl . -read "/Users/$CU" NFSHomeDirectory 2>/dev/null | /usr/bin/sed 's/^NFSHomeDirectory: //')"
+  [ -d "$H" ] || return 0
+  /usr/bin/sudo -u "$CU" /bin/sh -c 'd="$1/Library/Logs/Beat Key"; [ -L "$d" ] && exit 0; /bin/mkdir -p "$d" && printf "%s\n" "$2" >> "$d/install.log"' sh "$H" "$(/bin/date '+%Y-%m-%d %H:%M:%S') [installer] app: $*" 2>/dev/null
+}
 
 say "start: package '${1:-?}', location '${2:-?}', target volume '${3:-?}', uid $(/usr/bin/id -u)"
 V="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "${3%/}$APP/Contents/Info.plist" 2>/dev/null || echo '?')"

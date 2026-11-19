@@ -28,8 +28,22 @@ data     Library/Application Support/Orion
 data     Library/Application Support/Beat Key
 data     Library/Preferences/com.jshriver.orion.plist
 
-# The .pkg installer's receipt (the download is a .pkg). This is what makes the run ask for the password.
+# The .pkg installer's receipts (the download is a .pkg: the app and one per plug-in format). This is what makes the run ask for the password.
 receipt  com.jshriver.orion.pkg
+receipt  com.jshriver.orion.plugin.au.pkg
+receipt  com.jshriver.orion.plugin.vst3.pkg
+receipt  com.jshriver.orion.plugin.aax.pkg
+
+# The plug-ins (plan step 16): the installer lays them down system-wide, so these need the password. A copy dragged into
+# the user's own Plug-Ins folder (or the validator gate's test install) goes too. Paths absent on this Mac are skipped.
+system  /Library/Audio/Plug-Ins/Components/Beat Key.component
+system  /Library/Audio/Plug-Ins/VST3/Beat Key.vst3
+system  /Library/Application Support/Avid/Audio/Plug-Ins/Beat Key.aaxplugin
+user    Library/Audio/Plug-Ins/Components/Beat Key.component
+user    Library/Audio/Plug-Ins/VST3/Beat Key.vst3
+user    Library/Application Support/Avid/Audio/Plug-Ins/Beat Key.aaxplugin
+# The plug-in's own settings (accent colour: the suite com.jshriver.orion.plugin). Kept with "Keep my settings".
+data    Library/Preferences/com.jshriver.orion.plugin.plist
 
 # The app itself, moved last.
 app      /Applications/Beat Key.app
