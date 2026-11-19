@@ -8,22 +8,19 @@ struct SettingsView: View {
     @ObservedObject var display: DisplaySettings
     @ObservedObject var rename: RenameSettings
     @ObservedObject private var help = HelpSettings.shared
-    @State private var devices: [InputDevice] = []
+    /// Read before the first draw: a popup whose current choice isn't in its list draws blank.
+    @State private var devices: [InputDevice] = InputDevice.all()
 
     var body: some View {
         Form {
             Section(header: Text("Display").font(.headline)) {
                 Toggle("Advanced Mode", isOn: $display.advanced).helpTip(HelpText.advanced)
-                Text("Adds the Camelot code, chords to hear and drag into your DAW, Match To, the key wheel and the notes heard. Also View › Advanced Mode (⌥⌘A) and the window's ADVANCED box. The menu bar has its own box; the first switch each launch sets both.")
-                    .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
                 Toggle("High Contrast Readout", isOn: $display.highContrast).helpTip(HelpText.settingsHighContrast)
-                Text("Brighter LCD text on pure black, no glow. The lamps always carry a shape too: octagon = locked, triangle = unsure, circle = listening.")
-                    .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Divider().padding(.vertical, 6)
             Section(header: Text("Listen").font(.headline)) {
                 Picker("Listen to", selection: deviceBinding) {
-                    if LiveSource.systemAvailable { Text("System Audio (everything the Mac plays)").tag("system") }
+                    if LiveSource.systemAvailable { Text("System Audio").tag("system") }
                     Text("Default Input").tag("default")
                     ForEach(devices) { d in Text(d.name).tag("uid:\(d.uid)") }
                     // chosen with Add App in the Listen menu; shown here so the picker isn't blank
@@ -32,7 +29,7 @@ struct SettingsView: View {
                     }
                 }
                 .helpTip(HelpText.settingsListenTo)
-                if case .input(let uid, _) = live.source {
+                if case .input(let uid, _) = live.source, !savedDeviceMissing {
                     let count = uid.flatMap { u in devices.first { $0.uid == u }?.channels } ?? 2
                     if count > 1 {
                         Picker("Channel", selection: channelBinding) {
@@ -46,23 +43,20 @@ struct SettingsView: View {
                     ForEach(LiveSettings.gaps, id: \.self) { Text("\(Int($0)) s of silence").tag($0) }
                 }
                 .helpTip(HelpText.settingsStartOver)
-                Text(LiveSource.systemAvailable
-                     ? "Nothing is recorded or saved. System Audio needs Screen & System Audio Recording permission; inputs need Microphone permission."
-                     : "Nothing is recorded or saved. Inputs need Microphone permission. System Audio needs macOS 13 or newer.")
-                    .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
             }
-            .onAppear { devices = InputDevice.all() }
+            .onAppear {
+                devices = InputDevice.all()
+                logFallback()
+            }
             Divider().padding(.vertical, 6)
             Section(header: Text("File names").font(.headline)) {
-                Picker("Add key and BPM to the name", selection: Binding(
+                Picker("Add key + BPM", selection: Binding(
                     get: { rename.choice }, set: { rename.set($0, from: "Settings") })) {
                     Text("Ask me each time").tag(RenameChoice.ask)
                     Text("Always").tag(RenameChoice.always)
                     Text("Never").tag(RenameChoice.never)
                 }
                 .helpTip(HelpText.settingsRename)
-                Text("After Beat Key reads a file it can rename that file, for example Beat (141.0 BPM Ebm F# Bbm).wav. Files already tagged are left alone. A file inside a Pro Tools session's Audio Files folder always asks first.")
-                    .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Divider().padding(.vertical, 6)
             Section(header: Text("General").font(.headline)) {
@@ -81,10 +75,8 @@ struct SettingsView: View {
             Divider().padding(.vertical, 6)
             Section(header: Text("Shortcuts").font(.headline)) {
                 // ONE list: Quick Keys (⇧⌃K) holds every shortcut, the system-wide ones included.
-                Button("Open Quick Keys…") { QuickKeys.openFromElsewhere() }
+                Button("Open Quick Keys (\(QuickKeys.tipDisplay(QuickKeys.quickKeysID)))") { QuickKeys.openFromElsewhere() }
                     .helpTip(HelpText.settingsShortcuts)
-                Text("Every shortcut in one list (\(QuickKeys.tipDisplay(QuickKeys.quickKeysID))). Click one, then type the new keys. The ones under Anywhere work in every app.")
-                    .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(20)
@@ -95,13 +87,29 @@ struct SettingsView: View {
         .helpTipLayer()
     }
 
-    /// "system" | "default" | "uid:<device uid>"; a new device starts on all channels.
+    /// The saved device isn't in the list (unplugged, renamed, lookup failed): Listen opens Mac
+    /// audio instead (LiveSourcePlan.afterLoss), so the popup shows that, never blank. The saved
+    /// choice stays until J picks something.
+    private var savedDeviceMissing: Bool {
+        if case .input(let uid?, _) = live.source { return !devices.contains { $0.uid == uid } }
+        return false
+    }
+
+    private func logFallback() {
+        if savedDeviceMissing {
+            AppLog.log("settings: saved listen device not found (\(devices.count) inputs listed); popup shows \(LiveSource.systemAvailable ? "System Audio" : "Default Input")")
+        }
+    }
+
+    /// "system" | "default" | "uid:<device uid>" | "app:<id>"; a new device starts on all channels.
     private var deviceBinding: Binding<String> {
         Binding(get: {
             switch live.source {
             case .system: return "system"
             case .input(nil, _): return "default"
-            case .input(let uid?, _): return "uid:\(uid)"
+            case .input(let uid?, _):
+                if savedDeviceMissing { return LiveSource.systemAvailable ? "system" : "default" }
+                return "uid:\(uid)"
             case .app(let id): return "app:\(id)"
             }
         }, set: { tag in

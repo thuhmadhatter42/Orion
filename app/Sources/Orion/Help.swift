@@ -101,7 +101,7 @@ enum HelpText {
     static let settings = HelpTip(title: "SETTINGS", body: "Display, listen source, shortcuts, login.")
     static let color = HelpTip(title: "COLOR", body: "Pick the display colour. Reset to Amber.")
     static let report = HelpTip(title: "REPORT", body: "Send a report, log attached.")
-    static let advanced = HelpTip(title: "ADVANCED", body: "Add key wheel, chords, MATCH TO.")
+    static let advanced = HelpTip(title: "ADVANCED", body: "Add key wheel, chords, MATCH TO. First switch sets both.")
     static let window = HelpTip(title: "WINDOW", body: "Open the full window.")
     static let quit = HelpTip(title: "QUIT", body: "Quit Beat Key.")
     static let help = HelpTip(title: "HELP", body: "Help on. Hover for tips. Click to turn off.")
