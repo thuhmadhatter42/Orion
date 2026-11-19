@@ -6,7 +6,7 @@ Steps 3-6 (core) and 7-8 (shims) can run side by side. Steps 9-11 and 16 touch `
 - [x] 1. Read plan, preflight → §1
 - [x] 2. Freeze Python goldens → §2
 - [x] 3. Core skeleton and ring → §3
-- [ ] 4. Core key parity → §4
+- [x] 4. Core key parity → §4
 - [ ] 5. Core BPM parity → §5
 - [ ] 6. Core streaming and worker → §6
 - [ ] 7. Plug-in instance layer → §7
@@ -53,3 +53,12 @@ Next: §3 builds the core skeleton against these files.
 - The first build compiled clean. Two test faults were mine, not the core's: the tripwire's self-check was optimised away by the compiler (now a `volatile` pointer), and the live test's pacing depended on machine speed (it now waits for the worker chunk by chunk).
 - Written ahead of their steps because `api.cpp` links them: the key, tempo and streaming code. Their gates are steps 4-6.
 Next: §4 gates the key half against the goldens.
+
+**4 → 5 (2026-11-19).** The key half reproduces the Python outputs on every golden file.
+- The gate is `sh core/parity.sh <pcm folder> [arm64|x86_64|both] [key] [tempo] [stream]`: it builds the core, runs `core/test/parity_dump.cpp` (the core on the frozen PCM, answers written in the goldens' shape; it judges nothing) and `core/test/parity.py` (standard-library Python; the A5 rules; exit 0 only on PARITY OK; `parity-report.json` beside the outputs).
+- **Key parity: 99/99 clips = 100 % on the arm64 slice, 99/99 = 100 % on the x86_64 slice (Rosetta), 10/10 on Sofia's own Intel CPU (subset).** Per clip: the same three key names in the same order with the same percentages, the same retune decision, tuning within 0.5 cent. In fact tighter than the rule on every slice: tuning identical and chroma identical on 99/99, the same number of spectral peaks on 99/99, largest difference in any of the 24 key scores 2.6e-6. No tolerance was touched.
+- By layer, on the five dumped clips (arm64): resampled 44.1 kHz and 11.025 kHz signals bit-identical; HPCP frames within 3.1e-4 of values up to 32; peaks within 2.6e-5 relative, same count in every frame.
+- Resampler, looked up before vendoring as the step asks: essentia's `Resample` is libsamplerate `src_simple` at its default `quality` 1 = SRC_SINC_MEDIUM_QUALITY, ratio = a float division of the two rates. Vendored: `core/vendor/libsamplerate-0.2.2` (BSD-2-Clause, the tarball `essentia.sh` pins, unmodified files + our `config.h`; only the medium converter is built, the 9 MB best-quality table is not copied). **Its output is bit-identical to the reference on 99/99 clips at both rates**, on every slice. Licence recorded: `VENDOR.txt`, and the `THIRD-PARTY-LICENSES.md` row (its full text was already Appendix G).
+- FFT: Accelerate vDSP in double (the plan's choice), not FFTW; the answers above are with it.
+- Awkward parts copied on purpose (each is commented where it lives): zero-phase windowing, essentia's float arithmetic in peaks / whitening / HPCP, numpy's float32 means and pairwise sums, CPython's `round`, the float32 comparison with the 0.2 gate.
+Next: §5 gates the tempo half and measures the time of a reading.

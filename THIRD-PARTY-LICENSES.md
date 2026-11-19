@@ -19,9 +19,9 @@ That repository holds all of Beat Key's own code (the Swift app in `app/`, the P
 |---|---|---|---|
 | Beat Key (Swift app, `downloader.py`, `bpm.py`, `app_run.py`, `tempocnn_np.py`) | current release (file `VERSION`) | AGPL-3.0 (`LICENSE`) | https://github.com/thuhmadhatter42/beat_dl |
 | Essentia (audio analysis library, Python extension) | 2.1b6.dev1110, commit 77a6a954f9497278ac214467e8040d40cbecdc30, built by `tools/build-old-mac/essentia.sh` (no TensorFlow, no ffmpeg) | AGPL-3.0 | https://github.com/MTG/essentia , https://essentia.upf.edu |
-| TempoCNN model `deeptemp-k16-3` (`.pb` and its numpy conversion `.npz`) | as published by Essentia | CC BY-NC-SA 4.0 | https://essentia.upf.edu/models.html#tempocnn , https://github.com/hendriks73/tempo-cnn |
+| TempoCNN model `deeptemp-k16-3` (`.pb`, its numpy conversion `.npz`, and the `.bkw` conversion the native core loads; always a separate data file, never compiled into a binary) | as published by Essentia | CC BY-NC-SA 4.0 | https://essentia.upf.edu/models.html#tempocnn , https://github.com/hendriks73/tempo-cnn |
 | FFTW (linked statically into Essentia) | 3.3.10 | GPL-2.0-or-later | https://www.fftw.org , https://fftw.org/pub/fftw/fftw-3.3.10.tar.gz |
-| libsamplerate (linked statically into Essentia) | 0.2.2 | BSD-2-Clause | https://github.com/libsndfile/libsamplerate |
+| libsamplerate (linked statically into Essentia; the same release is compiled into the native core from `core/vendor/libsamplerate-0.2.2`, medium sinc converter only, see its `VENDOR.txt`) | 0.2.2 | BSD-2-Clause | https://github.com/libsndfile/libsamplerate |
 | Eigen (headers compiled into Essentia) | 3.4.0 | MPL-2.0 (built with `EIGEN_MPL2_ONLY`) | https://gitlab.com/libeigen/eigen |
 | NumPy (with OpenBLAS, libgfortran, libquadmath, libgcc_s) | 1.26.4 | BSD-3-Clause; bundled libraries' licences in Appendix I | https://numpy.org , https://github.com/numpy/numpy |
 | CPython (python-build-standalone; includes Tcl/Tk 9.0, OpenSSL, SQLite, zlib, expat, libffi, xz and other stdlib libraries) | 3.11.17 (build 20261003) | PSF License 2.0 and the licences listed in it | https://www.python.org , https://github.com/astral-sh/python-build-standalone |
