@@ -4,7 +4,8 @@
 #
 #   plugin/build.noindex/Beat Key.component   AU    (aufx BtKy FLRc)
 #   plugin/build.noindex/Beat Key.vst3        VST3  (class 42744B79416E6C7A56535433464C5263)
-#   plugin/build.noindex/Beat Key.aaxplugin   AAX Native (FLRc BtKy; AAXLibrary from plugin/vendor/aax-sdk-2.9.0)
+#   plugin/build.noindex/Beat Key.aaxplugin   AAX Native (FLRc BtKy) + AudioSuite Analyze (FLRc BtKA); AAXLibrary from
+#                                             plugin/vendor/aax-sdk-2.9.0
 #   plugin/build.noindex/Beat Key MIDI.*      the MIDI variant of both (plugin/build-midi.sh, step 15)
 #
 # Each bundle links its own copy of the core (core/build.noindex/libbeatkey.a) and the instance layer,
@@ -155,6 +156,7 @@ clang++ $ARCHS_FLAGS -std=c++17 -O2 -g -fvisibility=hidden -w -DMAC_VERSION=1 $A
 XI="-isystem $AAXSDK/Interfaces -isystem $AAXSDK/Interfaces/ACF -DMAC_VERSION=1 -Wno-multichar"
 clang++ -std=c++17 $CF $INC $DEFS $XI -c aax/beatkey_aax.cpp -o "$OBJ/aax/beatkey_aax.o"
 clang++ -std=c++17 $CF $INC $DEFS $XI "-DBKP_AAX_VERSION_INT=$AUVERSION" -c aax/beatkey_aax_describe.cpp -o "$OBJ/aax/beatkey_aax_describe.o"
+clang++ -std=c++17 $CF $INC $DEFS $XI -c aax/beatkey_aax_audiosuite.cpp -o "$OBJ/aax/beatkey_aax_audiosuite.o"
 clang++ -std=c++17 -fobjc-arc -x objective-c++ $CF $INC $XI -c aax/beatkey_aax_view.mm -o "$OBJ/aax/beatkey_aax_view.o"
 AX="$OUT/Beat Key.aaxplugin"
 bundle_skeleton "$AX" aax/Info.plist.in

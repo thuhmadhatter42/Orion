@@ -110,6 +110,10 @@ struct FaceState: Equatable {
     var stale = false
     var silent = false
     var error = false
+    /// An AudioSuite instance: readings come from Analyze on a selection, not from playback.
+    var clips = false
+    /// That instance is reading a selection right now.
+    var analyzing = false
     /// The MIDI variant (plan step 15): whether this is it, the route (0 no audio yet, 1 the host takes
     /// MIDI, 2 it does not) and the key whose chord is held now.
     var midi = false
@@ -133,6 +137,8 @@ struct FaceState: Equatable {
         f.bypass = s.bypass != 0
         f.format = cString(s.format)
         f.status = cString(s.status)
+        f.clips = s.clip_state != 0
+        f.analyzing = s.clip_state == 2
         f.hasReading = s.snap.has_reading != 0
         f.readings = s.snap.readings
         f.stale = s.snap.has_reading != 0 && s.snap.reading_song < s.snap.song

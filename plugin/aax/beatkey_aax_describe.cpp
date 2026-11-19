@@ -1,8 +1,9 @@
 /*
  * beatkey_aax_describe.cpp: GetEffectDescriptions, the entry AAXLibrary's ACFRegisterPlugin calls when Pro Tools
  * scans the bundle (plan step 13).    One effect, "Beat Key", one Native process
- * proc per stem format, mono to 7.1.2 (N in = N out), the data model, the GUI.  No DSP (TI); AudioSuite is
- * step 14.  Every failed descriptor call is logged with its AAX error and the first error is returned.
+ * proc per stem format, mono to 7.1.2 (N in = N out), the data model, the GUI.  No DSP (TI).  The AudioSuite
+ * effect (step 14) is described in beatkey_aax_audiosuite.cpp and added here.  Every failed descriptor call is
+ * logged with its AAX error and the first error is returned.
  *
  * Category: AAX_Enums.h has no analyzer category (EQ, Dynamics, PitchShift, Reverb, Delay, Modulation, Harmonic,
  * NoiseReduction, Dither, SoundField, generators, WrappedPlugin, Effect, Example, MIDIEffect).  Beat Key changes
@@ -148,6 +149,11 @@ AAX_Result GetEffectDescriptions(AAX_ICollection* outCollection)
 		st.check(describe_effect(d), "describe the effect");
 		st.check(outCollection->AddEffect(BEATKEY_AAX_EFFECT_ID, d), "AddEffect");
 	}
+#if !BKP_MIDI
+	// plan step 14.  Beat Key MIDI has no AudioSuite effect: its IDs are the plain bundle's, and a whole-clip pass
+	// has no MIDI to send; AudioSuite Analyze comes from Beat Key.aaxplugin.
+	st.check(BeatKeyAax_DescribeAudioSuite(outCollection), "describe the AudioSuite effect");
+#endif
 	st.check(outCollection->SetManufacturerName("Four Letter Records"), "SetManufacturerName");
 #if BKP_MIDI
 	st.check(outCollection->AddPackageName("Beat Key MIDI"), "AddPackageName");

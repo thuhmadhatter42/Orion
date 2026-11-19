@@ -100,6 +100,35 @@ int bkp_bpm_in_use(bkp_instance *p, double *bpm);
 /* One log line per send: what ("BPM", "AUTO-TUNE"), the value sent, and the outcome sentence. */
 void bkp_log_send(bkp_instance *p, const char *what, const char *value, int ok, const char *outcome);
 
+/* ---- a whole clip (Pro Tools AudioSuite Analyze, plan step 14) ----
+ * An instance that reads whole clips instead of playback: no live analyzer (do not call bkp_prepare), the
+ * host hands the selection in windows on its offline thread, and at the end the core's file path
+ * (bk_analyze_buffer, bpm.py's analyze_full) reads it, so the clip gets the answer the app gives the same audio.
+ * The downmix is the core's live one (the plain mean of the channels; stereo = 0.5 * (L + R), MonoMixer's mix).
+ * The reading becomes the instance's reading: the face, the two buttons and the session state use it as they
+ * use a live one.  All calls: any NON-audio thread (the host's offline thread included); the analysis itself
+ * runs outside the instance's lock, so the face keeps reading while it works. */
+#define BKP_CLIP_MAX_SECS 7200          /* a selection longer than two hours is refused before any memory is taken */
+
+/* Marks the instance as a whole-clip one (once, right after bkp_create). */
+void bkp_use_clips(bkp_instance *p);
+/* 0 = a live instance, 1 = a whole-clip instance, 2 = a whole-clip instance analyzing right now. */
+int bkp_clip_state(bkp_instance *p);
+/* A new selection: `frames` long (0 = the host did not say; the clip then grows as it comes) at `rate`.
+ * Drops any unfinished clip.  0 = ok; -1 = refused (rate, length, memory), the reason in err and the log. */
+int bkp_clip_begin(bkp_instance *p, double rate, uint64_t frames, char *err, size_t err_cap);
+/* The next window: n channels (1..64) of `frames` floats.  Frames past the announced length are not kept.
+ * Returns the frames kept; -1 = refused (no clip begun, bad arguments, a different channel count than the
+ * clip's first window, memory, over BKP_CLIP_MAX_SECS), logged once per clip. */
+long bkp_clip_add(bkp_instance *p, const float *const *ch, int n, uint32_t frames);
+/* The frames held so far and the announced length (0 = not said); no clip = both 0. */
+void bkp_clip_progress(bkp_instance *p, uint64_t *have, uint64_t *want);
+/* Analyzes what was added and keeps the reading (out may be NULL).  `how` names the run for the one log line
+ * ("AudioSuite Analyze").  The clip is released either way.  0 = a reading; -1 = refused (nothing added, too
+ * short, not audio, the core's refusal), the reading the instance had is kept and the face says why. */
+int bkp_clip_end(bkp_instance *p, const char *how, bk_reading *out, char *err, size_t err_cap);
+/* Drops an unfinished clip (the host stopped the pass).  `why` goes to the log. */
+void bkp_clip_cancel(bkp_instance *p, const char *why);
 /* ---- the MIDI variant (plan step 15, §Q2 default: the key in use as notes) ----
  * A second plug-in type (Beat Key MIDI: AU aumf, VST3 with an event output, AAX with a MIDI output node)
  * that is the same instance plus this.  While a key is in use (bkp_key_in_use's rule, one owner), its

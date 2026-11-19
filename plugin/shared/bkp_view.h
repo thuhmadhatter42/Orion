@@ -48,6 +48,7 @@ typedef struct bkp_view_state {
     char        format[16];      /* "AU", "VST3", "AU-MIDI", "VST3-MIDI" */
     char        status[256];     /* "" when analyzing, else why not (the face shows it) */
     bk_snapshot snap;            /* top 3 with %, tuning, readings, song / reading_song, silent, ... */
+    int         clip_state;      /* bkp_clip_state: 0 live, 1 reads whole clips (AudioSuite), 2 analyzing one now */
     int         midi;            /* 1 = the MIDI variant (plan step 15) */
     int         midi_route;      /* bkp_midi_route: 0 no audio yet, 1 the host takes MIDI, 2 it does not */
     int         midi_sounding;   /* bkp_midi_sounding: the key index whose chord is held, -1 none */

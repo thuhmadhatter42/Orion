@@ -9,6 +9,9 @@
  *   host tempo     Transport()->GetCurrentTempo in TimerWakeup -> bkp_set_host_tempo
  *   session state  one chunk 'BKst' = the layer's blob (bkp_state_save / bkp_state_load)
  *   face           GetCustomData('BKtk') hands the GUI the instance's view token (bkp_view.h)
+ *   AudioSuite     the same object, made by CreateAudioSuite: its instance reads whole clips (bkp_use_clips), never
+ *                  prepares a live analyzer; GetCustomData('BKin') hands the host processor the instance
+ *                  (beatkey_aax_audiosuite.cpp)
  */
 #include "beatkey_aax.h"
 #include "AAX_CBinaryDisplayDelegate.h"
@@ -92,13 +95,35 @@ AAX_CEffectParameters* AAX_CALLBACK BeatKeyAaxParameters::Create()
 	return p;
 }
 
-BeatKeyAaxParameters::BeatKeyAaxParameters()
+AAX_CEffectParameters* AAX_CALLBACK BeatKeyAaxParameters::CreateAudioSuite()
 {
+	BeatKeyAaxParameters* p = new (std::nothrow) BeatKeyAaxParameters(true);
+	if (!p) {
+		bk_log("plugin", "AAX AudioSuite instance not created: out of memory for the effect object");
+		return nullptr;
+	}
+	if (!p->mInst) {
+		bk_log("plugin", "AAX AudioSuite instance not created: the instance layer could not be made (out of memory)");
+		delete p;
+		return nullptr;
+	}
+	return p;
+}
+
+BeatKeyAaxParameters::BeatKeyAaxParameters(bool audioSuite)
+	: mAudioSuite(audioSuite)
+{
+	// one format for both effects of a bundle ("AAX", or "AAX-MIDI" in Beat Key MIDI): one crash marker per bundle
 	bkp_config cfg = { BEATKEY_AAX_FORMAT, BEATKEY_AAX_BUNDLE_ID, nullptr, nullptr };
 	mInst = bkp_create(&cfg);
+	if (mInst && mAudioSuite) {
+		bkp_use_clips(mInst);
+	}
 	mViewToken = bkp_view_register(mInst);
 #if BKP_MIDI
-	bkp_view_midi_enable(mInst); // the face's chords; a refusal is logged and the face says no MIDI
+	if (!mAudioSuite) {
+		bkp_view_midi_enable(mInst); // the face's chords; a refusal is logged and the face says no MIDI
+	}
 #endif
 }
 
@@ -112,6 +137,9 @@ BeatKeyAaxParameters::~BeatKeyAaxParameters()
 
 void BeatKeyAaxParameters::prepareForHostRate()
 {
+	if (mAudioSuite) {
+		return; // whole clips only: the host processor reads the rate at each Analyze, no live analyzer
+	}
 	AAX_IController* const ctl = Controller();
 	if (!ctl) {
 		return;
@@ -295,6 +323,24 @@ AAX_Result BeatKeyAaxParameters::CompareActiveChunk(const AAX_SPlugInChunk* iChu
 
 AAX_Result BeatKeyAaxParameters::GetCustomData(AAX_CTypeID iDataBlockID, uint32_t inDataSize, void* oData, uint32_t* oDataWritten) const
 {
+	if (iDataBlockID == kBeatKeyAaxInstanceBlock) {
+		// the AudioSuite host processor's way to the instance (it only sees this object through the host's
+		// interface); same process, and the host processor never outlives its data model
+		if (!oData || inDataSize < sizeof(bkp_instance*)) {
+			bkp_log(mInst, "AAX instance block: asked with %u bytes of room (need %zu) or no buffer", static_cast<unsigned>(inDataSize),
+				sizeof(bkp_instance*));
+			if (oDataWritten) {
+				*oDataWritten = 0;
+			}
+			return AAX_ERROR_INVALID_ARGUMENT;
+		}
+		bkp_instance* const inst = mInst;
+		std::memcpy(oData, &inst, sizeof inst);
+		if (oDataWritten) {
+			*oDataWritten = sizeof inst;
+		}
+		return AAX_SUCCESS;
+	}
 	if (iDataBlockID != kBeatKeyAaxViewTokenBlock) {
 		return AAX_CEffectParameters::GetCustomData(iDataBlockID, inDataSize, oData, oDataWritten);
 	}

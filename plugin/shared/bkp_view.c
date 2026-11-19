@@ -70,6 +70,7 @@ int bkp_view_read(uint64_t token, bkp_view_state *out) {
     bkp_status(p, out->status, sizeof out->status);
     bkp_snapshot(p, &out->snap);
     out->bpm_exact = out->has_bpm && out->snap.has_reading && out->snap.reading.has_bpm_exact;
+    out->clip_state = bkp_clip_state(p);
     out->midi = bkp_midi(p);
     out->midi_route = bkp_midi_route(p);
     out->midi_sounding = bkp_midi_sounding(p);
