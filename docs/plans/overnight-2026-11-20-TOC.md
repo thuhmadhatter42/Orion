@@ -6,6 +6,6 @@
 - [x] 4. DOWNLOAD in plug-in → §4
 - [x] 5. PTSL import menu → §5
 - [x] 6. Error logging paths → §6
-- [ ] 7. Gates, evidence, merge → §7
-- [ ] 8. Build, Sofia check → §8
-- [ ] 9. Morning hand-off PICKUP → §9
+- [x] 7. Gates, evidence, merge → §7
+- [x] 8. Build, Sofia check → §8
+- [x] 9. Morning hand-off PICKUP → §9

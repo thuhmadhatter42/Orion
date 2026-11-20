@@ -121,6 +121,22 @@ copies the line a second time. Plug-in REPORT now attaches beatkey.log beside pl
 - Pro Tools on Sofia is blocked on J's helper password. Write the live test list for that: AAX load, DOWNLOAD → New Track at cursor, Clip List, Spot, and AudioSuite.
 - PICKUP gets the one J line: `! bash ~/dev/beatkey/tools/publish.sh`.
 
+### §7-§8 results
+Gates green on the merged code (swift 784/0, core 268/0, plugin/test.sh PASS, plugin/validate.sh PASS); merged 7c76c2a, pushed;
+worktrees removed. 0.1.80 built (notarized, PACE-signed AAX). Sofia: installed by drag-copy, auval PASS both AUs, app face drawn
+(evidence sofia/). Not run: pluginval on Sofia (not installed there), Pro Tools (helper password).
+
+### §8 Pro Tools live test list (Sofia, after J types the helper password once)
+1. AAX load: insert Beat Key on an audio track. The face is the app window's (512 x 750); play a beat: key + BPM show.
+2. ADVANCED: the window widens to 960 and back (AAX SetViewSize).
+3. DOWNLOAD → New Track at Cursor: paste a YouTube link, DOWNLOAD, pick it. A new track at the edit cursor, file named with BPM + key, in the session's Audio Files.
+4. DOWNLOAD → Clip List: the clip is in the Clip List, no new track (checks MLocation_None is accepted).
+5. DOWNLOAD → New Track, Spot at Cursor, then Session Start and Song Start: each lands where named.
+6. PTSL off / Pro Tools without a session: the status line says so, the file is saved; one beatkey.log line ptsl-connect / ptsl-import with host=Pro Tools.
+7. RECENT in the menu lists the last picks; nothing is pre-selected on the next press.
+8. AudioSuite Analyze on a clip: the face reads it ("SELECT A CLIP, THEN PRESS ANALYZE" before).
+9. REPORT: Mail opens with plugin.log and beatkey.log attached.
+
 ## §9 Morning hand-off
 `PICKUP.md` CURRENT STATE says what's built, what's verified with proof, and the one or two things only J can do (publish; Pro Tools password on Sofia). Nothing else.
 

@@ -1,6 +1,18 @@
 # PICKUP — beatkey (folder was beat_dl until 2026-11-19)
 
-## CURRENT STATE — 2026-11-19 17:30 — FOLDER MOVE DONE
+## CURRENT STATE — 2026-11-20 04:10 — 0.1.80 BUILT + CHECKED ON SOFIA (overnight plan done)
+Built (main 7c76c2a, pushed): the plug-in now draws the app window's own face (one shared view tree, `app/Sources/Orion/Face/`), DOWNLOAD in the plug-in (link → Beat Key app → file named with BPM + key → Pro Tools import over PTSL, or saved + shown in Finder outside Pro Tools), placement menu with history (nothing pre-selected), plug-in failures logged once each to ~/Library/Logs/Beat Key/beatkey.log tagged plugin + host (REPORT attaches it). Plan + results: docs/plans/overnight-2026-11-20.md.
+Verified, with proof:
+- Gates on the merged code: swift 784 tests / 0 failures; core 268/0 both slices; plugin/test.sh PASS both slices (face_test 145/145); plugin/validate.sh PASS (auval, Steinberg validator 47/47, pluginval 10, arm64 + x86_64).
+- App face unchanged: 86 of 89 offscreen renders byte-identical to before the refactor (the other 3 differ run to run on the old code too).
+- Evidence: docs/plans/plugin-evidence/face-2026-11-20/ (app vs plug-in side by side, default + Advanced, DOWNLOAD menu open; Sofia screenshot).
+- 0.1.80 full build: notarized + stapled dmg and pkg, AAX PACE-signed (app/build/build-0.1.80.log).
+- Sofia (macOS 12): drag-copy install of the app + all 6 plug-ins, signatures ok, auval PASS for both AUs (own bundles only), app launches and draws its face, listeners for SEND BPM + DOWNLOAD on. pluginval is not on Sofia (ran on the MBP).
+Only J:
+1. Publish: `! bash ~/dev/beatkey/tools/publish.sh`
+2. Pro Tools on Sofia asks for the helper password once; after that an agent runs the live list in the plan's §8 (AAX load, DOWNLOAD to New Track at cursor / Clip List / Spot / session + song start, PTSL off, AudioSuite, REPORT).
+
+## (previous) 2026-11-19 17:30 — FOLDER MOVE DONE
 Code folder is now `~/dev/beatkey` (was `~/dev/beat_dl`), MBP moved 17:24; Sofia moved 17:3x too (`~/dev/beatkey`, ff-pulled to 98e08c4, no process/launchd/cron used it). Vault agent folder is `~/goat-arc/obsidian-vault/goat-mind/10-dev/beatkey` (beat_dl folder merged in; old retired friends-page notes in its `archive/retired-friends-page-2026-11-18/`). Memory dirs renamed to `-Users-jshriver-dev-beatkey` and `...-10-dev-beatkey`. First launch in the new folder shows the trust prompt once (accept).
 - Launch: `cd ~/dev/beatkey && claude` (code); `cd ~/goat-arc/obsidian-vault/goat-mind/10-dev/beatkey && claude` (vault agent).
 - J-run publish line: `! bash ~/dev/beatkey/tools/publish.sh`.
