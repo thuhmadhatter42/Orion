@@ -190,7 +190,7 @@ final class PTSLClient {
 
     // PTSL CommandId values (PTSL.proto, SDK 2026.04).
     enum Command: Int {
-        case exportClipsAsFiles = 10, getSessionSampleRate = 35, getSessionName = 42, getSessionPath = 43, getPTSLVersion = 55
+        case importData = 2, exportClipsAsFiles = 10, getSessionSampleRate = 35, getSessionName = 42, getSessionPath = 43, getPTSLVersion = 55
         case registerConnection = 70, getTimeAsType = 118, getEditSelection = 131
         var name: String { "\(self)" }
     }
@@ -227,12 +227,19 @@ final class PTSLClient {
     /// One command; the parsed response body. Throws on a Failed status.
     @discardableResult
     func call(_ command: Command, _ body: [String: Any] = [:]) throws -> [String: Any] {
-        let json = body.isEmpty ? "" : String(decoding: try JSONSerialization.data(withJSONObject: body, options: [.sortedKeys]), as: UTF8.self)
+        let json = try PTSLClient.json(body)
         let raw = try unary(PTSLProto.request(command: command.rawValue, sessionID: sessionID, bodyJSON: json))
         guard let r = PTSLProto.response(raw) else { throw Failure.protocolError("bad Response message") }
         if r.status == 4 || r.status == 7 { throw Failure.failed(command: command.name, error: r.error) }
         guard !r.body.isEmpty, let d = r.body.data(using: .utf8) else { return [:] }
         return ((try? JSONSerialization.jsonObject(with: d)) as? [String: Any]) ?? [:]
+    }
+
+    /// A request body as the JSON text PTSL gets: sorted keys, slashes left alone (paths stay readable
+    /// and the bytes are the same on every run). "" for an empty body.
+    static func json(_ body: [String: Any]) throws -> String {
+        guard !body.isEmpty else { return "" }
+        return String(decoding: try JSONSerialization.data(withJSONObject: body, options: [.sortedKeys, .withoutEscapingSlashes]), as: UTF8.self)
     }
 
     /// PTSL's error JSON (`{"errors":[{"command_error_type":"…","command_error_message":"…"}]}`) as text.
