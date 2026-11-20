@@ -1,4 +1,4 @@
-# beat_dl
+# Beat Key (beatkey)
 
 Download YouTube beats as MP3s, auto-tagged with BPM and key.
 

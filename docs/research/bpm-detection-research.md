@@ -166,7 +166,7 @@ data says leave it out until you say.
 ## Eval harness
 
 ```bash
-cd ~/dev/beat_dl/docs/research/bpm-bench
+cd ~/dev/beatkey/docs/research/bpm-bench
 python3 -m venv venv && venv/bin/pip install --prefer-binary "librosa==0.11.0" essentia-tensorflow   # + deeprhythm beat_this for the torch rows
 bash fetch.sh                                     # 40 clips + 2 models, ~2 min
 venv/bin/python bench.py --methods current,tempocnn_deeptemp,tempocnn_deepsquare   # or omit --methods for all 11

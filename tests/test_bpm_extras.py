@@ -242,7 +242,7 @@ class TestInputFormats(unittest.TestCase):
     """ffmpeg-decodable containers go through bpm.py unchanged (needs the bundled ffmpeg)."""
 
     def ffmpeg(self):
-        for c in (ROOT / "bin" / "ffmpeg", Path("/Users/jshriver/dev/beat_dl/bin/ffmpeg")):
+        for c in (ROOT / "bin" / "ffmpeg", Path("/Users/jshriver/dev/beatkey/bin/ffmpeg")):
             if c.is_file():
                 return str(c)
         return None

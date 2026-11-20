@@ -269,7 +269,7 @@ macosx_13_0. Before shipping there, `sw_vers && python3 --version` (open item fr
 ## Eval harness
 
 ```bash
-cd ~/dev/beat_dl/docs/research/key-bench
+cd ~/dev/beatkey/docs/research/key-bench
 python3 -m venv venv && venv/bin/pip install --prefer-binary "librosa==0.11.0" essentia-tensorflow scikit-learn
 bash fetch.sh                        # annotations + GS+ labels + 40 mp3s (md5-verified) + OpenKeyScan repo, ~2 min
 venv/bin/pip install --prefer-binary torch torchaudio   # only for the cnn_* / ensemble rows (arm64 only)

@@ -1,6 +1,6 @@
 # Beat Key plug-in version: recon (2026-11-19, read-only, nothing in the repo changed)
 
-Evidence tags: **[doc]** = a page fetched this session (URL given); **[repo]** = read in ~/dev/beat_dl this session; **[forum]** = community post, not authoritative; **[unverified]** = could not confirm, must be checked before building.
+Evidence tags: **[doc]** = a page fetched this session (URL given); **[repo]** = read in ~/dev/beatkey this session; **[forum]** = community post, not authoritative; **[unverified]** = could not confirm, must be checked before building.
 
 ## 0. Findings that change the plan
 

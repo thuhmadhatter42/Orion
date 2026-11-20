@@ -43,7 +43,7 @@ release must carry an `appcast.xml`, or update checks fail with a 404.
    - final check: `https://fourletterrecords.com/account/download/beat-key` answers 303 and
      `beat-key-latest.json` on Sofia names `<ver>`. Only then it prints `PUBLISHED <ver>`; any
      failure prints which public steps already happened.
-   Auto mode may block public pushes; then J runs it: `! bash ~/dev/beat_dl/tools/publish.sh`.
+   Auto mode may block public pushes; then J runs it: `! bash ~/dev/beatkey/tools/publish.sh`.
 4. After it: `curl -sIL https://github.com/thuhmadhatter42/Orion/releases/latest/download/appcast.xml`
    ends in `200` and the file names `<ver>`.
 

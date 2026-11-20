@@ -101,7 +101,7 @@ ensure_deps() {
     mkdir -p "$BIN_DIR"
 
     if ! at_least "$MACOS" "$MIN_MACOS"; then
-        echo "❌ beat_dl needs macOS $MIN_MACOS or newer; this Mac has $MACOS."
+        echo "❌ beatkey needs macOS $MIN_MACOS or newer; this Mac has $MACOS."
         return 1
     fi
 

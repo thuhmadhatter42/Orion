@@ -20,7 +20,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATA = "/Users/jshriver/dev/beat_dl/docs/research/pt-ground-truth"
+DATA = os.path.normpath(os.path.join(HERE, "..", "..", "docs", "research", "pt-ground-truth"))
 SRC_DB = os.path.join(DATA, "pt-ground-truth.sqlite3")
 AUDIO = os.path.join(DATA, "audio11k")
 ANS_DB = os.path.join(DATA, "verify-labels.sqlite3")

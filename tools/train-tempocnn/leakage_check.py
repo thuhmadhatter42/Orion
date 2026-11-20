@@ -63,7 +63,7 @@ def best_corr(q, c):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--data-root", default="/Users/jshriver/dev/beat_dl", type=Path)
+    ap.add_argument("--data-root", default=HERE.parents[1], type=Path)
     ap.add_argument("--run", default="ft1")
     ap.add_argument("--out", default=HERE / "runs/leakage-check.log", type=Path)
     ap.add_argument("--thr", type=float, default=0.85)
