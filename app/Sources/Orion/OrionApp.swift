@@ -284,6 +284,8 @@ struct OrionApp: App {
         Broadcast.shared.install(engine: engine, model: model, live: live)
         // SEND BPM from the plug-in: the app sends the tempo for it (PluginSendListener.swift).
         PluginSendListener.shared.install()
+        // DOWNLOAD from the plug-in: the app downloads, names, and imports into Pro Tools (PluginDownloadListener.swift).
+        PluginDownloadListener.shared.install()
         // Is this the latest version? One Sparkle background check per launch (the same updater as
         // Check for Updates…); it only shows a window when a newer Beat Key exists.
         updater.checkInBackgroundAtLaunch()
