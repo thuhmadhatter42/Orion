@@ -1,7 +1,7 @@
 # PICKUP — beatkey (folder was beat_dl until 2026-11-19)
 
 ## CURRENT STATE — 2026-11-19 17:30 — FOLDER MOVE DONE
-Code folder is now `~/dev/beatkey` (was `~/dev/beat_dl`), MBP moved 17:24; Sofia `~/dev/beatkey` (see Sofia line below if present). Vault agent folder is `~/goat-arc/obsidian-vault/goat-mind/10-dev/beatkey` (beat_dl folder merged in; old retired friends-page notes in its `archive/retired-friends-page-2026-11-18/`). Memory dirs renamed to `-Users-jshriver-dev-beatkey` and `...-10-dev-beatkey`. First launch in the new folder shows the trust prompt once (accept).
+Code folder is now `~/dev/beatkey` (was `~/dev/beat_dl`), MBP moved 17:24; Sofia moved 17:3x too (`~/dev/beatkey`, ff-pulled to 98e08c4, no process/launchd/cron used it). Vault agent folder is `~/goat-arc/obsidian-vault/goat-mind/10-dev/beatkey` (beat_dl folder merged in; old retired friends-page notes in its `archive/retired-friends-page-2026-11-18/`). Memory dirs renamed to `-Users-jshriver-dev-beatkey` and `...-10-dev-beatkey`. First launch in the new folder shows the trust prompt once (accept).
 - Launch: `cd ~/dev/beatkey && claude` (code); `cd ~/goat-arc/obsidian-vault/goat-mind/10-dev/beatkey && claude` (vault agent).
 - J-run publish line: `! bash ~/dev/beatkey/tools/publish.sh`.
 - Repo path fixes committed (tests, tools, docs). Remaining `beat_dl` mentions below are history only. Other owners' handoffs: `handoff/TO-*-2026-11-19-folder-moved-beatkey.md` (FLR, Loops, house-kit, rig, 10-dev index, todo-mining).
