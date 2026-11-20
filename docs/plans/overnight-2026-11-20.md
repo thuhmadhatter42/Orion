@@ -118,15 +118,15 @@ copies the line a second time. Plug-in REPORT now attaches beatkey.log beside pl
 ## §8 Build and Sofia check (no MBP GUI)
 - Bump VERSION by +1 and run the full `app/build.sh` (PACE signing, notarize).
 - Install on Sofia by drag-copy. Check the app face there with screenshots, then auval and pluginval on our own bundles only.
-- Pro Tools on Sofia is blocked on J's helper password. Write the live test list for that: AAX load, DOWNLOAD → New Track at cursor, Clip List, Spot, and AudioSuite.
-- PICKUP gets the one J line: `! bash ~/dev/beatkey/tools/publish.sh`.
+- Pro Tools on Sofia is blocked on J's helper password [SUPERSEDED 2026-11-20: no iLok on Sofia; the test ran on Studio D]. Write the live test list for that: AAX load, DOWNLOAD → New Track at cursor, Clip List, Spot, and AudioSuite.
+- PICKUP gets the one J line: `! bash ~/dev/beatkey/tools/publish.sh`. [CLOSED 2026-11-20: 0.1.80 published 11:18, 0.1.81 published 13:02]
 
 ### §7-§8 results
 Gates green on the merged code (swift 784/0, core 268/0, plugin/test.sh PASS, plugin/validate.sh PASS); merged 7c76c2a, pushed;
 worktrees removed. 0.1.80 built (notarized, PACE-signed AAX). Sofia: installed by drag-copy, auval PASS both AUs, app face drawn
-(evidence sofia/). Not run: pluginval on Sofia (not installed there), Pro Tools (helper password).
+(evidence sofia/). Not run: pluginval on Sofia (not installed there), Pro Tools (helper password) [SUPERSEDED 2026-11-20: Pro Tools ran on Studio D].
 
-### §8 Pro Tools live test list (Sofia, after J types the helper password once)
+### §8 Pro Tools live test list (Sofia, after J types the helper password once) [SUPERSEDED 2026-11-20: no iLok on Sofia; items 1-5, 7, 8 ran on Studio D (PT 2025.6.1) 12:26-12:57 and passed after fix 19a4bd7 (0.1.81); items 6 (PTSL off) and 9 (REPORT) not run; evidence docs/plans/plugin-evidence/protools-studio-d-2026-11-20/]
 1. AAX load: insert Beat Key on an audio track. The face is the app window's (512 x 750); play a beat: key + BPM show.
 2. ADVANCED: the window widens to 960 and back (AAX SetViewSize).
 3. DOWNLOAD → New Track at Cursor: paste a YouTube link, DOWNLOAD, pick it. A new track at the edit cursor, file named with BPM + key, in the session's Audio Files.
@@ -138,7 +138,7 @@ worktrees removed. 0.1.80 built (notarized, PACE-signed AAX). Sofia: installed b
 9. REPORT: Mail opens with plugin.log and beatkey.log attached.
 
 ## §9 Morning hand-off
-`PICKUP.md` CURRENT STATE says what's built, what's verified with proof, and the one or two things only J can do (publish; Pro Tools password on Sofia). Nothing else.
+`PICKUP.md` CURRENT STATE says what's built, what's verified with proof, and the one or two things only J can do (publish; Pro Tools password on Sofia [SUPERSEDED 2026-11-20: no iLok on Sofia; Pro Tools tested on Studio D; publish CLOSED, 0.1.81 public 13:02]). Nothing else.
 
 ## Rules (in every agent brief)
 - No GUI, DAW, auval -a, scans or browsers on the MBP. Web lookups run only on Sofia via ssh-rc. No WebSearch/WebFetch tools.
