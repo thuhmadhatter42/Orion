@@ -38,3 +38,7 @@ docs/research/*/*.zip
 .superpowers/
 app/build/
 tests/fixtures/*.wav
+
+# internal notes, never public
+handoff/
+archive/
