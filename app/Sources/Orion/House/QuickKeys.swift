@@ -3,7 +3,7 @@ import Carbon.HIToolbox
 import SwiftUI
 
 // QUICK KEYS (⇧⌃K): every shortcut the app has, in one table, listed in one window, each one rebindable by
-// clicking it and pressing the new keys.
+// clicking it and pressing the new keys. The rules that came with it:
 //   - ONE table. A shortcut exists only as a row; menus and key handlers read their chord from the row, so a
 //     rebind moves them all and there is no second copy to drift.
 //   - A chord macOS itself holds on this Mac (read from the OS, never a hard-coded list) cannot be assigned.

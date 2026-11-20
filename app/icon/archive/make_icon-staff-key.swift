@@ -5,8 +5,8 @@
 //
 // The drawn icon: a music staff cut out in the shape of a key. The five staff lines are the key's
 // blade; the teeth are notches cut into the lower lines; a thick barline is the shoulder; the bow
-// is a ring with a treble clef inside (Apple Symbols U+1D11E). Artemis amber with a glow, on the
-// Artemis chassis (the mockup's #232326 -> #131315 gradient, its sheen and noise.png grain) inside
+// is a ring with a treble clef inside (Apple Symbols U+1D11E). Amber with a glow, on the
+// chassis (the mockup's #232326 -> #131315 gradient, its sheen and noise.png grain) inside
 // a macOS squircle with a thin silver bezel. Every iconset size is drawn from vectors: at 64 px
 // and under the blade turns solid (staff lines would blur to mush) and grows, so 16/32 px read
 // as a key; from 128 px up the five lines and the clef read as a music staff.

@@ -1,11 +1,10 @@
 import AppKit
 import SwiftUI
 
-// UNINSTALL, "like Artemis": the app menu item "Uninstall <App>…" raises ONE sheet (a headline, one sentence, a
+// UNINSTALL: the app menu item "Uninstall <App>…" raises ONE sheet (a headline, one sentence, a
 // single tick "Keep my settings", Cancel / Uninstall). Uninstall runs the bundled script, which moves everything in
 // the app's manifest to the Trash (never deletes) and forgets its installer receipts. The script is run as
 // administrator ONLY when it says it needs to be (something outside the home folder, or a receipt).
-//
 // Needs in Contents/Resources: uninstall.sh + uninstall.manifest (modules/uninstall).
 
 enum HouseUninstall {
@@ -135,7 +134,7 @@ final class UninstallCenter: ObservableObject {
     enum Stage: Equatable { case ask, working, done(String?), failed(String) }
     @Published var showing = false
     @Published var stage: Stage = .ask
-    /// "Keep my settings": ticked by default, as Artemis.
+    /// "Keep my settings": ticked by default.
     @Published var keepSettings = true
 
     func open() { stage = .ask; keepSettings = true; showing = true }
@@ -156,7 +155,7 @@ final class UninstallCenter: ObservableObject {
 /// The sheet: a headline, one sentence, the tick, two buttons. Then "is uninstalled" (Quit) or "was not uninstalled".
 struct UninstallSheet: View {
     @ObservedObject var center: UninstallCenter
-    /// What the sentence says goes to the Trash. Name the big pieces ("Artemis, its driver and Recall plugin").
+    /// What the sentence says goes to the Trash. Name the big pieces ("the app, its driver and its plug-in").
     var what: String = House.appName
 
     @MainActor init(center: UninstallCenter? = nil, what: String = House.appName) { self.center = center ?? .shared; self.what = what }
@@ -194,7 +193,7 @@ struct UninstallSheet: View {
     }
 }
 
-/// The app menu item: "Uninstall <App>…", after Settings (Artemis: under Check for Updates).
+/// The app menu item: "Uninstall <App>…", after Settings.
 struct UninstallCommands: Commands {
     var body: some Commands {
         CommandGroup(after: .appSettings) {

@@ -1,6 +1,6 @@
 /*
  * beatkey_aax_describe.cpp: GetEffectDescriptions, the entry AAXLibrary's ACFRegisterPlugin calls when Pro Tools
- * scans the bundle (plan step 13).    One effect, "Beat Key", one Native process
+ * scans the bundle (plan step 13).  One effect, "Beat Key", one Native process
  * proc per stem format, mono to 7.1.2 (N in = N out), the data model, the GUI.  No DSP (TI).  The AudioSuite
  * effect (step 14) is described in beatkey_aax_audiosuite.cpp and added here.  Every failed descriptor call is
  * logged with its AAX error and the first error is returned.

@@ -32,7 +32,7 @@ Source: J's voice dictation in the beat_dl session. **Status 2026-11-18 18:59: e
 - J offered: open Pro Tools on Studio D and hover controls to see their length. (Studio D window = his offer this session only.)
 - J 03:00 picked "Look on Studio D": Sonnet agent capturing Pro Tools tooltips word for word (evidence → docs/research/pt-tooltips-2026-11-18/ on its worktree branch, stops by 04:45).
 - J 03:02: first write a UI voice guide named **Board Talk** (like a scribble strip on a console). Built from (a) Pro Tools tooltip lengths and shape from Studio D, (b) J's own words: how he names things out loud in his dictation (e.g. "receive key", "get BPM from DAW", "auto get key"). Then every Help tip is rewritten in Board Talk, and HelpTip.maxBody drops to Board Talk's limit so the tests hold it.
-- Board Talk lives at docs/BOARD-TALK.md; Artemis can use the same guide.
+- Board Talk lives at docs/BOARD-TALK.md.
 
 ## 5. Beat Key side of the Artemis button
 - **[BUILT 0.1.77]** Beat Key side only: Broadcast.swift + docs/protocol-beatkey-broadcast.md. **Still open:** Artemis has not picked up its handoff or confirmed the protocol.

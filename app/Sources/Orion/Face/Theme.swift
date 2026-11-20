@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// Artemis's tokens (artemis/app/src/faceplate/shared.css), as used by orion-v1-mockup.html.
+/// The design tokens, as used by orion-v1-mockup.html.
 /// CSS sizes are in points; `em` letter-spacing becomes tracking = em * font size.
 enum Theme {
     // The display colour ("amber") and High Contrast are not here: they come through the
@@ -340,7 +340,7 @@ extension View {
         fixedSize().frame(height: size * lh)
     }
 
-    /// The lit reading's glow (Artemis `0 0 6px amber-glow, 0 0 16px rgba(amber,.4)`), drawn by the house glow
+    /// The lit reading's glow (`0 0 6px amber-glow, 0 0 16px rgba(amber,.4)`), drawn by the house glow
     /// module (House/Glow.swift: its two constants set the strength) in the palette's colour.
     /// High Contrast: crisp edges, no halo.
     func amberGlow() -> some View { modifier(AmberGlow()) }

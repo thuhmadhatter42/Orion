@@ -26,7 +26,7 @@ struct ResultOptions {
     var live: (lamp: Lamp, status: String, source: String)? = nil
 }
 
-/// The amber LCD: Artemis's `.lcd-hero` grown into the whole face. The top shows the state
+/// The amber LCD, grown into the whole face. The top shows the state
 /// (BPM and the key dial for a reading); under it the popover's own KeyStrip (TOP KEYS, the
 /// scale on a keyboard, the scale line), fed the same PocketState.
 struct LCD: View {

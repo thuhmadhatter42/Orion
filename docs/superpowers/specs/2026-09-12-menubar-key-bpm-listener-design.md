@@ -30,64 +30,43 @@ menu bar text  <-- click -->  panel (key relations, Camelot, piano roll + elimin
 ## 3. Audio capture
 
 **Mechanism — CoreAudio process tap, system-wide global tap, macOS 14.2+ (Sonoma).**
-Confirmed by reading Artemis's own shipped, working code (not invented):
-
-- `/Users/jshriver/artemis/app/src/taps/taps.m` (2012 lines) and
-  `/Users/jshriver/artemis/app/apptap.m` (583 lines) both build real taps today with:
-  `CATapDescription` (`#import <CoreAudio/CATapDescription.h>`, taps.m:32),
-  `AudioHardwareCreateProcessTap` (taps.m:1421), `AudioHardwareCreateAggregateDevice`
-  (taps.m:1501) with dict keys `kAudioAggregateDeviceTapListKey` / `kAudioSubTapUIDKey` /
-  `kAudioSubTapDriftCompensationKey` / `kAudioAggregateDeviceMainSubDeviceKey` (taps.m:1482-1501),
-  and `AudioHardwareDestroyProcessTap` / `AudioHardwareDestroyAggregateDevice` for teardown
-  (taps.m:1140, 1145).
-- Artemis's tap is **per-app**: `[[CATapDescription alloc] initStereoMixdownOfProcesses:...]`
-  (taps.m:1355) — a named list of HAL process objects for one app, muted at the speakers.
-  Listing apps uses `kAudioHardwarePropertyProcessObjectList` (cited in
-  `/Users/jshriver/artemis/BUILD-LOG.md:246` and used through taps.m).
+A tap is built with `CATapDescription` (`#import <CoreAudio/CATapDescription.h>`),
+`AudioHardwareCreateProcessTap` and `AudioHardwareCreateAggregateDevice`, with the aggregate dict keys
+`kAudioAggregateDeviceTapListKey` / `kAudioSubTapUIDKey` / `kAudioSubTapDriftCompensationKey` /
+`kAudioAggregateDeviceMainSubDeviceKey`, and `AudioHardwareDestroyProcessTap` /
+`AudioHardwareDestroyAggregateDevice` for teardown. A per-app tap is
+`[[CATapDescription alloc] initStereoMixdownOfProcesses:...]` (a named list of HAL process objects for
+one app, muted at the speakers); listing apps uses `kAudioHardwarePropertyProcessObjectList`.
 
 **What Orion needs is different: the whole main-outs mix, not one app.** That is the
 *global* tap variant, `initStereoGlobalTapButExcludeProcesses:` — confirmed via WebSearch
 (Apple's own `AudioHardwareCreateProcessTap(_:_:)` doc page, and the sample project
 insidegui/AudioCap, https://github.com/insidegui/AudioCap) as a real `CATapDescription`
 initializer: exclusive=false semantics, tap everything except the PIDs you name (pass Orion's
-own pid, or none). It mixes down to stereo the same way Artemis's per-app tap does. Wrap it in a
+own pid, or none). It mixes down to stereo the same way a per-app tap does. Wrap it in a
 private, unstacked `AudioHardwareCreateAggregateDevice` whose **main sub-device is the current
-default output device** (the "interface"), same dict shape Artemis already uses, and read the
-aggregate's input stream — this is the documented AudioCap pattern, not Artemis-specific.
+default output device** (the "interface"), and read the
+aggregate's input stream — this is the documented AudioCap pattern.
 
 One correction to the brief: the property for PID→process-object lookup is
 `kAudioHardwarePropertyTranslatePIDToProcessObject` (confirmed via AudioCap's
 `CoreAudioUtils.swift` and Apple forum threads) — **not** "TranslateUIDToProcess" as guessed in
-the brief. Artemis's own code does the equivalent lookup differently (it walks
-`kAudioHardwarePropertyProcessObjectList` and reads each object's pid), so this is the one API
-name in this spec that comes from WebSearch, not from Artemis source — treat it as verified-but-external
-until it's actually called in Xcode and the symbol resolves.
-
-**Reuse verdict: pattern, not artifact.** Artemis has no library target, XPC service, or shared
-framework around its tap code — `taps.m`/`apptap.m` are compiled straight into the monolithic
-`artemis` binary (`app/build.sh`), with no public header meant for another process to link. There
-is nothing to `import` or link from Orion. What transfers is the *proven pattern* (the exact
-aggregate-device dictionary shape, the drift-compensation keys, the mixdown gain-compensation math
-in `art_taps_makeup_gain`, taps.h:403-437, and the "first tap raises the System Audio Recording
-prompt, signing identity must stay stable" lesson, taps.h:60-63) — copy and adapt the ~150 lines
-of tap/aggregate setup, don't try to reuse a build product.
+the brief. A per-app tap can also do the lookup by walking
+`kAudioHardwarePropertyProcessObjectList` and reading each object's pid. Treat the symbol as
+verified-but-external until it's actually called in Xcode and resolves.
 
 **Selecting "main outs of the current interface":** read the system default output device
 (`kAudioHardwarePropertyDefaultOutputDevice`) and use it as the tap aggregate's main sub-device —
 this naturally tracks whatever interface macOS currently has selected, with no per-app picking.
-Per-app taps (Artemis's actual model, `initStereoMixdownOfProcesses:` + `kAudioHardwarePropertyProcessObjectList`
-to list running apps) are deferred to phase 4 and would reuse the *pattern* from `taps.m`/`apptap.m`
-directly, since at that point it is the same problem Artemis already solved.
+Per-app taps (`initStereoMixdownOfProcesses:` + `kAudioHardwarePropertyProcessObjectList`
+to list running apps) are deferred to phase 4.
 
-**Permissions:** first tap creation raises the system "System Audio Recording" TCC prompt — same
-one Artemis's users see (taps.h:60-63). Artemis's `Info.plist` carries
-`NSAudioCaptureUsageDescription` (and `NSMicrophoneUsageDescription`) — confirmed at
-`/Users/jshriver/artemis/app/build.sh:70-72` — Orion's Info.plist needs the same key with its own
-usage string. No sandbox entitlement is involved: Artemis is not App-Sandboxed (it is
-self-signed/Developer-ID style, see §7), and the permission is TCC-gated by a **stable signing
+**Permissions:** first tap creation raises the system "System Audio Recording" TCC prompt.
+The app's `Info.plist` carries `NSAudioCaptureUsageDescription` (and `NSMicrophoneUsageDescription`);
+Orion's Info.plist needs the same key with its own
+usage string. No sandbox entitlement is involved, and the permission is TCC-gated by a **stable signing
 identity**, not an entitlement — an ad-hoc signature (`codesign -s -`) changes every build and
-re-prompts the user every time (`app/build.sh:110-119`), which Orion must avoid the same way
-Artemis does (a fixed self-signed cert in the login keychain, `app/build.sh:113`).
+re-prompts the user every time, which Orion must avoid (a fixed self-signed cert in the login keychain).
 
 ## 4. Analysis
 
@@ -228,10 +207,9 @@ candidate-key ranking, auto-set on detection, manual-override persistence.
 *Go/no-go:* deactivating notes not in the true key narrows the top-3 to include the true key
 within 3-4 clicks on a test song; auto-set fires once, sticks until a genuinely new song plays.
 
-**Phase 4 — per-app taps.** Swap the global exclude-tap for Artemis's actual per-app model
+**Phase 4 — per-app taps.** Swap the global exclude-tap for the per-app model
 (`initStereoMixdownOfProcesses:` + app listing) so a specific app (e.g. just Spotify) can be
-isolated from other system sound — directly reusing the pattern in
-`/Users/jshriver/artemis/app/src/taps/taps.m` and `apptap.m`.
+isolated from other system sound.
 *Go/no-go:* isolate one app playing music while a second app plays unrelated noise; Orion reads
 only the first app's audio.
 
@@ -249,29 +227,25 @@ only the first app's audio.
   song's key relations in the panel.
 
 Remaining (open, no ruling as of 2026-10-28; feature 2 not started):
-1. Phase 1 uses the global system-output tap (matches "outs 1-2" literally); Artemis-style per-app
+1. Phase 1 uses the global system-output tap (matches "outs 1-2" literally); per-app
    taps come in phase 4. Confirm that order.
 
 ## 9. Risks
 
-- **TCC prompt + signing identity stability**: exactly Artemis's own lesson (`app/build.sh:110-119`)
-  — ad-hoc signing re-asks the System Audio Recording permission every build; needs a stable
+- **TCC prompt + signing identity stability**: the lesson is that
+  ad-hoc signing re-asks the System Audio Recording permission every build; needs a stable
   self-signed (or real Developer ID) identity from day one, not "figure it out later."
 - **Bundle size**: `essentia-tensorflow` unpacks to ~420 MB (bundled libtensorflow,
   `docs/research/bpm-detection-research.md`:146) — large for a menu-bar utility; a python
   interpreter framework adds more. This is the direct cost of choosing option (a) in §4.
-- **Python bundling**: no py2app/PyInstaller work exists yet in this repo for beat_dl or Artemis;
+- **Python bundling**: no py2app/PyInstaller work exists yet in this repo for beat_dl;
   building a relocatable, signed, notarizable Python+Essentia bundle is new engineering, not proven
-  anywhere in either project.
+  anywhere yet.
 - **Apple Silicon vs Intel**: `essentia-tensorflow` needs macOS ≥ 15 for the py3.14 wheel on Intel,
   ≥ 14 for py3.13/3.12 (`docs/research/bpm-detection-research.md`:32-34); Sofia is 12.7 and would
   need an older Python + an older, less-tested wheel, or would not run this app's analysis path at
   all (see open question 5).
-- **No notarization/Developer ID set up today**: Artemis itself ships self-signed
-  ("Four Letter Records Artemis", `app/build.sh:113`) with ad-hoc as a fallback — there is no
-  evidence in this repo of an actual Apple Developer ID / notarization pipeline anywhere in
-  `/Users/jshriver/artemis` (installer/publish.sh signs the **update feed**, not the app itself,
-  with `artemis-sign.crt`, a separate self-issued cert for update-pinning, not code signing). A
+- **Developer ID / notarization (as of this spec)**: not set up. An
   `/Applications` app tapping system audio will draw more Gatekeeper scrutiny than a personal tool;
   budget for getting a real Developer ID if this is meant to be shared beyond J's own Macs.
 - **MediaRemote is unreliable as even a hint**: confirmed via WebSearch — after macOS 15.4, Apple

@@ -4,7 +4,6 @@
  * the thread that plays the audio thread, runs the real push path, and requires both counts to be
  * zero (plan A4.1: no allocation, no lock on the audio thread).  Other threads (the worker) are
  * never counted.  Linked, not injected: no DYLD_INSERT_LIBRARIES.
- * 
  */
 #include <pthread.h>
 #include <stdint.h>

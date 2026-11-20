@@ -1,5 +1,5 @@
 /*
- * beatkey_aax.h: the AAX Native shim (plan step 13).  
+ * beatkey_aax.h: the AAX Native shim (plan step 13).  Host glue only.
  * The shim knows host types and nothing of the core: it calls bkp_* (plugin/shared/bkp.h) and nothing else of
  * Beat Key.  Declared here so a harness can build the real data-model object and call the real process entry.
  *

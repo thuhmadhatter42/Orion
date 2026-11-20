@@ -1,7 +1,7 @@
 /*
  * beatkey_au_view.m: the AU Cocoa view factory (AUCocoaUIBase).  The AU names this class in its
  * kAudioUnitProperty_CocoaUI answer; the host loads the bundle and calls uiViewForAudioUnit:.
- * The face itself is plugin/shared/bkp_view.m.  
+ * The face itself is plugin/shared/bkp_view.m.
  */
 #import <AppKit/AppKit.h>
 #import <AudioUnit/AUCocoaUIView.h>

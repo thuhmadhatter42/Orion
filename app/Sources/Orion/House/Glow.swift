@@ -1,11 +1,11 @@
 import SwiftUI
 
-/// The house glow: the Artemis amber halo, in the user's accent, lit only when the thing is active.
+/// The house glow: the amber halo, in the user's accent, lit only when the thing is active.
 ///
-/// Artemis' glow is the ONLY full-strength base (J 2026-11-18). In a native app the halo is drawn at a fraction
+/// The full-strength glow is the ONLY base (J 2026-11-18). In a native app the halo is drawn at a fraction
 /// of it. TWO constants, set by J on 2026-11-18 ("12% reduce radius by 50%"):
-///   opacity = 0.12 x Artemis full        radius = 0.06 x Artemis full
-/// Call sites always pass FULL-strength Artemis numbers (a `HouseGlow.Full` preset); the two constants below
+///   opacity = 0.12 x full        radius = 0.06 x full
+/// Call sites always pass FULL-strength numbers (a `HouseGlow.Full` preset); the two constants below
 /// are the only place the strength is tuned.
 enum HouseGlow {
     /// Opacity: 12% of full.
@@ -19,7 +19,7 @@ enum HouseGlow {
         var opacity: Double
     }
 
-    /// Full-strength halos, before scaling. Every value is Artemis' own (`(private path)`):
+    /// Full-strength halos, before scaling. Every value is the design's own:
     /// `--amber-glow` is `rgba(255,176,32,.6)` (shared.css:6), so each layer is opacity .6 unless the CSS says otherwise.
     /// A CSS box-shadow/text-shadow blur of B px is a SwiftUI shadow radius of B/2 (the spread is not drawn).
     enum Full {
@@ -44,13 +44,13 @@ enum HouseGlow {
 }
 
 extension View {
-    /// The accent halo. `active: false` draws nothing: illumination only when the thing is on (Artemis rule).
+    /// The accent halo. `active: false` draws nothing: illumination only when the thing is on.
     /// `color` overrides the accent (a red fault, a green ready lamp). High Contrast draws no halo.
     func accentGlow(_ full: [HouseGlow.Layer] = HouseGlow.Full.litChip, active: Bool = true, color: Color? = nil) -> some View {
         modifier(AccentGlow(full: full, active: active, color: color))
     }
 
-    /// The same, from raw full-strength Artemis numbers (e.g. `accentGlow(radius: 5.5, opacity: 0.6)`).
+    /// The same, from raw full-strength numbers (e.g. `accentGlow(radius: 5.5, opacity: 0.6)`).
     func accentGlow(radius: CGFloat, opacity: Double, active: Bool = true, color: Color? = nil) -> some View {
         modifier(AccentGlow(full: [HouseGlow.Layer(radius: radius, opacity: opacity)], active: active, color: color))
     }
@@ -66,7 +66,7 @@ private struct AccentGlow: ViewModifier {
     func body(content: Content) -> some View {
         let on = active && !highContrast
         let base = color ?? theme.color
-        // Up to two layers (every Artemis halo is one or two); a fixed shape keeps the view's identity stable.
+        // Up to two layers (every halo is one or two); a fixed shape keeps the view's identity stable.
         let a = full.indices.contains(0) ? HouseGlow.scaled(full[0]) : HouseGlow.Layer(radius: 0, opacity: 0)
         let b = full.indices.contains(1) ? HouseGlow.scaled(full[1]) : HouseGlow.Layer(radius: 0, opacity: 0)
         return content

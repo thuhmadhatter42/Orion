@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// The recessed `#050505` field (Artemis's plate) holding the link.
+/// The recessed `#050505` field holding the link.
 struct LinkField: View {
     @Environment(\.palette) private var palette
     @Binding var text: String
@@ -121,7 +121,7 @@ final class PickNSView: NSView {
     override func accessibilityPerformPress() -> Bool { onOpen?(); return true }
 }
 
-/// An NSTextField so the caret is amber, the placeholder is Artemis's faint grey and Return
+/// An NSTextField so the caret is amber, the placeholder is faint grey and Return
 /// submits, on macOS 11 (SwiftUI's TextField has none of these there).
 struct URLTextField: NSViewRepresentable {
     @Binding var text: String

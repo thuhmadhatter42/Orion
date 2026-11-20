@@ -2,7 +2,7 @@
 //   swift app/dmg/make_background.swift
 // build.sh joins the two into one HiDPI background.tiff (tiffutil -cathidpicheck).
 //
-// The Artemis chassis (mockup gradient, sheen, noise.png grain, four screws), "Drag Beat Key to
+// The chassis (mockup gradient, sheen, noise.png grain, four screws), "Drag Beat Key to
 // Applications" in Helvetica Neue, an amber arrow from the app to the Applications link, and two
 // mid-grey label strips where Finder draws the icon names: Finder draws them black in Light mode
 // and white in Dark mode, and the strip keeps both readable on a dark plate.
@@ -64,7 +64,7 @@ func draw(_ ctx: CGContext) {
     NSGraphicsContext.saveGraphicsState(); NSGraphicsContext.current = ns
     title.draw(in: CGRect(x: 0, y: 52, width: W, height: 30))
     NSGraphicsContext.restoreGraphicsState()
-    // hairline under the title, Artemis-style engraving
+    // hairline under the title, engraving
     ctx.setFillColor(rgb(0, 0, 0, 0.6)); ctx.fill(CGRect(x: 200, y: 92, width: 200, height: 1))
     ctx.setFillColor(rgb(255, 255, 255, 0.06)); ctx.fill(CGRect(x: 200, y: 93, width: 200, height: 1))
 

@@ -1,5 +1,5 @@
 /*
- * beatkey_vst3.cpp: Beat Key, VST3 shim (plan step 8).  host glue
+ * beatkey_vst3.cpp: Beat Key, VST3 shim (plan step 8).  Host glue only
  * (plan §Q1 default: the generic glue only).
  *
  * Single component: one object is the IComponent + IAudioProcessor, and queryInterface(IEditController)

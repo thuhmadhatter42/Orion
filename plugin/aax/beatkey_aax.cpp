@@ -1,6 +1,6 @@
 /*
  * beatkey_aax.cpp: the AAX Native shim's data model and audio entry (plan step 13).  See beatkey_aax.h.
- * cpp there): host glue only.
+ * Host glue only.
  *
  * What lives where (one owner each):
  *   audio          bkp_process, THE audio function of every format (the context hands it the instance)

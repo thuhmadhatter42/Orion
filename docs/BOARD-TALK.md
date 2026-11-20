@@ -1,8 +1,7 @@
 # Board Talk
 
 Beat Key's UI voice (J, 2026-11-18). Named for the scribble strip on a console: a few
-words, in the engineer's own language, readable at a glance mid-session. Artemis can use
-the same guide.
+words, in the engineer's own language, readable at a glance mid-session.
 
 J's complaint that started it: the old tips read "psychotic, very verbose"; "it shouldn't
 be a pop-up that's ten words where it could be three."

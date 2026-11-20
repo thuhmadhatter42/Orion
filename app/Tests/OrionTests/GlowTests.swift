@@ -3,7 +3,7 @@ import XCTest
 @testable import Orion   // CHANGE: the app's module name
 
 final class GlowTests: XCTestCase {
-    /// J 2026-11-18: opacity 12% of Artemis full, radius 6% (the opacity factor, halved). Two constants, not one.
+    /// J 2026-11-18: opacity 12% of full, radius 6% (the opacity factor, halved). Two constants, not one.
     func testTheTwoHouseConstants() {
         XCTAssertEqual(HouseGlow.opacityScale, 0.12, accuracy: 0.0001)
         XCTAssertEqual(HouseGlow.radiusScale, 0.06, accuracy: 0.0001)
@@ -16,8 +16,8 @@ final class GlowTests: XCTestCase {
         XCTAssertEqual(s.opacity, 0.06, accuracy: 0.0001)
     }
 
-    /// Every full-strength preset is Artemis' own (faceplate.css line in each comment; CSS blur = 2 x SwiftUI radius).
-    func testArtemisFullPresets() {
+    /// Every full-strength preset is the design's own (CSS line in each comment; CSS blur = 2 x SwiftUI radius).
+    func testFullPresets() {
         // :143 text-shadow 0 0 6px .6, 0 0 16px .4
         XCTAssertEqual(HouseGlow.Full.litText, [HouseGlow.Layer(radius: 3, opacity: 0.6), HouseGlow.Layer(radius: 8, opacity: 0.4)])
         // :302 box-shadow 0 0 3px 1px --amber-glow (.6)

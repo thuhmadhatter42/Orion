@@ -1,7 +1,7 @@
 /*
  * beatkey_aax_view.mm: the AAX plug-in window (plan step 13): an AAX_CEffectGUI that puts the face
  * (bkp_view_create, the SwiftUI face compiled as module BeatKeyAAX) into Pro Tools' NSView container.
- *   The window never holds the instance: it gets the view TOKEN from the data
+ * The window never holds the instance: it gets the view TOKEN from the data
  * model through GetCustomData('BKtk'), so a window that outlives its instance says "closed".  Main thread.  ARC.
  */
 #import <AppKit/AppKit.h>

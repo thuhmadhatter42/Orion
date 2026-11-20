@@ -40,11 +40,11 @@ final class InputDropTests: XCTestCase {
     }
 
     func testAfterLossFallsBackToMacAudioOrNothing() {
-        XCTAssertEqual(LiveSourcePlan.afterLoss(of: .input(uid: "artemis", channel: 2), systemAvailable: true),
-                       .fallback(.system, missingUID: "artemis", channel: 2))
+        XCTAssertEqual(LiveSourcePlan.afterLoss(of: .input(uid: "interface", channel: 2), systemAvailable: true),
+                       .fallback(.system, missingUID: "interface", channel: 2))
         XCTAssertEqual(LiveSourcePlan.afterLoss(of: .input(uid: nil, channel: 0), systemAvailable: true),
                        .fallback(.system, missingUID: "default input", channel: 0))
-        let saved = LiveSource.input(uid: "artemis", channel: 0)
+        let saved = LiveSource.input(uid: "interface", channel: 0)
         XCTAssertEqual(LiveSourcePlan.afterLoss(of: saved, systemAvailable: false), .use(saved),
                        "macOS 12: nothing to fall back to")
         XCTAssertEqual(LiveSourcePlan.afterLoss(of: .system, systemAvailable: true), .use(.system))
@@ -70,12 +70,12 @@ final class InputDropTests: XCTestCase {
                                    if src == .system && !systemCapture { return nil }
                                    let k = FakeCapture(); box.caps.append(k); return k
                                },
-                               devices: { [InputDevice(id: 7, uid: "artemis", name: "Artemis", channels: 2)] })
+                               devices: { [InputDevice(id: 7, uid: "interface", name: "Interface", channels: 2)] })
         return Rig(c: c, settings: s, pipe: pipe, asked: box)
     }
 
     func testDropWaitingIsCalmNotAnError() {
-        let r = rig(saved: .input(uid: "artemis", channel: 0))
+        let r = rig(saved: .input(uid: "interface", channel: 0))
         r.c.start()
         let song = r.c.songChange.to
         r.asked.caps[0].onDrop?(.waiting)
@@ -91,7 +91,7 @@ final class InputDropTests: XCTestCase {
     }
 
     func testWaitingEndsWithTheFirstMusic() {
-        let r = rig(saved: .input(uid: "artemis", channel: 0))
+        let r = rig(saved: .input(uid: "interface", channel: 0))
         r.c.start()
         r.asked.caps[0].onDrop?(.waiting)
         mainHop()
@@ -106,10 +106,10 @@ final class InputDropTests: XCTestCase {
     }
 
     func testGoneFallsBackToMacAudioKeepingTheSongAndTheSavedChoice() {
-        let saved = LiveSource.input(uid: "artemis", channel: 0)
+        let saved = LiveSource.input(uid: "interface", channel: 0)
         let r = rig(saved: saved)
         r.c.start()
-        XCTAssertEqual(r.c.sourceName, "Artemis")
+        XCTAssertEqual(r.c.sourceName, "Interface")
         let song = r.c.songChange.to
         let old = r.asked.caps[0]
         old.onDrop?(.gone(why: "NO AUDIO INPUT FOUND"))
@@ -129,7 +129,7 @@ final class InputDropTests: XCTestCase {
     }
 
     func testGoneWithoutMacAudioIsTheOnlyRedCase() {
-        let r = rig(saved: .input(uid: "artemis", channel: 0), systemAvailable: false)
+        let r = rig(saved: .input(uid: "interface", channel: 0), systemAvailable: false)
         r.c.start()
         r.asked.caps[0].onDrop?(.gone(why: "NO AUDIO INPUT FOUND"))
         mainHop()
@@ -138,7 +138,7 @@ final class InputDropTests: XCTestCase {
     }
 
     func testGoneWhenMacAudioCannotOpenFails() {
-        let r = rig(saved: .input(uid: "artemis", channel: 0), systemCapture: false)
+        let r = rig(saved: .input(uid: "interface", channel: 0), systemCapture: false)
         r.c.start()
         r.asked.caps[0].onDrop?(.gone(why: "x"))
         mainHop()
@@ -146,7 +146,7 @@ final class InputDropTests: XCTestCase {
     }
 
     func testFallbackThatIsDeniedFailsThroughTheNormalErrorPath() {
-        let r = rig(saved: .input(uid: "artemis", channel: 0))
+        let r = rig(saved: .input(uid: "interface", channel: 0))
         r.c.start()
         r.asked.caps[0].onDrop?(.gone(why: "x"))
         mainHop()
@@ -157,7 +157,7 @@ final class InputDropTests: XCTestCase {
     }
 
     func testADropFromAnOldListenIsIgnored() {
-        let r = rig(saved: .input(uid: "artemis", channel: 0))
+        let r = rig(saved: .input(uid: "interface", channel: 0))
         r.c.start()
         let first = r.asked.caps[0]
         r.c.start(why: "new song")
@@ -171,7 +171,7 @@ final class InputDropTests: XCTestCase {
     }
 
     func testDropWhenOffIsIgnored() {
-        let r = rig(saved: .input(uid: "artemis", channel: 0))
+        let r = rig(saved: .input(uid: "interface", channel: 0))
         r.c.start()
         let cap = r.asked.caps[0]
         r.c.stop()

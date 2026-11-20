@@ -108,9 +108,7 @@ stay in the app at all.
 Built with the `design` skill: `macos-app-design` first (HIG wins), then `impeccable` for the build
 and the critique.
 
-- **Concept (J, 2026-10-27: "make it look like Artemis kinda"):** Orion is Artemis's sibling, the same
-  hardware family. Use Artemis's own faceplate material, taken from `(private path)` +
-  `faceplate.html`: the noise-and-sheen chassis (`#232326→#131315`, black outer rings), silver corner screws, the
+- **Concept (J, 2026-10-27):** a piece of hardware. Faceplate material: the noise-and-sheen chassis (`#232326→#131315`, black outer rings), silver corner screws, the
   brushed header rail with the chrome-gradient wordmark **ORION** (Helvetica Neue 700, .22em tracking), a green
   status lamp + legend (READY / WORKING amber / FAILED red), the amber LCD (`--amber #ffb020`, glow, 8px .3em
   captions) as the hero, recessed `#050505` field, and pale SSL-style caps (DOWNLOAD lights amber when a link is in).
@@ -118,10 +116,9 @@ and the critique.
 - **Signature element:** the LCD readout. After a download, the BPM shows as a large amber numeral, the top
   key beside it, and keys 2 and 3 smaller under it. A TEMPO light blinks **at the detected BPM** (it's real
   data, and it stops when Reduce Motion is on).
-- **Dark only**, like Artemis (no light mode).
-- **Type:** Helvetica Neue throughout (Artemis's `--face-font`), tabular figures on numbers.
-- **App icon:** v1 = Orion's constellation in amber on the Artemis chassis (my call, rendered by code). Later, if J supplies a render: in Artemis's icon style (a marble relief on a deep navy ground), showing Orion the hunter,
-  Artemis's hunting companion in the myth.
+- **Dark only** (no light mode).
+- **Type:** Helvetica Neue throughout (`--face-font`), tabular figures on numbers.
+- **App icon:** v1 = Orion's constellation in amber on the chassis (my call, rendered by code). Later, if J supplies a render: a marble relief on a deep navy ground, showing Orion the hunter.
 - **States, all designed:** empty (placeholder "Enter YouTube link here"), link pasted (Download
   lit), downloading (readout shows stage text: "Downloading…", "Finding BPM and key…"), done
   (filename, BPM, keys, SHOW IN FINDER on the LCD), file dropped (drop highlight on the whole window → readout),
@@ -153,8 +150,7 @@ no logos of anyone else's), and the exact sizes and spacing on a 4/8 grid.
   ad-hoc re-sign it after the update (`codesign -s - -f`) and re-test.
 - **First-launch unpack** is fine if needed, with a progress state in the readout ("Setting up, one time…").
 - **Bundle ID** `com.jshriver.orion` (still current: code, bundle ID and App Support stay Orion, J 2026-10-27 "leave all the code, say Orion"). Application Support folder `~/Library/Application Support/Orion/`.
-- **Notarization profile:** `artemis-notary` (the `notarytool store-credentials` profile on the MBP that artemis and
-  zeropoint already notarize with, same team). Signing identity `Developer ID Application: J Shriver (9WTFGV63S2)`.
+- **Notarization profile:** `artemis-notary` (the `notarytool store-credentials` profile on the MBP, same team). Signing identity `Developer ID Application: J Shriver (9WTFGV63S2)`.
 - [SUPERSEDED 2026-10-28: audience is every FLR user, macOS 12+] **The friend's Mac** is assumed to be on macOS 11+ (J).
 - **The code lives in this repo** under `app/` (the scripts it drives live here). No separate `~/dev/orion` repo.
 
@@ -181,6 +177,6 @@ Source: PICKUP.md CURRENT STATE 2026-10-28 12:30, ledger `.superpowers/sdd/2026-
 - **Login on demand:** browser cookies are never read automatically (J 2026-10-27 22:24). If YouTube blocks a video the LCD says so and offers a login-and-retry; plain downloads need no login.
 - **Bundled deno** since 0.1.9 (yt-dlp EJS JS challenges need a JS runtime; absence caused the failed login retry at 00:27). DMG grew from about 296 MB to about 390 MB.
 - **No Full Disk Access, no login (ruled 2026-10-28 12:48, Task 14, 0.1.14) [Full Disk Access half stands; the "no login" half is SUPERSEDED by 2026-10-28 15:02: in-app YouTube login (WKWebView with WebAuthn hidden so Google skips the passkey, cookies in App Support/Orion/youtube-cookies.txt) works since 0.1.15, J: "it worked!!"; age-restricted videos now ask for a one-time login inside Beat Key's own window]:** J called Full Disk Access "wildly invasive". The in-app YouTube login (WKWebView) was tried and failed on J's real account: Google forces a passkey, and WebAuthn in an embedded WKWebView needs Apple's web-browser entitlement (developer.apple.com/forums/thread/829169, passkeys.dev/docs/reference/macos/). So the app never logs in: age-restricted → amber `THIS VIDEO IS AGE-RESTRICTED` / `BEAT KEY CAN'T DOWNLOAD IT`; bot check → `YOUTUBE BLOCKED THIS DOWNLOAD` / `TRY AGAIN LATER`. No browser data, no cookies, no permissions.
-- **Free FLR product:** J 2026-10-28 12:20: the free offer on fourletterrecords.com, downloaded behind an FLR account (like the Artemis installer), for all FLR users, not one friend. Page handoff: `handoff/TO-FLR-SITE-2026-10-28-beat-key-free-download.md`. [CLOSED 2026-10-28 15:30: GO given in handoff/TO-FLR-SITE-2026-10-28-beat-key-0.1.16-GO.md; page and download live.]
+- **Free FLR product:** J 2026-10-28 12:20: the free offer on fourletterrecords.com, downloaded behind an FLR account, for all FLR users, not one friend. Page handoff: `handoff/TO-FLR-SITE-2026-10-28-beat-key-free-download.md`. [CLOSED 2026-10-28 15:30: GO given in handoff/TO-FLR-SITE-2026-10-28-beat-key-0.1.16-GO.md; page and download live.]
 - **Release gate [CLOSED 2026-10-28: THIRD-PARTY-LICENSES.md, app menu Licenses, repo AGPL-3.0 f9e0031, 0.1.16]:** open-source licences (Essentia AGPL-3.0, ffmpeg build likely GPL, TempoCNN weights CC BY-NC-SA 4.0) need a licences file in the app and a source/licence link on the site before public release.
 - **Version:** [SUPERSEDED 2026-10-28] released 0.1.16 (J's OK, merged to main, tag Beat-Key-0.1.16), then 0.1.18 (tag Beat-Key-0.1.18, Sparkle, golden key icon). orion-v1 fully merged; local branch deleted.

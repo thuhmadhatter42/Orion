@@ -1,5 +1,6 @@
 /*
- * beatkey_au.cpp: Beat Key, AUv2 shim on Apple's AudioUnitSDK (plan step 8).  Host glue only.
+ * beatkey_au.cpp: Beat Key, AUv2 shim on Apple's AudioUnitSDK (plan step 8).  Host glue only
+ * (plan §Q1 default: the generic glue only).
  *
  * An effect (aufx) that passes audio through untouched; analysis is the instance layer's
  * (plugin/shared/bkp.h).  The shim knows host types and nothing of the core: it calls bkp_* only.

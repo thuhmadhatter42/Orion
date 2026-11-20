@@ -32,7 +32,7 @@ extension Accent {
 }
 
 extension View {
-    /// The house glow, drawn in the palette's colour: High Contrast leaves it out. Full-strength Artemis
+    /// The house glow, drawn in the palette's colour: High Contrast leaves it out. Full-strength
     /// numbers in, the glow module's two constants (`HouseGlow.opacityScale` / `radiusScale`) scale them.
     /// For Beat Key's own views, which read `\.palette`; the glow module reads `\.accent`.
     func paletteGlow(_ full: [HouseGlow.Layer] = HouseGlow.Full.litChip, _ palette: Palette, active: Bool = true,

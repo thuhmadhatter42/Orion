@@ -1,5 +1,5 @@
 /*
- * beatkey_vst3_view.mm: the VST3 IPlugView around the face (plugin/shared/bkp_view.h).    The size is the face's (bkp_face_size); the user does not drag it, but ADVANCED
+ * beatkey_vst3_view.mm: the VST3 IPlugView around the face (plugin/shared/bkp_view.h).  The size is the face's (bkp_face_size); the user does not drag it, but ADVANCED
  * widens the face and the view asks the host to follow (IPlugFrame::resizeView).  attached() adds the face to the host's parent
  * NSView; removed() takes it off.  The view holds only a token, never the instance.
  */
