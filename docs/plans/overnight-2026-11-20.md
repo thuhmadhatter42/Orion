@@ -68,6 +68,15 @@ Hand-off §2 → §3: the face compiles alone (`plugin/ui/build-face.sh`); next,
 The plug-in readout (key, BPM, top 3, notes heard, tuning) comes from the plug-in's own analysis, as it does now.
 Gate: `plugin/test.sh` face test, plus the plug-in face rendered at default and Advanced.
 
+### §3 result
+The plug-in draws FaceplateFace (plugin/ui/PluginFace.swift). Readout = the instance's own reading (top 3, BPM before ×2/÷2,
+tuning, notes heard, pin, level meter). Hidden in a host (FaceSurface.plugin): page arrows / SHOW IN FINDER (no file),
+Open Audio + FIND (the status line takes that row), HOLD, LISTEN, SETTINGS, MINI. COLOR = swatch menu; RECENT = downloaded
+files (Finder); EXPORT MIDI = click saves + reveals, drag drops the .mid; chords drag as MIDI clips. View 512 x 750
+(BKP_VIEW_W/H = FaceplateFace.pluginSize, checked); ADVANCED widens to 960 (VST3 resizeView, AAX SetViewSize, AU frame).
+Gate: plugin/test.sh PASS both slices, face_test 145/145; renders in plugin-evidence/face-2026-11-20/.
+Hand-off §3 → §4: DOWNLOAD wiring is the plug-in's DownloadSend + the app's PluginDownloadListener.
+
 ## §4 DOWNLOAD in the plug-in
 Paste a link and press DOWNLOAD. The existing Swift downloader runs (no Python) and the file is named with BPM and key.
 If a host's sandbox or process blocks the download, route it through the Beat Key app's listener, the same path SEND BPM uses. Write the choice here.
@@ -85,9 +94,21 @@ ImportType IType_Audio, AudioData with: file_list = the downloaded file; audio_o
 - The request is unit-tested by its encoded bytes. Live Pro Tools test steps are listed in §8.
 - PTSL not running or not enabled: the face shows one plain line saying so and saves the file.
 
+### §5 result
+PTSLImport.body / run (app/Sources/Orion/DAWSend/PTSLImport.swift); field names checked against PTSL.proto (SDK 2026.04,
+~/dev/ProTools SDK/stem-bouncer/pt_stems/proto). Tests: request bytes for all five placements + command id 2; a fake PTSL
+server end to end. Menu: opens above DOWNLOAD in Pro Tools only; RECENT picks listed (DownloadHistory), nothing pre-selected.
+Not provable without Pro Tools: that `destination_path` is the converted-file folder and that Clip List takes MLocation_None (§8 list).
+
 ## §6 Error logging (house kit rule)
 Every failure (downloader, import, PTSL connect, app-listener hand-off) is written to `~/Library/Logs/Beat Key/beatkey.log` with source "plugin" and the host name. This is the same log the app writes and the same log the app's REPORT button sends. The plug-in also shows a short status line.
 Unit tests cover that each failure path writes one log line.
+
+### §6 result
+One line each in beatkey.log, `[plugin host=<host>] <source>: ...`: download / analyze / login / Downloads folder (app,
+source download), PTSL connect, PTSL import (app), bad or busy request and every plug-in hand-off failure (app-listener),
+face load (bkp_view_create). Tests: PluginDownloadTests (app) and face_test 5b (plug-in). The app's own sink no longer
+copies the line a second time. Plug-in REPORT now attaches beatkey.log beside plugin.log.
 
 ## §7 Gates, evidence, merge
 - Gates green: swift tests, core tests, `plugin/validate.sh`, `plugin/test.sh`.
