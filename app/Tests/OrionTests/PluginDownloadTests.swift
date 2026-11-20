@@ -357,23 +357,26 @@ final class PluginDownloadTests: XCTestCase {
     private let head = #"{"audio_data":{"audio_destination":"MDestination_NewTrack","#
     private let tail = #""audio_operations":"AOperations_ConvertAudio","destination_path":"/Users/j/Sessions/Song/Audio Files","file_list":["/Users/j/Downloads/beat (140.00 BPM Cm Eb Gm).wav"]"#
 
+    /// Pro Tools 2025.6 requires location_data on every import (Studio D 2026-11-20); non-spot = sample 0.
+    private let zero = #","location_data":{"location":{"location":"0","time_type":"TLType_Samples"},"location_type":"SLType_Start"}"#
+
     private func json(_ p: DownloadPlacement, spot: Int64? = nil) throws -> String {
         try PTSLClient.json(PTSLImport.body(file: song, placement: p, audioFilesFolder: folder, spotSamples: spot))
     }
 
     func testImportBodyNewTrackAtCursor() throws {
         XCTAssertEqual(try json(DownloadPlacement(destination: .newTrack, location: .selection)),
-                       head + #""audio_location":"MLocation_Selection","# + tail + #"},"import_type":"IType_Audio"}"#)
+                       head + #""audio_location":"MLocation_Selection","# + tail + zero + #"},"import_type":"IType_Audio"}"#)
     }
 
     func testImportBodyNewTrackAtSessionStart() throws {
         XCTAssertEqual(try json(DownloadPlacement(destination: .newTrack, location: .sessionStart)),
-                       head + #""audio_location":"MLocation_SessionStart","# + tail + #"},"import_type":"IType_Audio"}"#)
+                       head + #""audio_location":"MLocation_SessionStart","# + tail + zero + #"},"import_type":"IType_Audio"}"#)
     }
 
     func testImportBodyNewTrackAtSongStart() throws {
         XCTAssertEqual(try json(DownloadPlacement(destination: .newTrack, location: .songStart)),
-                       head + #""audio_location":"MLocation_SongStart","# + tail + #"},"import_type":"IType_Audio"}"#)
+                       head + #""audio_location":"MLocation_SongStart","# + tail + zero + #"},"import_type":"IType_Audio"}"#)
     }
 
     func testImportBodyNewTrackSpotCarriesTheCursorInSamples() throws {
@@ -381,15 +384,15 @@ final class PluginDownloadTests: XCTestCase {
                        head + #""audio_location":"MLocation_Spot","# + tail
                        + #","location_data":{"location":{"location":"12345678","time_type":"TLType_Samples"},"location_type":"SLType_Start"}"#
                        + #"},"import_type":"IType_Audio"}"#)
-        // without a cursor there is no location_data (run() never gets here: it fails first)
-        XCTAssertFalse(try json(DownloadPlacement(destination: .newTrack, location: .spot)).contains("location_data"))
+        // Pro Tools 2025.6 requires location_data on every import (Studio D 2026-11-20): no cursor = sample 0
+        XCTAssertTrue(try json(DownloadPlacement(destination: .newTrack, location: .spot)).contains(#""location":"0""#))
     }
 
     func testImportBodyClipListHasNoPlaceOnTheTimeline() throws {
         let j = try PTSLClient.json(PTSLImport.body(file: song, placement: DownloadPlacement(destination: .clipList, location: nil),
                                                     audioFilesFolder: folder, spotSamples: 99))
-        XCTAssertEqual(j, #"{"audio_data":{"audio_destination":"MDestination_ClipList","audio_location":"MLocation_None","# + tail + #"},"import_type":"IType_Audio"}"#)
-        XCTAssertFalse(j.contains("location_data"), "a stray cursor never goes with the Clip List")
+        XCTAssertEqual(j, #"{"audio_data":{"audio_destination":"MDestination_ClipList","audio_location":"MLocation_None","# + tail + #","location_data":{"location":{"location":"0","time_type":"TLType_Samples"},"location_type":"SLType_Start"}"# + #"},"import_type":"IType_Audio"}"#)
+        XCTAssertFalse(j.contains("\"99\""), "a stray cursor never goes with the Clip List: it sends sample 0")
     }
 
     func testImportBodyWithoutASessionFolderLeavesDestinationPathOut() throws {

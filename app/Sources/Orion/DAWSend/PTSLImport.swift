@@ -23,10 +23,12 @@ enum PTSLImport {
             "audio_location": placement.ptslLocation,
         ]
         if let folder = audioFilesFolder, !folder.isEmpty { audio["destination_path"] = folder }
-        if placement.location == .spot, let samples = spotSamples {
-            audio["location_data"] = ["location_type": "SLType_Start",
-                                      "location": ["location": String(samples), "time_type": "TLType_Samples"]] as [String: Any]
-        }
+        // Pro Tools 2025.6 refuses CId_Import without location_data ("Missing required parameter:
+        // audio_data.location_data", Studio D 2026-11-20), whatever the placement. A spot carries the
+        // edit cursor; every other placement sends sample 0, which audio_location overrides.
+        let samples = placement.location == .spot ? (spotSamples ?? 0) : 0
+        audio["location_data"] = ["location_type": "SLType_Start",
+                                  "location": ["location": String(samples), "time_type": "TLType_Samples"]] as [String: Any]
         return ["import_type": "IType_Audio", "audio_data": audio]
     }
 
