@@ -9,8 +9,8 @@ Verified, with proof:
 - 0.1.80 full build: notarized + stapled dmg and pkg, AAX PACE-signed (app/build/build-0.1.80.log).
 - Sofia (macOS 12): drag-copy install of the app + all 6 plug-ins, signatures ok, auval PASS for both AUs (own bundles only), app launches and draws its face, listeners for SEND BPM + DOWNLOAD on. pluginval is not on Sofia (ran on the MBP).
 Only J:
-1. Publish: `! bash ~/dev/beatkey/tools/publish.sh`
-2. Pro Tools on Sofia asks for the helper password once; after that an agent runs the live list in the plan's §8 (AAX load, DOWNLOAD to New Track at cursor / Clip List / Spot / session + song start, PTSL off, AudioSuite, REPORT).
+1. DONE 11:18 2026-11-20: 0.1.80 PUBLISHED (GitHub Latest, appcast 0.1.80, beat-key-latest.json 0.1.80).
+2. Pro Tools live test (overnight plan §8 list) runs on the MacBook Pro, where the iLok is. NOT Sofia: no iLok there. Waiting for J to reach the studio (11:17 "wait until i get to the studio").
 
 ## (previous) 2026-11-19 17:30 — FOLDER MOVE DONE
 Code folder is now `~/dev/beatkey` (was `~/dev/beat_dl`), MBP moved 17:24; Sofia moved 17:3x too (`~/dev/beatkey`, ff-pulled to 98e08c4, no process/launchd/cron used it). Vault agent folder is `~/goat-arc/obsidian-vault/goat-mind/10-dev/beatkey` (beat_dl folder merged in; old retired friends-page notes in its `archive/retired-friends-page-2026-11-18/`). Memory dirs renamed to `-Users-jshriver-dev-beatkey` and `...-10-dev-beatkey`. First launch in the new folder shows the trust prompt once (accept).
