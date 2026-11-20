@@ -222,7 +222,8 @@ struct OrionApp: App {
 
     private func launch() {
         // The shared code (BeatKeyShared: the Auto-Tune hand-off, ...) logs into beatkey.log.
-        SharedLog.sink = { tag, line in AppLog.log(line, file: tag) }
+        // PluginErrorLog already wrote its line into beatkey.log itself: one line per failure, not two
+        SharedLog.sink = { tag, line in if tag != "PluginErrorLog" { AppLog.log(line, file: tag) } }
         wireRename()
         live.songs.recents = recents   // each live song its own Recent Readings entry
         model.follow(live)             // each live song reads at x1

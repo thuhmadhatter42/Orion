@@ -112,7 +112,11 @@ if [ $# -eq 0 ]; then
   for slice in arm64 x86_64; do
     echo "== run face_test: $slice slice (PNGs in $SHOTS/$slice)"
     mkdir -p "$TMP/ft-$slice/logs" "$SHOTS/$slice"
-    BEATKEY_LOG_DIR="$TMP/ft-$slice/logs" arch -$slice "$TMP/face_test" "$WEIGHTS" "$SHOTS/$slice" || fail "face_test failed on the $slice slice"
+    # a throwaway defaults domain: the test never touches the user's own plug-in settings
+    defaults delete com.jshriver.orion.plugin.test >/dev/null 2>&1 || true
+    BKP_FACE_SUITE=com.jshriver.orion.plugin.test BEATKEY_LOG_DIR="$TMP/ft-$slice/logs" arch -$slice "$TMP/face_test" "$WEIGHTS" "$SHOTS/$slice" \
+      || fail "face_test failed on the $slice slice"
+    defaults delete com.jshriver.orion.plugin.test >/dev/null 2>&1 || true
   done
 fi
 echo "plugin/test.sh: PASS (both slices)"

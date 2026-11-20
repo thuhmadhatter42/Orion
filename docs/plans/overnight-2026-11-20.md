@@ -38,10 +38,30 @@ Source: `FaceplateFace` (app/Sources/Orion/Faceplate/FaceplateView.swift) and th
 
 Hidden, not dead: page arrows / SHOW IN FINDER, Open Audio + FIND, HOLD, LISTEN, SETTINGS.
 
+Hand-off §1 → §2: table above (b9f306c). Next: move the face's views into one shared place.
+
 ## §2 One face, shared
 Move the Faceplate views into `BeatKeyShared` behind a small protocol: the model and actions the face needs.
 The app and the plug-in both render that same view tree. The app keeps its behaviour; it is a refactor only.
 Gate: swift tests are green, and the app face render is pixel-identical to before (MarketingRenderTests).
+
+### §2 result
+- Where: `app/Sources/Orion/Face/` (not the BeatKeyShared SwiftPM module). Both sides compile the same files: the app as
+  part of its Orion target, each plug-in format into its own Swift module (plugin/ui/build-face.sh, like Glow.swift already
+  was). Why not BeatKeyShared: as a separate SwiftPM module every type, property and init the window uses would need
+  `public` (hundreds of declarations, a second API to keep in step) for no gain; the plug-in compiles the sources either way.
+- The protocol: PocketState (every value the face draws) + PocketActions (every closure it calls). New: `surface`
+  (FaceSurface .app / .plugin), `status`, `downloadMenu`, `colorOpen`; actions `pinKey` / `clearPin`, `color`, `report`,
+  `pickPlacement`, `closeDownloadMenu`, `midiDrag`. What each side must provide beyond that: Face/FaceHost.swift
+  (AppLog.log, AutoTuneSend.shortcutDisplay).
+- Left in the app (machinery, never in Face/): FaceplateView, FaceplateModel, Faceplate/FaceAppWiring.swift (SpellingSettings
+  pins, shownReading, harmony wiring, HarmonyPrefs <-> DisplaySettings, COLOR/REPORT), HelpApp.swift (HelpSettings, the
+  help window's table), ReadingStores.swift, Accent.swift (AccentSettings, AccentPanel, PaletteRoot).
+- Gate: swift 752 tests, 1 failure = the pre-existing What's New "0.1.78" test (fixed in the merged listener branch).
+  Renders: 86 of 89 byte-identical to before; the 3 others differ run-to-run on the old code too (pocket/window dial-hover
+  animation; Settings' device pop-up width depends on the Mac's audio devices).
+
+Hand-off §2 → §3: the face compiles alone (`plugin/ui/build-face.sh`); next, the plug-in draws it.
 
 ## §3 Plug-in uses the shared face
 `plugin/ui` FaceModel/FaceBridge implement the protocol. Controls that can't work in a host are hidden, not left dead; list them.
@@ -52,6 +72,12 @@ Gate: `plugin/test.sh` face test, plus the plug-in face rendered at default and 
 Paste a link and press DOWNLOAD. The existing Swift downloader runs (no Python) and the file is named with BPM and key.
 If a host's sandbox or process blocks the download, route it through the Beat Key app's listener, the same path SEND BPM uses. Write the choice here.
 Outside Pro Tools, the file is saved and shown in Finder.
+
+### §4 choice: through the app, always
+The plug-in never downloads in the host. yt-dlp, deno, ffmpeg and the saved YouTube login are the app's; Logic's AU
+service is sandboxed and Pro Tools owns its process. DOWNLOAD posts `com.jshriver.orion.download` (PluginDownload.swift),
+the app's PluginDownloadListener runs the Swift downloader, names the file with BPM + key, then PTSL-imports or reveals it.
+Same route as SEND BPM (launches the app if needed, pings, posts). A second press while one runs is refused with a line.
 
 ## §5 Import into Pro Tools (PTSL CId_Import)
 ImportType IType_Audio, AudioData with: file_list = the downloaded file; audio_operations = ConvertAudio; destination = MD_NewTrack or MD_ClipList; location = ML_Selection (edit cursor), ML_SessionStart, ML_SongStart or ML_Spot (with SpotLocationData).

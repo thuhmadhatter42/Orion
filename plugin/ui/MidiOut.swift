@@ -94,27 +94,3 @@ enum MidiOut {
         return p
     }
 }
-
-/// The .MID chip: drag it into a session (or Finder) for a MIDI file with the tempo and key.
-struct MidiDragChip: View {
-    @ObservedObject var model: FaceModel
-    @Environment(\.accent) private var accent
-
-    var body: some View {
-        let s = model.state
-        let ready = s.bpm != nil || s.key != nil
-        let shape = RoundedRectangle(cornerRadius: 3, style: .continuous)
-        Text(".MID")
-            .font(FaceType.caption)
-            .foregroundColor(accent.color(ready ? 0.85 : 0.35))
-            .lineLimit(1)
-            .padding(.horizontal, 7)
-            .frame(height: 18)
-            .background(shape.fill(accent.color(0.06)))
-            .overlay(shape.stroke(accent.color(ready ? 0.45 : 0.2), lineWidth: 1))
-            .contentShape(shape)
-            .onDrag { MidiOut.provider(token: model.token, state: model.state) }
-            .help(FaceTips.midiDrag)
-            .accessibility(label: Text("MIDI file with tempo and key. Drag it into your session."))
-    }
-}

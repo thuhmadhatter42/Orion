@@ -128,7 +128,7 @@ struct FaceplateFace: View {
                     DownloadCap(state: state, action: { actions.downloadPressed(state) }).frame(width: capWidth)
                 }
             }
-            .overlay(downloadMenu, alignment: .topTrailing)
+            .overlay(downloadMenu, alignment: .bottomTrailing)
             // the menu draws over the rows below it (only while open: the paint order stays the window's)
             .zIndex(state.downloadMenu == nil ? 0 : 1)
             .padding(.top, Theme.S.l)
@@ -163,11 +163,13 @@ struct FaceplateFace: View {
         }
     }
 
-    /// The DOWNLOAD menu under the cap, when open (the plug-in's; FaceStatus.swift).
+    /// The DOWNLOAD menu above the cap, over the readout (room for every row), when open (the plug-in's;
+    /// FaceStatus.swift).
     @ViewBuilder private var downloadMenu: some View {
         if let m = state.downloadMenu {
             DownloadMenuPanel(menu: m, pick: actions.pickPlacement, dismiss: actions.closeDownloadMenu)
-                .offset(y: Theme.H.lg + Theme.S.xs)
+                .fixedSize()
+                .offset(y: -(Theme.H.lg + Theme.S.xs))
         }
     }
 

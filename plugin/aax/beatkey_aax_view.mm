@@ -21,8 +21,10 @@ public:
 		if (!oViewSize) {
 			return AAX_ERROR_NULL_ARGUMENT;
 		}
-		oViewSize->horz = static_cast<float>(BKP_VIEW_W);
-		oViewSize->vert = static_cast<float>(BKP_VIEW_H);
+		int32_t w = BKP_VIEW_W, h = BKP_VIEW_H;
+		bkp_face_size(&w, &h);
+		oViewSize->horz = static_cast<float>(w);
+		oViewSize->vert = static_cast<float>(h);
 		return AAX_SUCCESS;
 	}
 	~BeatKeyAaxGUI() override { DeleteViewContainer(); }
@@ -56,10 +58,32 @@ protected:
 		}
 		[mView setFrameOrigin:NSMakePoint(0, 0)];
 		[parent addSubview:mView];
+		// ADVANCED on / off resizes the face: Pro Tools' window follows (AAX_IViewContainer::SetViewSize)
+		mObserver = [[NSNotificationCenter defaultCenter] addObserverForName:NSViewFrameDidChangeNotification
+		                                                             object:mView
+		                                                              queue:nil
+		                                                         usingBlock:^(NSNotification*) { FollowFace(); }];
+	}
+
+	void FollowFace()
+	{
+		AAX_IViewContainer* c = GetViewContainer();
+		if (!c || !mView) {
+			return;
+		}
+		AAX_Point p(static_cast<float>(mView.frame.size.height), static_cast<float>(mView.frame.size.width));
+		const AAX_Result r = c->SetViewSize(p);
+		if (r != AAX_SUCCESS) {
+			bk_log("plugin", "AAX face resize to %.0fx%.0f: Pro Tools refused (%d)", p.horz, p.vert, static_cast<int>(r));
+		}
 	}
 
 	void DeleteViewContainer() override
 	{
+		if (mObserver) {
+			[[NSNotificationCenter defaultCenter] removeObserver:mObserver];
+			mObserver = nil;
+		}
 		if (mView) {
 			[mView removeFromSuperview];
 			mView = nil;
@@ -68,6 +92,7 @@ protected:
 
 private:
 	NSView* mView = nil;
+	id mObserver = nil;
 };
 
 } // namespace
