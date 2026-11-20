@@ -251,3 +251,145 @@ final class BPMSend {
         BPMSend.running[ObjectIdentifier(self)] = nil
     }
 }
+
+/// One DOWNLOAD press (overnight plan 2026-11-20 §4): the plug-in hands the link to the Beat Key app
+/// (BeatKeyShared/PluginDownload.swift), the app downloads, reads BPM + key, names the file, then
+/// imports it into Pro Tools (a placement was picked) or saves it and shows it in Finder. A host is no
+/// place to run yt-dlp + ffmpeg (Logic's AU service is sandboxed; Pro Tools owns its process), so the
+/// app does it, the same route SEND BPM takes. Every hand-off failure is one line in beatkey.log
+/// (PluginErrorLog, source app-listener, the host's name) and one line on the face. The app logs
+/// its own failures (download, PTSL connect, PTSL import) the same way.
+final class DownloadSend {
+    private static var running: [ObjectIdentifier: DownloadSend] = [:]
+
+    let token: UInt64
+    let url: String
+    let placement: DownloadPlacement?
+    let requestID = UUID().uuidString
+    private let env: BPMSend.Env
+    private let quiet: TimeInterval
+    private let progress: (String) -> Void
+    private let done: (PluginDownload.Reply) -> Void
+    private var observers: [NSObjectProtocol] = []
+    private var timers: [Timer] = []
+    private var quietTimer: Timer?
+    private var finished = false
+    private var posted = false
+
+    init(token: UInt64, url: String, placement: DownloadPlacement?, env: BPMSend.Env = .live,
+         quiet: TimeInterval = PluginDownload.quietTimeout,
+         progress: @escaping (String) -> Void, done: @escaping (PluginDownload.Reply) -> Void) {
+        self.token = token
+        self.url = url
+        self.placement = placement
+        self.env = env
+        self.quiet = quiet
+        self.progress = progress
+        self.done = done
+    }
+
+    private var hostName: String { env.host().name }
+    private var where_: String { placement?.label ?? "Save only" }
+
+    /// Main thread.
+    func start() {
+        DownloadSend.running[ObjectIdentifier(self)] = self
+        FaceLog.line(token, "download: pressed (\(where_); request \(requestID.prefix(8)))")
+        if env.sandboxed() {
+            fail("Sandboxed host: DOWNLOAD can't reach the Beat Key app.",
+                 "the host is sandboxed (APP_SANDBOX_CONTAINER_ID set): a distributed notification cannot carry the link to the app")
+            return
+        }
+        guard let app = env.appURL() else {
+            fail("DOWNLOAD needs the Beat Key app.", "the Beat Key app (\(PluginSend.appBundleID)) is not installed")
+            return
+        }
+        observers.append(env.observe(Notification.Name("com.jshriver.orion.reading")) { [weak self] _ in self?.post() })
+        observers.append(env.observe(PluginDownload.replyName) { [weak self] info in self?.reply(info) })
+        if env.appRunning() {
+            ping(for: env.pingWait, launched: false)
+        } else {
+            progress("Opening Beat Key…")
+            FaceLog.line(token, "download: the Beat Key app is not running; opening \(app.path)")
+            env.launch(app) { [weak self] err in
+                guard let self, !self.finished else { return }
+                if let err { self.fail("Couldn't open Beat Key.", "opening \(app.path) failed: \(err)") }
+                else { self.ping(for: self.env.launchWait, launched: true) }
+            }
+        }
+    }
+
+    private func ping(for wait: TimeInterval, launched: Bool) {
+        let started = Date()
+        env.post(Notification.Name("com.jshriver.orion.request"), nil)
+        let t = Timer(timeInterval: 0.5, repeats: true) { [weak self] t in
+            guard let self, !self.finished, !self.posted else { t.invalidate(); return }
+            if Date().timeIntervalSince(started) >= wait {
+                t.invalidate()
+                if launched {
+                    self.fail("Beat Key didn't start listening.", "the app was opened but did not answer within \(Int(wait)) s")
+                } else {
+                    FaceLog.line(self.token, "download: the app did not answer the ping in \(Int(wait)) s; sending anyway")
+                    self.post()
+                }
+                return
+            }
+            self.env.post(Notification.Name("com.jshriver.orion.request"), nil)
+        }
+        RunLoop.main.add(t, forMode: .common)
+        timers.append(t)
+    }
+
+    private func post() {
+        guard !finished, !posted else { return }
+        posted = true
+        let h = env.host()
+        let req = PluginDownload.Request(requestID: requestID, url: url, placement: placement, hostBundleID: h.bundleID,
+                                         hostName: h.name, hostPid: h.pid)
+        progress("Downloading…")
+        FaceLog.line(token, "download: posted to the app (\(where_), host \(h.bundleID.isEmpty ? h.name : h.bundleID))")
+        env.post(PluginDownload.requestName, req.userInfo)
+        armQuiet()
+    }
+
+    /// The app sends a progress line at least every 20 s; each one restarts this clock.
+    private func armQuiet() {
+        quietTimer?.invalidate()
+        let t = Timer(timeInterval: quiet, repeats: false) { [weak self] _ in
+            guard let self, !self.finished else { return }
+            self.fail("Beat Key app didn't answer. Update it?",
+                      "no word from the Beat Key app in \(Int(self.quiet)) s (an app older than the plug-in does not know DOWNLOAD)")
+        }
+        RunLoop.main.add(t, forMode: .common)
+        quietTimer = t
+    }
+
+    private func reply(_ info: [AnyHashable: Any]?) {
+        guard !finished, let r = PluginDownload.Reply.decode(info), r.requestID == requestID else { return }
+        guard r.final else {
+            progress(r.message)
+            armQuiet()
+            return
+        }
+        finish(r)
+    }
+
+    /// A hand-off failure: the face's line, plugin.log, and one beatkey.log line (app-listener).
+    private func fail(_ line: String, _ detail: String) {
+        PluginErrorLog.write(.appListener, "download hand-off failed: \(detail)", host: hostName)
+        finish(PluginDownload.Reply(requestID: requestID, final: true, ok: false, message: line))
+    }
+
+    private func finish(_ r: PluginDownload.Reply) {
+        guard !finished else { return }
+        finished = true
+        timers.forEach { $0.invalidate() }
+        timers = []
+        quietTimer?.invalidate()
+        observers.forEach(env.unobserve)
+        observers = []
+        FaceLog.line(token, "download: \(r.ok ? "ok" : "FAILED"): \(r.message)" + (r.path.isEmpty ? "" : " (\(r.path))"))
+        done(r)
+        DownloadSend.running[ObjectIdentifier(self)] = nil
+    }
+}

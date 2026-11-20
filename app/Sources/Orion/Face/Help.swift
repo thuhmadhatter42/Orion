@@ -8,36 +8,6 @@ import SwiftUI
 // above every other view, at the mouse like a tooltip (down-right of the pointer, following it,
 // flipped and kept inside the surface, never under the pointer; J 2026-11-09).
 
-/// Help mode on / off, remembered between launches (UserDefaults `helpMode`, default off).
-final class HelpSettings: ObservableObject {
-    static let key = "helpMode"
-    static let shared = HelpSettings()
-    private let defaults: UserDefaults
-
-    @Published var isOn: Bool {
-        didSet {
-            guard isOn != oldValue else { return }
-            defaults.set(isOn, forKey: HelpSettings.key)
-            AppLog.log("help mode \(isOn ? "on" : "off")")
-        }
-    }
-
-    init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-        if let v = defaults.object(forKey: HelpSettings.key), !(v is Bool) && !(v is NSNumber) {
-            AppLog.log("help mode: stored value is not a switch; starting off")
-            defaults.removeObject(forKey: HelpSettings.key)
-        }
-        isOn = defaults.bool(forKey: HelpSettings.key)
-    }
-
-    /// The HELP chip (window or pocket) or the View menu.
-    func toggle(from place: String) {
-        AppLog.log("help mode toggled from \(place)")
-        isOn.toggle()
-    }
-}
-
 /// One explanation: a short title (the control's legend) and a Board Talk body (docs/BOARD-TALK.md).
 struct HelpTip: Equatable {
     let title: String
@@ -57,6 +27,10 @@ struct HelpSection: Equatable {
 /// Every help line, in one place to edit and test. Board Talk (docs/BOARD-TALK.md): a short title,
 /// a body of about 3-8 words, 60 characters at most, the shortcut last in parentheses.
 enum HelpText {
+    /// A body with its shortcut last in parentheses (Board Talk); no shortcut = the words alone (the
+    /// plug-in has no global shortcuts: AutoTuneSend.shortcutDisplay is "" there).
+    static func withKeys(_ words: String, _ keys: String) -> String { keys.isEmpty ? words : "\(words) (\(keys))" }
+
     // the readout
     static let bpm = HelpTip(title: "BPM", body: "Click: normal, double or half time.")
     static let pitchToFit = HelpTip(title: "PITCH TO FIT", body: "Semitones to pitch the beat into your key.")
@@ -93,7 +67,9 @@ enum HelpText {
 
     // sending
     static let sendDAW = HelpTip(title: "SEND TO DAW", body: "Send BPM and key to the open DAW.")
-    static let autoTune = HelpTip(title: "SEND TO AUTO-TUNE", body: "Set key in Auto-Tune, Tune Real-Time (\(AutoTuneSend.shortcutDisplay))")
+    // the doctor's result on the LCD
+    static let doctorResult = HelpTip(title: "DOCTOR RESULT", body: "OK · FIXED IT · FOUND A PROBLEM (see line below)")
+    static let autoTune = HelpTip(title: "SEND TO AUTO-TUNE", body: withKeys("Set key in Auto-Tune, Tune Real-Time", AutoTuneSend.shortcutDisplay))
     static let exportMidi = HelpTip(title: "EXPORT MIDI", body: "MIDI file with tempo and key.")
 
     // the footer
@@ -127,84 +103,6 @@ enum HelpText {
     static let nextFile = HelpTip(title: "NEXT FILE", body: "Next file (→)")
     static let readout = HelpTip(title: "READOUT", body: "Paste, open or listen to read a beat.")
 
-    // Settings (the Settings window)
-    static let settingsHighContrast = HelpTip(title: "HIGH CONTRAST", body: "Brighter text, no glow. Lamp shapes stay.")
-    static let settingsListenTo = HelpTip(title: "LISTEN TO", body: "System audio or one input. Nothing saved.")
-    static let settingsChannel = HelpTip(title: "CHANNEL", body: "Interface channel to read, or all.")
-    static let settingsStartOver = HelpTip(title: "START OVER AFTER", body: "Silence length that ends a song.")
-    static let settingsRename = HelpTip(title: "FILE NAMES", body: "Add key + BPM to names. Pro Tools files always ask.")
-    static let settingsOpenAtLogin = HelpTip(title: "OPEN AT LOGIN", body: "Start Beat Key at login.")
-    static let settingsShortcuts = HelpTip(title: "SHORTCUTS", body: "Quick Keys: every shortcut. Click one, type new keys.")
-
-    // Permissions guide
-    static let permissionGuide = HelpTip(title: "SET UP PERMISSIONS", body: "Checks each permission. Menu: \(Brand.setUpPermissions)")
-    /// One line per permission (the guide window's own longer text is PermissionKind.why).
-    static func permission(_ k: PermissionKind) -> HelpTip {
-        let body: String
-        switch k {
-        case .screen: body = "Hear Mac audio. Turn on Beat Key."
-        case .microphone: body = "Hear a mic or interface. Turn on Beat Key."
-        case .accessibility: body = "Type BPM and key into your DAW. Turn on Beat Key."
-        }
-        return HelpTip(title: k.title.uppercased(), body: body)
-    }
-    static let permissionScreen = permission(.screen)
-    static let permissionMicrophone = permission(.microphone)
-    static let permissionAccessibility = permission(.accessibility)
-
-    // Doctor
-    static let runDoctor = HelpTip(title: "RUN DOCTOR", body: "Check and repair downloader, ffmpeg, analyzer.")
-    static let doctorResult = HelpTip(title: "DOCTOR RESULT", body: "OK · FIXED IT · FOUND A PROBLEM (see line below)")
-
-    // Keys and shortcuts
-    static let keysOctave = HelpTip(title: "OCTAVE · Z X", body: "Z octave down, X up. Link field empty.")
-    static let keysMode = HelpTip(title: "MAJOR / MINOR · SPACE", body: "Space flips the keyboard major/minor.")
-    static let keysPaging = HelpTip(title: "PAGE FILES · ← →", body: "Arrows page files. Link field empty.")
-    static let keysAutoTune = HelpTip(title: "AUTO-TUNE SHORTCUT", body: "Send key to Auto-Tune (\(AutoTuneSend.shortcutDisplay))")
-    static let keysAdvanced = HelpTip(title: "ADVANCED SHORTCUT", body: "Advanced on/off (\(QuickKeys.tipDisplay("advancedMode")))")
-    static let keysHelp = HelpTip(title: "HELP WINDOW · ⌘?", body: "Help › Beat Key Help. Help Mode: hover tips.")
-
-    /// The help window's contents, in order. THE one list: the window draws it, the launch check
-    /// and the tests read it, and `all` is made from it, so a tip cannot be missing from the window.
-    static let sections: [HelpSection] = [
-        HelpSection(title: "Window and pocket: the readout",
-                    tips: [readout, bpm, tempoFactor, keyDial, confidence, topKeys, manual, manualReset, keyboard, scale,
-                           tuning, camelot, fileLine, showInFinder, prevFile, nextFile, status]),
-        HelpSection(title: "Window and pocket: getting audio in",
-                    tips: [linkField, download, login, openAudio, findKey, source, listen, hold, reset]),
-        HelpSection(title: "Window and pocket: sending", tips: [sendDAW, autoTune, exportMidi]),
-        HelpSection(title: "Menu bar pocket only", tips: [analyzeFile, window, quit]),
-        HelpSection(title: "Footer", tips: [recent, settings, color, report, advanced, help]),
-        HelpSection(title: "Advanced mode",
-                    tips: [pitchToFit, keyWheel, notesHeard, chords, quality, voicing, bars, borrowed, matchTo, matchShift, mini]),
-        HelpSection(title: "Beat Key Mini", tips: [miniPanel, miniSound]),
-        HelpSection(title: "Settings",
-                    tips: [settingsHighContrast, settingsListenTo, settingsChannel, settingsStartOver, settingsRename, settingsOpenAtLogin,
-                           settingsShortcuts]),
-        HelpSection(title: "Permissions guide",
-                    tips: [permissionGuide, permissionScreen, permissionMicrophone, permissionAccessibility]),
-        HelpSection(title: "Doctor", tips: [runDoctor, doctorResult]),
-        HelpSection(title: "Keys and shortcuts",
-                    tips: [keysOctave, keysMode, keysPaging, keysAutoTune, keysAdvanced, keysHelp]),
-    ]
-
-    static let all: [HelpTip] = sections.flatMap { $0.tips }
-
-    /// Lines that break the table's rules (empty, too long, a title used twice); logged at launch.
-    static func problems(_ tips: [HelpTip] = all) -> [String] {
-        var out: [String] = []
-        var seen = Set<String>()
-        for t in tips {
-            if t.title.isEmpty || t.body.trimmingCharacters(in: .whitespaces).isEmpty { out.append("empty: \(t.title)") }
-            if t.body.count > HelpTip.maxBody { out.append("too long (\(t.body.count)): \(t.title)") }
-            if !seen.insert(t.id).inserted { out.append("title used twice: \(t.title)") }
-        }
-        return out
-    }
-
-    static func checkAtLaunch() {
-        for p in problems() { AppLog.log("help text: \(p)") }
-    }
 }
 
 // MARK: the decision and the placement (pure, tested)

@@ -48,7 +48,7 @@ struct LCD: View {
         VStack(alignment: .leading, spacing: 0) {
             top.frame(maxWidth: .infinity).frame(height: LCD.bandHeight, alignment: .topLeading)
             // the hairline sits mid-row: pull the strip up half a row so the line ends the band
-            KeyStrip(state: state, onManual: actions.manualMenu, keyboardHeight: FaceplateView.keyboardHeight)
+            KeyStrip(state: state, onManual: actions.manualMenu, keyboardHeight: FaceplateFace.keyboardHeight, actions: actions)
                 .padding(.top, -KeyStrip.ruleRowHeight / 2)
         }
         .padding(.bottom, Theme.S.l)
@@ -323,7 +323,7 @@ struct ResultReadout: View {
     /// BPM column to dial.
     static let groupGap: CGFloat = Theme.S.l
     /// The readout's inner width (the module less the glass's padding).
-    static var innerWidth: CGFloat { FaceplateView.moduleWidth - Theme.S.lcd * 2 }
+    static var innerWidth: CGFloat { FaceplateFace.moduleWidth - Theme.S.lcd * 2 }
     /// The BPM column: from the glass's text edge (the top keys' left edge, J 2026-11-09 14:23
     /// "move BPM slightly to the left") to the dial, which ends on the right text edge (MANUAL's).
     static var bpmWidth: CGFloat { innerWidth - groupGap - dialSide }
@@ -335,7 +335,7 @@ struct ResultReadout: View {
         // file) sit the group in the same place and neither leaves an empty strip.
         HStack(alignment: .center, spacing: ResultReadout.groupGap) {
             bpmColumn.frame(width: ResultReadout.bpmWidth, alignment: .leading)
-            Dial(state: state, side: ResultReadout.dialSide, keySize: ResultReadout.dialKeySize)
+            Dial(state: state, actions: actions, side: ResultReadout.dialSide, keySize: ResultReadout.dialKeySize)
                 .frame(width: ResultReadout.dialSide, height: ResultReadout.dialSide)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

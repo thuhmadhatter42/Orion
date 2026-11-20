@@ -222,7 +222,8 @@ struct OrionApp: App {
 
     private func launch() {
         // The shared code (BeatKeyShared: the Auto-Tune hand-off, ...) logs into beatkey.log.
-        SharedLog.sink = { tag, line in AppLog.log(line, file: tag) }
+        // PluginErrorLog already wrote its line into beatkey.log itself: one line per failure, not two
+        SharedLog.sink = { tag, line in if tag != "PluginErrorLog" { AppLog.log(line, file: tag) } }
         wireRename()
         live.songs.recents = recents   // each live song its own Recent Readings entry
         model.follow(live)             // each live song reads at x1
@@ -284,6 +285,8 @@ struct OrionApp: App {
         Broadcast.shared.install(engine: engine, model: model, live: live)
         // SEND BPM from the plug-in: the app sends the tempo for it (PluginSendListener.swift).
         PluginSendListener.shared.install()
+        // DOWNLOAD from the plug-in: the app downloads, names, and imports into Pro Tools (PluginDownloadListener.swift).
+        PluginDownloadListener.shared.install()
         // Is this the latest version? One Sparkle background check per launch (the same updater as
         // Check for Updates…); it only shows a window when a newer Beat Key exists.
         updater.checkInBackgroundAtLaunch()

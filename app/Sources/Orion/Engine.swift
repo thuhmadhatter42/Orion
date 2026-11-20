@@ -14,12 +14,6 @@ enum ViewState: Equatable {
     var isBusy: Bool { if case .working = self { return true } else { return false } }
 }
 
-/// What the faceplate asks for after a login-fixable error.
-struct LoginPrompt: Equatable {
-    let url: String
-    let reason: String      // "age" | "bot" | "members"
-}
-
 final class Engine: ObservableObject {
     @Published var state: ViewState = .idle {
         didSet {

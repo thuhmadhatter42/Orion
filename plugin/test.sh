@@ -98,7 +98,7 @@ if [ $# -eq 0 ]; then
     xcrun swiftc -parse-as-library -module-name BeatKeyFaceTest -target "$a-apple-macos12.0" -sdk "$SDK" -swift-version 5 \
       -O -wmo -emit-object -o "$TMP/face-test/ft-$a.o" -import-objc-header "$HERE/ui/FaceBridge.h" \
       -I "$ROOT/core/include" -I "$HERE/shared" \
-      "$ROOT"/app/Sources/BeatKeyShared/*.swift "$ROOT/app/Sources/Orion/House/Glow.swift" "$HERE"/ui/*.swift "$HERE/test/face_test.swift" \
+      "$ROOT"/app/Sources/BeatKeyShared/*.swift "$ROOT/app/Sources/Orion/House/Glow.swift" "$ROOT"/app/Sources/Orion/Face/*.swift "$HERE"/ui/*.swift "$HERE/test/face_test.swift" \
       || fail "face_test.swift did not compile ($a)"
   done
   lipo -create "$TMP/face-test/ft-arm64.o" "$TMP/face-test/ft-x86_64.o" -output "$TMP/face-test/ft.o"
@@ -112,7 +112,11 @@ if [ $# -eq 0 ]; then
   for slice in arm64 x86_64; do
     echo "== run face_test: $slice slice (PNGs in $SHOTS/$slice)"
     mkdir -p "$TMP/ft-$slice/logs" "$SHOTS/$slice"
-    BEATKEY_LOG_DIR="$TMP/ft-$slice/logs" arch -$slice "$TMP/face_test" "$WEIGHTS" "$SHOTS/$slice" || fail "face_test failed on the $slice slice"
+    # a throwaway defaults domain: the test never touches the user's own plug-in settings
+    defaults delete com.jshriver.orion.plugin.test >/dev/null 2>&1 || true
+    BKP_FACE_SUITE=com.jshriver.orion.plugin.test BEATKEY_LOG_DIR="$TMP/ft-$slice/logs" arch -$slice "$TMP/face_test" "$WEIGHTS" "$SHOTS/$slice" \
+      || fail "face_test failed on the $slice slice"
+    defaults delete com.jshriver.orion.plugin.test >/dev/null 2>&1 || true
   done
 fi
 echo "plugin/test.sh: PASS (both slices)"

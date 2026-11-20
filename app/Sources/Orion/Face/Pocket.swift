@@ -69,6 +69,15 @@ struct PocketState {
     var miniOpen = false
     /// Help mode: hovering a control explains it (HelpSettings; the HELP chip lights).
     var help = false
+    /// The colour picker is open (the COLOR chip lights).
+    var colorOpen = false
+    /// The surface drawing the face: the app's window and popover, or a plug-in (which hides the
+    /// controls a host can't use; FaceSurface).
+    var surface = FaceSurface.app
+    /// The plug-in's one-line status (FaceStatus.swift); the app has none (its LCD says it all).
+    var status: FaceStatus? = nil
+    /// The DOWNLOAD menu, open (nil = closed). The plug-in's: where the beat goes in Pro Tools.
+    var downloadMenu: DownloadMenu? = nil
     /// The pinned key on the reading shown (`result.pin`: one state, not a copy); nil = detection.
     var manualKey: ManualKey? { result?.pin }
 
@@ -118,24 +127,3 @@ struct PocketState {
 
 /// Where the reading on show came from (Broadcast.swift sends it as `source`).
 enum ShownSource: Equatable { case listen, file }
-
-extension PocketState {
-    /// The reading the popover acts on (send, export, Auto-Tune, Broadcast): Listen's while it is
-    /// on, else the finished download or the file paged to (what the readout shows), with where it
-    /// came from. THE one place the app's current reading is chosen. `choice` = the picked key,
-    /// passed in by a caller that holds the new value before the property has changed.
-    static func shownReading(_ state: ViewState, live: LiveState, page: Pager,
-                             choice: KeyChoice? = SpellingSettings.shared.manualKey) -> (result: Result, source: ShownSource)? {
-        if live.isActive, let r = live.result { return (r.respelled(choice: choice), .listen) }
-        switch state {
-        case .done(let r): return (r.respelled(choice: choice), .file)
-        case .analyzed(let rs) where !rs.isEmpty:
-            return (rs[min(max(page.index, 0), rs.count - 1)].respelled(choice: choice), .file)
-        default: return nil
-        }
-    }
-
-    static func shown(_ state: ViewState, live: LiveState, page: Pager) -> Result? {
-        shownReading(state, live: live, page: page)?.result
-    }
-}

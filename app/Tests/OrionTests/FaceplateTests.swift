@@ -18,15 +18,15 @@ final class FaceplateTests: XCTestCase {
             XCTAssertEqual(s.truncatingRemainder(dividingBy: 4), 0)    // the 4/8 grid
         }
         // the send row lines up with the cap column above it
-        XCTAssertEqual(FaceplateView.sendWidth * 2 + FaceplateView.gridGap * 2 + FaceplateView.capWidth,
-                       FaceplateView.moduleWidth)
+        XCTAssertEqual(FaceplateFace.sendWidth * 2 + FaceplateFace.gridGap * 2 + FaceplateFace.capWidth,
+                       FaceplateFace.moduleWidth)
     }
 
     // J 2026-11-09: the narrower left column stays on the grid and its legends fit at full size
     func testNarrowModuleStaysOnTheGridAndFits() {
-        for v in [FaceplateView.moduleWidth, FaceplateView.plateWidth(advanced: false),
-                  FaceplateView.size.width, FaceplateView.size.height, FaceplateView.keyboardHeight,
-                  FaceplateView.sendWidth, FaceplateView.capWidth, ResultReadout.bpmWidth] {
+        for v in [FaceplateFace.moduleWidth, FaceplateFace.plateWidth(advanced: false),
+                  FaceplateFace.size.width, FaceplateFace.size.height, FaceplateFace.keyboardHeight,
+                  FaceplateFace.sendWidth, FaceplateFace.capWidth, ResultReadout.bpmWidth] {
             XCTAssertEqual(v.truncatingRemainder(dividingBy: 4), 0, "\(v) is off the 4/8 grid")
         }
         let label = NSFont(name: "HelveticaNeue-Bold", size: Theme.T.labelSize)!
@@ -34,12 +34,12 @@ final class FaceplateTests: XCTestCase {
             (s as NSString).size(withAttributes: [.font: label, .kern: Theme.T.labelTracking]).width
         }
         for s in ["SEND TO PRO TOOLS", "SEND TO AUTO-TUNE", "SEND TO LOGIC PRO"] {
-            XCTAssertLessThanOrEqual(width(s), FaceplateView.sendWidth - FaceplateView.sendPadding * 2, s)
+            XCTAssertLessThanOrEqual(width(s), FaceplateFace.sendWidth - FaceplateFace.sendPadding * 2, s)
         }
-        XCTAssertLessThanOrEqual(width("PASTE + DOWNLOAD"), FaceplateView.capWidth - SSLCapStyle.sidePadding * 2)
+        XCTAssertLessThanOrEqual(width("PASTE + DOWNLOAD"), FaceplateFace.capWidth - SSLCapStyle.sidePadding * 2)
         // the keyboard: taller for its width than the 456 x 84 it was
-        let keys = FaceplateView.moduleWidth - Theme.S.lcd * 2
-        XCTAssertLessThan(keys / FaceplateView.keyboardHeight, 456.0 / 84.0)
+        let keys = FaceplateFace.moduleWidth - Theme.S.lcd * 2
+        XCTAssertLessThan(keys / FaceplateFace.keyboardHeight, 456.0 / 84.0)
     }
 
     // J 2026-11-09: "put that line in the middle of the tuning in the center" (of the panel)
@@ -106,14 +106,14 @@ final class FaceplateTests: XCTestCase {
         // the window's row: four chips 16 apart, ADVANCED with its word, inside the plate's text edges
         let window = ["RECENT ▾", "SETTINGS", "HELP"].map { FooterChip.width($0) }.reduce(0, +)
             + FooterChip.width("COLOR", swatch: true) + Theme.S.l * 4 + AdvancedBox.width(showsLabel: true)
-        XCTAssertLessThanOrEqual(window, FaceplateView.plateWidth(advanced: false) - Theme.S.lcd * 2)
+        XCTAssertLessThanOrEqual(window, FaceplateFace.plateWidth(advanced: false) - Theme.S.lcd * 2)
     }
 
     func testTuningTrackCentreIsThePanelCentre() {
-        let strip = FaceplateView.moduleWidth - Theme.S.lcd * 2       // the window's LCD inside its padding
+        let strip = FaceplateFace.moduleWidth - Theme.S.lcd * 2       // the window's LCD inside its padding
         let l = TuningMeterRow.layout(width: strip)
         // the glass pads both sides alike, so the strip's centre is the panel's centre
-        XCTAssertEqual(Theme.S.lcd + l.trackCentre, FaceplateView.moduleWidth / 2)
+        XCTAssertEqual(Theme.S.lcd + l.trackCentre, FaceplateFace.moduleWidth / 2)
         XCTAssertEqual(l.trackCentre, strip / 2)
         XCTAssertGreaterThan(l.trackWidth, 160)
         for w: CGFloat in [strip, 312, 344, 401] {                     // the pocket's strip too

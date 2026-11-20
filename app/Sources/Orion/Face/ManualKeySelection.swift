@@ -32,52 +32,6 @@ enum ManualKeySource: String, CaseIterable {
     // A new live song needs no clear: the selection holds the song's identity (LiveSession.song).
 }
 
-extension SpellingSettings {
-    /// Manual Key Selection: `key` (any spelling) becomes THE key of `result`. The one override
-    /// path. A key name that does not resolve leaves the state as it was and is logged as an
-    /// error (no alert: the click simply does nothing). False = not set.
-    @discardableResult
-    func setManualKey(_ key: String, of result: Result, from source: ManualKeySource) -> Bool {
-        guard let k = KeyNames.parse(key) else {
-            AppLog.log("ERROR manual key selection: could not resolve \"\(key)\" (from \(source.rawValue)); unchanged")
-            return false
-        }
-        let was = manualKey.flatMap { $0.matches(result) ? KeyChoice.keyName($0.pitchClass, minor: $0.minor) : nil }
-        // The slot it keeps: the same key re-picked from another path keeps its slot; otherwise
-        // where the detector lists it right now (nil = not in the top 3: no slot, dial and wheel
-        // show it).
-        let slot: Int?
-        if let m = manualKey, m.matches(result), m.pitchClass == k.pitchClass, m.minor == k.minor {
-            slot = m.slot
-        } else {
-            slot = result.keys.prefix(3).firstIndex { KeyNames.parse($0.0).map { $0.pitchClass == k.pitchClass && $0.minor == k.minor } ?? false }
-        }
-        manualKey = KeyChoice(file: result.file, name: result.name, pitchClass: k.pitchClass, minor: k.minor, slot: slot)
-        AppLog.log("manual key selection set: \(KeyChoice.keyName(k.pitchClass, minor: k.minor)) from \(source.rawValue)"
-                   + (slot.map { " · pinned in slot \($0 + 1)" } ?? " · not in the detector's top 3, no slot (dial and wheel show it)")
-                   + (was.map { " (was \($0))" } ?? ""))
-        return true
-    }
-
-    /// Clears Manual Key Selection: detection takes over again. `result` = the reading on show; a
-    /// selection that belongs to another reading is still cleared, but logged as an error (the view
-    /// and the state disagreed). False = there was nothing to clear (logged as an error).
-    @discardableResult
-    func clearManualKey(of result: Result?, from source: ManualKeySource) -> Bool {
-        guard let m = manualKey else {
-            AppLog.log("ERROR manual key selection: clear from \(source.rawValue), but none is set")
-            return false
-        }
-        let name = KeyChoice.keyName(m.pitchClass, minor: m.minor)
-        if let r = result, !m.matches(r) {
-            AppLog.log("ERROR manual key selection: \(name) no longer matches the reading on show (clear from \(source.rawValue))")
-        }
-        manualKey = nil
-        AppLog.log("manual key selection cleared: \(name) from \(source.rawValue); detection resumes")
-        return true
-    }
-}
-
 /// The Manual Key Selection on show, as a plain value for the views (PocketState.manualKey).
 struct ManualKey: Equatable {
     let pitchClass: Int

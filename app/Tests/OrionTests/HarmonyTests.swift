@@ -344,10 +344,10 @@ final class HarmonyTests: XCTestCase {
     }
 
     func testAdvancedWindowIsWiderNotTaller() {
-        let a = FaceplateView.size(advanced: true), b = FaceplateView.size(advanced: false)
-        XCTAssertEqual(b, FaceplateView.size)
+        let a = FaceplateFace.size(advanced: true), b = FaceplateFace.size(advanced: false)
+        XCTAssertEqual(b, FaceplateFace.size)
         XCTAssertEqual(a.height, b.height)
-        XCTAssertEqual(a.width, b.width + FaceplateView.columnGap + HarmonyPanel.width)
+        XCTAssertEqual(a.width, b.width + FaceplateFace.columnGap + HarmonyPanel.width)
     }
 
     func testAdvancedShortcutIsFree() {

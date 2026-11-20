@@ -156,18 +156,21 @@ final class AccentPanel: NSObject {
     }
 }
 
-/// COLOR in the window's footer, between SETTINGS and HELP: the HELP chip's look, a swatch of the
-/// colour in use, lit while the colour wheel is open.
-struct ColorChip: View {
-    @ObservedObject var accent = AccentSettings.shared
-    var action: () -> Void = { AccentPanel.shared.toggle() }
+/// A surface's root (the window, the pocket, the Mini): the one place the two settings enter.
+/// Observing them here means a new colour re-runs only this modifier; SwiftUI then redraws the
+/// views that read `\.palette`, keeping every view's identity and state.
+struct PaletteRoot: ViewModifier {
+    @ObservedObject var accent: AccentSettings
+    @ObservedObject var display: DisplaySettings
 
-    var body: some View {
-        let on = accent.panelOpen
-        // the footer's one chip (FooterChip) with the swatch, lit while the wheel is open
-        FooterChip(title: "COLOR", label: "Display colour", on: on, swatch: true, action: action)
-            .nativeHelp("Pick the display colour")
-            .helpTip(HelpText.color)
-            .accessibility(hint: Text(on ? "Closes the colour wheel" : "Opens a colour wheel to change the display colour"))
+    func body(content: Content) -> some View {
+        content.environment(\.palette, Palette(accent: accent.effective, highContrast: display.highContrast))
+    }
+}
+
+extension View {
+    /// Fills `\.palette` for everything below from the two settings objects.
+    func paletteRoot(_ accent: AccentSettings = .shared, display: DisplaySettings) -> some View {
+        modifier(PaletteRoot(accent: accent, display: display))
     }
 }

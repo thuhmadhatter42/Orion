@@ -44,7 +44,7 @@ extension Result {
     /// The detector's order and % are never touched: a pick PINS, it never moves up the list or
     /// counts as more likely (J 2026-11-18). "The key" for the dial, wheel, chords, sends and
     /// exports is `keyInUse`, nothing else.
-    func respelled(choice: KeyChoice? = SpellingSettings.shared.manualKey) -> Result {
+    func respelled(choice: KeyChoice?) -> Result {
         Result(file: file, name: name, bpm: bpm, keys: keys.map { (KeyChoice.autoTuneName($0.0), $0.1) },
                readError: readError, bpmExact: bpmExact, tuningCents: tuningCents, chroma: chroma,
                pin: ManualKey.of(choice, raw: self), tagged: tagged)
@@ -53,16 +53,4 @@ extension Result {
     /// THE key in use: the pin if there is one, else the detector's #1. The one accessor every
     /// "the key" reader goes through (ManualKey.inUse).
     var keyInUse: (name: String, percent: Int)? { ManualKey.inUse(keys: keys, pin: pin) }
-}
-
-/// Manual Key Selection's one state (ManualKeySelection.swift sets and clears it). Key names
-/// themselves have one rule and no setting: Auto-Tune's Key menu (KeyChoice.keyName; J's
-/// rock-solid rule, 2026-11-09 16:15: "We go off of what Auto-Tune shows. That's it.").
-final class SpellingSettings: ObservableObject {
-    static let shared = SpellingSettings()
-
-    /// Manual Key Selection: the key the user forced for the reading on show (a key wheel click,
-    /// a top-3 click, the MANUAL menu, play-to-find on the keyboard). The one state every path
-    /// sets and clears (ManualKeySelection.swift); nil = Beat Key's own detection.
-    @Published var manualKey: KeyChoice?
 }

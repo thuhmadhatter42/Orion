@@ -374,7 +374,8 @@ extension PocketActions {
         a.settings = { log("settings"); close(); SettingsOpener.open() }
         a.quit = { log("quit"); NSApp.terminate(nil) }
         a.toggleHelp = { HelpSettings.shared.toggle(from: surface) }
-        return a
+        // the face's pin / unpin (SpellingSettings) and COLOR / REPORT, the app's way
+        return a.pinning().appHouse()
     }
 }
 

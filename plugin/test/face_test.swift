@@ -10,7 +10,10 @@ import SwiftUI
 //   3. SEND AUTO-TUNE writes the hand-off to a temp path (never ~/Music), and refuses with no key
 //   4. SEND BPM against a fake app: not installed, answers ok + read-back, answers no, never answers,
 //      launched and never listening; each ends in one line and one log line
-//   5. renders: empty, reading, pinned, MORE popover content, a failed send line
+//   5. renders: empty, reading, pinned, Advanced, the DOWNLOAD menu open, a failed send line (the app
+//      window's face: FaceplateFace, overnight plan 2026-11-20 §3)
+//   5b. DOWNLOAD against a fake app: imported, not installed, never answers; each hand-off failure is one
+//      beatkey.log line tagged plugin + host (PluginErrorLog); a face that can't load logs one too
 //   6. the MIDI variant (plan step 15): the C side's chord table is the app's Harmony for all 24 keys; a
 //      MIDI instance's notes through bkp_view_midi_enable; the face's route lines; the drag-out .mid is
 //      MidiExport's bytes; a render with the .MID chip
@@ -27,8 +30,23 @@ func spin(_ secs: Double, until: () -> Bool = { false }) {
     while Date() < end && !until() { RunLoop.main.run(until: Date().addingTimeInterval(0.02)) }
 }
 
-func render(_ view: NSView, _ path: String) {
+@MainActor func render(_ view: NSView, _ path: String) {
     view.layoutSubtreeIfNeeded()
+    // the face draws layer effects (rings, shadows, glows) that cacheDisplay leaves white: SwiftUI's own
+    // renderer, as the app's render tests use (macOS 13+; macOS 12 falls back to cacheDisplay)
+    if #available(macOS 13.0, *), let face = view as? FaceHostView {
+        Pocket.snapshot = true   // the link field is AppKit: offscreen renders draw its stand-in (as the app's tests)
+        defer { Pocket.snapshot = false }
+        let r = ImageRenderer(content: face.rootView.environment(\.colorScheme, .dark))
+        r.scale = 2
+        if let cg = r.cgImage, let png = NSBitmapImageRep(cgImage: cg).representation(using: .png, properties: [:]) {
+            do { try png.write(to: URL(fileURLWithPath: path)) } catch { check(false, "write \(path): \(error)") }
+            print("rendered \(path) (\(cg.width / 2)x\(cg.height / 2) pt, ImageRenderer)")
+            return
+        }
+        check(false, "ImageRenderer gave no image for \(path)")
+        return
+    }
     guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { check(false, "no bitmap for \(path)"); return }
     view.cacheDisplay(in: view.bounds, to: rep)
     guard let png = rep.representation(using: .png, properties: [:]) else { check(false, "no PNG for \(path)"); return }
@@ -143,12 +161,26 @@ struct FaceTest {
         face.model.setFactor(.one)
         check(face.model.state.pin == nil, "unpin")
 
-        // MORE popover content, drawn on its own
-        let more = NSHostingView(rootView: FaceMore(model: face.model).environment(\.accent, Accent.amber))
-        more.frame = NSRect(x: 0, y: 0, width: 320, height: more.fittingSize.height)
-        let w3 = offscreen(more)
-        spin(0.3)
-        render(more, shots + "/face-more.png")
+        // the face is the app window's: its size, the plug-in's hidden controls
+        let def = FaceplateFace.pluginSize(advanced: false)
+        check(Int(def.width) == Int(BKP_VIEW_W) && Int(def.height) == Int(BKP_VIEW_H), "bkp_view.h size = the face's (\(def))")
+        check(PluginFace.state(face.model, settings: .shared).surface == .plugin, "plug-in surface")
+        let ps = PluginFace.state(face.model, settings: .shared)
+        check(ps.result?.keyInUse?.name == "C", "the face's Result: key C (\(ps.result?.keyInUse?.name ?? "nil"))")
+        check(!FaceSurface.plugin.showsFileControls && !FaceSurface.plugin.showsListen && !FaceSurface.plugin.showsSettings
+              && !FaceSurface.plugin.showsMini, "hidden in a host: Open Audio + FIND, HOLD + LISTEN, SETTINGS, MINI")
+
+        // Advanced: the harmony column, the view wider, never taller
+        let settings = FaceSettings.shared
+        let wasAdvanced = settings.advanced
+        settings.advanced = true
+        spin(0.4)
+        check(face.frame.size == FaceplateFace.pluginSize(advanced: true), "Advanced resizes the view: \(face.frame.size)")
+        render(face, shots + "/face-advanced.png")
+        settings.advanced = false
+        spin(0.4)
+        check(face.frame.size == def, "Advanced off: back to \(def)")
+        let w3 = offscreen(NSView())
 
         // ---- 3. SEND AUTO-TUNE to a temp path
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("bk-face-\(UUID().uuidString)")
@@ -168,6 +200,9 @@ struct FaceTest {
         final class FakeApp {
             var installed = true, running = true, answersPing = true
             var answer: ((PluginSend.Request) -> PluginSend.Reply?)?
+            var downloadAnswer: ((PluginDownload.Request) -> [PluginDownload.Reply])?
+            var downloadsSeen: [PluginDownload.Request] = []
+            var hostName = "Live", hostID = "com.ableton.live"
             var onSend: ((PluginSend.Request) -> Void)?
             var handlers: [Notification.Name: [([AnyHashable: Any]?) -> Void]] = [:]
             var launched = false
@@ -181,6 +216,10 @@ struct FaceTest {
                         if name.rawValue == "com.jshriver.orion.request", self.running, self.answersPing {
                             self.handlers[Notification.Name("com.jshriver.orion.reading")]?.forEach { $0(["source": "none", "songID": ""]) }
                         }
+                        if name == PluginDownload.requestName, let r = PluginDownload.Request.decode(info).request {
+                            self.downloadsSeen.append(r)
+                            for reply in self.downloadAnswer?(r) ?? [] { self.handlers[PluginDownload.replyName]?.forEach { $0(reply.userInfo) } }
+                        }
                         if name == PluginSend.sendName, let r = PluginSend.Request.decode(info).request {
                             self.onSend?(r)
                             if let reply = self.answer?(r) { self.handlers[PluginSend.sentName]?.forEach { $0(reply.userInfo) } }
@@ -190,7 +229,7 @@ struct FaceTest {
                 e.observe = { name, h in self.handlers[name, default: []].append(h); return NSObject() }
                 e.unobserve = { _ in }
                 e.sandboxed = { false }
-                e.host = { ("com.ableton.live", "Live", 4242) }
+                e.host = { (self.hostID, self.hostName, 4242) }
                 e.pluginTimeout = 0.6
                 e.launchWait = 0.8
                 e.pingWait = 0.4
@@ -247,6 +286,74 @@ struct FaceTest {
         _ = runSend(e)
         spin(0.2)
         render(face, shots + "/face-send-failed.png")
+
+        // ---- 5b. DOWNLOAD (overnight plan §4-§6) against the fake app
+        func errLog() -> [String] {
+            ((try? String(contentsOfFile: logDir + "/beatkey.log", encoding: .utf8)) ?? "")
+                .split(separator: "\n").map(String.init)
+        }
+        let link = "https://www.youtube.com/watch?v=abc123"
+        // Pro Tools: DOWNLOAD opens the menu, nothing pre-selected, nothing sent until a pick
+        let pt = FakeApp(); pt.hostName = "Pro Tools"; pt.hostID = "com.avid.ProTools"
+        pt.downloadAnswer = { r in [PluginDownload.Reply.progress(r.requestID, "Downloading…"),
+                                    PluginDownload.Reply(requestID: r.requestID, final: true, ok: true,
+                                                         message: "In Pro Tools: Beat (140 BPM, Cm).", path: "/tmp/Beat (140 BPM, Cm).wav",
+                                                         imported: true, bpm: "140.00", key: "Cm")] }
+        face.model.bpmEnv = pt.env
+        face.model.url = link
+        face.model.downloadPressed()
+        spin(0.2)
+        check(face.model.downloadMenuOpen && pt.downloadsSeen.isEmpty, "Pro Tools: the menu opens, nothing sent")
+        let menuState = PluginFace.state(face.model, settings: settings)
+        check(menuState.downloadMenu?.canImport == true && menuState.downloadMenu?.placements == DownloadPlacement.all,
+              "the menu lists every placement")
+        render(face, shots + "/face-download-menu.png")
+        settings.advanced = true
+        spin(0.4)
+        render(face, shots + "/face-advanced-download-menu.png")
+        settings.advanced = wasAdvanced
+        spin(0.4)
+        let cursor = DownloadPlacement(destination: .newTrack, location: .selection)
+        face.model.startDownload(cursor)
+        spin(3) { !face.model.downloading }
+        check(pt.downloadsSeen.first?.placement == cursor && pt.downloadsSeen.first?.url == link && pt.downloadsSeen.first?.hostName == "Pro Tools",
+              "the pick went out with the link and the host")
+        check(face.model.line?.kind == .ok && face.model.line?.text == "In Pro Tools: Beat (140 BPM, Cm).", "imported line: \(face.model.line?.text ?? "nil")")
+        check(settings.placements.picks.first == cursor, "the pick is history now (listed, never pre-selected)")
+        check(!face.model.downloadMenuOpen && PluginFace.state(face.model, settings: settings).downloadMenu == nil, "menu closed after the pick")
+        // not installed: one line on the face, one beatkey.log line tagged plugin + the host, source app-listener
+        let before = errLog().count
+        let ni = FakeApp(); ni.installed = false; ni.hostName = "Pro Tools"; ni.hostID = "com.avid.ProTools"
+        face.model.bpmEnv = ni.env
+        face.model.url = link
+        face.model.startDownload(nil)
+        spin(2) { !face.model.downloading }
+        var lines = Array(errLog().dropFirst(before))
+        check(face.model.line?.text == "DOWNLOAD needs the Beat Key app.", "not installed line: \(face.model.line?.text ?? "nil")")
+        check(lines.count == 1 && lines[0].contains("[plugin host=Pro Tools] app-listener: download hand-off failed"), "not installed: one log line \(lines)")
+        // the app never answers: the quiet timeout, one log line
+        let before2 = errLog().count
+        let mute = FakeApp(); mute.hostName = "Logic Pro"; mute.hostID = "com.apple.logic10"
+        var gotDone = false
+        DownloadSend(token: token, url: link, placement: nil, env: mute.env, quiet: 0.5, progress: { _ in },
+                     done: { r in gotDone = true; check(!r.ok && r.message.hasPrefix("Beat Key app didn't answer"), "quiet timeout: \(r.message)") }).start()
+        spin(3) { gotDone }
+        lines = Array(errLog().dropFirst(before2))
+        check(gotDone && lines.count == 1 && lines[0].contains("[plugin host=Logic Pro] app-listener:"), "silent app: one log line \(lines)")
+        // not Pro Tools: no menu, saved and shown in Finder by the app
+        let lv = FakeApp()
+        lv.downloadAnswer = { r in [PluginDownload.Reply(requestID: r.requestID, final: true, ok: true, message: "Saved: Beat.wav (shown in Finder).",
+                                                         path: "/tmp/Beat.wav")] }
+        face.model.bpmEnv = lv.env
+        face.model.url = link
+        face.model.downloadPressed()
+        spin(3) { !face.model.downloading && !lv.downloadsSeen.isEmpty }
+        check(!face.model.downloadMenuOpen && lv.downloadsSeen.first?.placement == nil, "Live: no menu, save only")
+        // a face that cannot load: one line
+        let before3 = errLog().count
+        check(bkp_view_create(0) == nil, "no token: no face")
+        lines = Array(errLog().dropFirst(before3))
+        check(lines.count == 1 && lines[0].contains("face-load: no face"), "face load failure logged once \(lines)")
 
         // ---- 6. the MIDI variant
         // the table the C side gets is the app's chord strip: degree I, triad, root position, for every core key

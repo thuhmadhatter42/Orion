@@ -62,8 +62,8 @@ final class HelpTests: XCTestCase {
         // every tooltip on the faceplate goes through .nativeHelp, so help mode can silence it
         let src = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .appendingPathComponent("../../Sources/Orion").standardized
-        for name in ["Pocket/PocketView.swift", "HarmonyView.swift", "Faceplate/FaceplateView.swift",
-                     "Faceplate/LCD.swift", "Faceplate/Controls.swift", "Faceplate/Chassis.swift", "Help.swift"] {
+        for name in ["Face/PocketView.swift", "Face/HarmonyView.swift", "Faceplate/FaceplateView.swift", "Face/FaceplateFace.swift",
+                     "Face/LCD.swift", "Face/Controls.swift", "Face/Chassis.swift", "Face/Help.swift", "HelpApp.swift"] {
             let text = try String(contentsOf: src.appendingPathComponent(name), encoding: .utf8)
             let bare = text.components(separatedBy: "\n").filter { $0.trimmingCharacters(in: .whitespaces).hasPrefix(".help(") }
             XCTAssertEqual(bare, [], "\(name) has a bare .help(")
@@ -182,7 +182,7 @@ final class HelpTests: XCTestCase {
 
     /// A tip a view uses must be in the table the window draws (no tip that only hovers).
     func testEveryTipUsedByAViewIsInTheSections() throws {
-        let help = try source("Help.swift")
+        let help = try source("HelpApp.swift")
         let start = try XCTUnwrap(help.range(of: "static let sections"))
         let end = try XCTUnwrap(help.range(of: "static let all"))
         let block = String(help[start.lowerBound..<end.lowerBound])
@@ -229,17 +229,17 @@ final class HelpTests: XCTestCase {
         XCTAssertTrue(HelpText.login.body.lowercased().contains("sign-in"))
         XCTAssertFalse(HelpText.login.body.lowercased().contains("mp3"))
         // both surfaces pick it for the login cap
-        XCTAssertTrue(try source("Faceplate/FaceplateView.swift").contains(".helpTip(HelpText.login)"))
-        XCTAssertTrue(try source("Pocket/PocketView.swift").contains("login ? HelpText.login : HelpText.download"))
+        XCTAssertTrue(try source("Face/FaceplateFace.swift").contains(".helpTip(HelpText.login)"))
+        XCTAssertTrue(try source("Face/PocketView.swift").contains("login ? HelpText.login : HelpText.download"))
     }
 
     func testPagingArrowsAndReadoutHaveTips() throws {
         XCTAssertTrue(HelpText.all.contains(HelpText.prevFile))
         XCTAssertTrue(HelpText.all.contains(HelpText.nextFile))
         XCTAssertTrue(HelpText.all.contains(HelpText.readout))
-        XCTAssertTrue(try source("Pocket/PocketView.swift").contains(".helpTip(glyph == \"‹\" ? HelpText.prevFile : HelpText.nextFile)"))
-        XCTAssertTrue(try source("Faceplate/LCD.swift").contains(".helpTip(HelpText.readout)"))
-        XCTAssertTrue(try source("Pocket/PocketView.swift").contains(".helpTip(HelpText.readout)"))
+        XCTAssertTrue(try source("Face/PocketView.swift").contains(".helpTip(glyph == \"‹\" ? HelpText.prevFile : HelpText.nextFile)"))
+        XCTAssertTrue(try source("Face/LCD.swift").contains(".helpTip(HelpText.readout)"))
+        XCTAssertTrue(try source("Face/PocketView.swift").contains(".helpTip(HelpText.readout)"))
     }
 
     func testSettingsPermissionsAndDoctorHaveEntries() throws {

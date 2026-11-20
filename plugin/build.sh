@@ -59,6 +59,10 @@ bundle_skeleton() {   # $1 = bundle, $2 = Info.plist.in
   plutil -lint "$1/Contents/Info.plist" >/dev/null || refuse "$2 does not make a valid plist"
   printf 'BNDL????' > "$1/Contents/PkgInfo"
   cp "$WEIGHTS" "$1/Contents/Resources/deeptemp-k16-3.bkw"
+  # the faceplate's grain (Theme.swift Textures: the plug-in looks in its own bundle first)
+  for tex in noise.png brushed.png; do
+    cp "$ROOT/app/Sources/Orion/Resources/$tex" "$1/Contents/Resources/$tex" || refuse "no texture $tex"
+  done
   # the face's MANUAL and WHAT'S NEW: the app's own pages, opened offline from the bundle
   for page in Manual.html WhatsNew.html; do
     [ -f "$ROOT/app/pages/$page" ] || refuse "no app/pages/$page"

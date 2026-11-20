@@ -6,55 +6,6 @@ import SwiftUI
 // the window's and the menu-bar pocket's own setting (DisplaySettings.advanced / pocketAdvanced;
 // the first change each launch sets both), and the harmony wiring both share.
 
-extension PocketActions {
-    /// The harmony pieces' actions (chords heard and dragged, chord choices, MATCH TO, MINI), the
-    /// same for the window's column and the pocket's. `surface` names the log lines.
-    mutating func wireHarmony(surface: String, engine e: Engine, model m: FaceplateModel, live l: LiveController,
-                              display d: DisplaySettings) {
-        let shown = { PocketState.shown(e.state, live: l.state, page: m.pager) }
-        playChord = { chord in
-            let bpm = ChordClip.bpm(shown(), factor: m.tempoFactor)
-            AppLog.log("\(surface): chord \(chord.asciiName) played (\(d.chordVoicing.rawValue), \(d.chordBars) bar)")
-            NoteSynth.shared.play(chord.notes(d.chordVoicing), seconds: ChordClip.hearSeconds(bars: d.chordBars, bpm: bpm))
-        }
-        chordFile = { chord in
-            let r = shown()
-            let bpm = ChordClip.bpm(r, factor: m.tempoFactor)
-            let url = ChordClip.write(chord, voicing: d.chordVoicing, bars: d.chordBars, bpm: bpm, key: r?.keyInUse?.name)
-            if url != nil { AppLog.log("\(surface): chord \(chord.asciiName) dragged as a MIDI clip") }
-            else { AppLog.log("\(surface): chord \(chord.asciiName) MIDI clip could not be written") }
-            return url
-        }
-        toggleMini = {
-            let sp = SpellingSettings.shared
-            let changes = Publishers.MergeMany([e.objectWillChange.map { _ in () }.eraseToAnyPublisher(),
-                                                l.objectWillChange.map { _ in () }.eraseToAnyPublisher(),
-                                                m.objectWillChange.map { _ in () }.eraseToAnyPublisher(),
-                                                d.objectWillChange.map { _ in () }.eraseToAnyPublisher(),
-                                                sp.objectWillChange.map { _ in () }.eraseToAnyPublisher()])
-                .eraseToAnyPublisher()
-            MiniController.shared.toggle(source: {
-                MiniFeed(key: shown()?.keyInUse?.name, quality: d.chordQuality, voicing: d.chordVoicing)
-            }, changes: changes, display: d)
-        }
-        setHarmony = { p in
-            AppLog.log("\(surface): chords \(p.quality.rawValue) \(p.voicing.rawValue) \(p.bars) bar")
-            p.apply(to: d)
-        }
-        pickMatchKey = {
-            AppLog.log("\(surface): match to menu")
-            let items = KeyChoice.allKeys.enumerated().flatMap { i, k -> [PopupMenu.Item] in
-                let item = PopupMenu.Item(title: k, checked: d.matchKey == k) {
-                    AppLog.log("\(surface): match to \(k)")
-                    d.matchKey = k
-                }
-                return i == 12 ? [.separator, item] : [item]
-            }
-            PopupMenu.show(items + [.separator, PopupMenu.Item(title: "None", checked: d.matchKey == nil) { d.matchKey = nil }])
-        }
-    }
-}
-
 /// The pocket's Advanced pieces: the window's harmony column in its compact fit, under the send
 /// caps. The pocket grows taller; on a screen too short for all of it, this part scrolls so the
 /// popover never runs off the screen.

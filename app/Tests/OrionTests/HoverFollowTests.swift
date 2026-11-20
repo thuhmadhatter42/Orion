@@ -152,7 +152,7 @@ final class HoverFollowTests: XCTestCase {
 
     func testTheWheelAsksForAFollowingCard() throws {
         let src = try String(contentsOfFile: #filePath
-            .replacingOccurrences(of: "Tests/OrionTests/HoverFollowTests.swift", with: "Sources/Orion/HarmonyView.swift"))
+            .replacingOccurrences(of: "Tests/OrionTests/HoverFollowTests.swift", with: "Sources/Orion/Face/HarmonyView.swift"))
         XCTAssertTrue(src.contains(".hoverCard(hover.map(tip(for:)), width: 196, follow: true)"))
     }
 

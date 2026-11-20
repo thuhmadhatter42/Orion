@@ -1,5 +1,6 @@
 /*
- * beatkey_vst3_view.mm: the VST3 IPlugView around the face (plugin/shared/bkp_view.h).    Fixed size, not resizable.  attached() adds the face to the host's parent
+ * beatkey_vst3_view.mm: the VST3 IPlugView around the face (plugin/shared/bkp_view.h).    The size is the face's (bkp_face_size); the user does not drag it, but ADVANCED
+ * widens the face and the view asks the host to follow (IPlugFrame::resizeView).  attached() adds the face to the host's parent
  * NSView; removed() takes it off.  The view holds only a token, never the instance.
  */
 #import <AppKit/AppKit.h>
@@ -64,6 +65,11 @@ public:
 			[v setFrameOrigin:NSZeroPoint];
 			[host addSubview:v];
 			mView = v;
+			// ADVANCED on / off resizes the face: ask the host's window to follow
+			mObserver = [[NSNotificationCenter defaultCenter] addObserverForName:NSViewFrameDidChangeNotification
+			                                                             object:v
+			                                                              queue:nil
+			                                                         usingBlock:^(NSNotification*) { FollowFace(); }];
 		}
 		return kResultOk;
 	}
@@ -80,25 +86,52 @@ public:
 		if (!size) {
 			return kInvalidArgument;
 		}
-		*size = ViewRect(0, 0, BKP_VIEW_W, BKP_VIEW_H);
+		*size = FaceRect();
 		return kResultOk;
 	}
 	tresult PLUGIN_API onSize(ViewRect*) override { return kResultOk; }
 	tresult PLUGIN_API onFocus(TBool) override { return kResultOk; }
-	tresult PLUGIN_API setFrame(IPlugFrame*) override { return kResultOk; }
+	tresult PLUGIN_API setFrame(IPlugFrame* frame) override
+	{
+		mFrame = frame;
+		return kResultOk;
+	}
 	tresult PLUGIN_API canResize() override { return kResultFalse; }
 	tresult PLUGIN_API checkSizeConstraint(ViewRect* rect) override
 	{
 		if (!rect) {
 			return kInvalidArgument;
 		}
-		*rect = ViewRect(0, 0, BKP_VIEW_W, BKP_VIEW_H);
+		*rect = FaceRect();
 		return kResultOk;
 	}
 
 private:
+	static ViewRect FaceRect()
+	{
+		int32_t w = BKP_VIEW_W, h = BKP_VIEW_H;
+		bkp_face_size(&w, &h);
+		return ViewRect(0, 0, w, h);
+	}
+	void FollowFace()
+	{
+		if (!mFrame || mResizing) {
+			return;
+		}
+		ViewRect r = FaceRect();
+		mResizing = true;
+		const tresult ok = mFrame->resizeView(this, &r);
+		mResizing = false;
+		if (ok != kResultOk) {
+			bk_log("VST3", "face resize to %dx%d: the host refused (%d)", r.getWidth(), r.getHeight(), static_cast<int>(ok));
+		}
+	}
 	void Detach()
 	{
+		if (mObserver) {
+			[[NSNotificationCenter defaultCenter] removeObserver:mObserver];
+			mObserver = nil;
+		}
 		if (mView) {
 			[mView removeFromSuperview];
 			mView = nil;
@@ -107,6 +140,9 @@ private:
 	std::uint64_t mToken;
 	std::atomic<uint32> mRefs{ 1 };
 	NSView* mView = nil;
+	id mObserver = nil;
+	IPlugFrame* mFrame = nullptr;
+	bool mResizing = false;
 };
 
 } // namespace

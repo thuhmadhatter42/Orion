@@ -22,9 +22,13 @@ final class PluginPagesTests: XCTestCase {
     }
 
     func testTheManualNamesTheTwoButtonsAsThePlugInPrintsThem() throws {
-        let face = try String(contentsOf: repo.appendingPathComponent("plugin/ui/FaceView.swift"), encoding: .utf8)
+        // the plug-in draws the app window's face (app/Sources/Orion/Face): its legends are printed there
+        let faceDir = repo.appendingPathComponent("app/Sources/Orion/Face")
+        let face = try ["PocketView.swift", "FaceplateFace.swift", "Help.swift"].map {
+            try String(contentsOf: faceDir.appendingPathComponent($0), encoding: .utf8)
+        }.joined()
         let manual = plain(try page("Manual.html"))
-        for legend in ["SEND BPM", "SEND AUTO-TUNE", "MORE", "REPORT"] {
+        for legend in ["DOWNLOAD", "SEND TO DAW", "SEND TO AUTO-TUNE", "REPORT", "ADVANCED"] {
             XCTAssertTrue(face.contains("\"\(legend)\""), "the face no longer prints \(legend): change the Manual")
             XCTAssertTrue(manual.contains(legend), "the Manual does not name \(legend)")
         }
@@ -35,7 +39,7 @@ final class PluginPagesTests: XCTestCase {
         XCTAssertTrue(manual.contains("Drop it in the Beat Key window"), "a file goes in the app window")
         XCTAssertTrue(manual.contains("Listen, from the menu bar"), "playing on YouTube: the menu bar")
         XCTAssertTrue(manual.contains("Put the plug-in on the track"), "a file in the session: the plug-in on its track")
-        XCTAssertTrue(manual.contains("Needs the Beat Key app"), "SEND BPM needs the app")
+        XCTAssertTrue(manual.contains("Needs the Beat Key app"), "SEND TO DAW and DOWNLOAD need the app")
         XCTAssertTrue(manual.contains("No app needed"), "SEND AUTO-TUNE does not")
     }
 
@@ -56,8 +60,8 @@ final class PluginPagesTests: XCTestCase {
         for needle in ["SEND BPM", "SEND AUTO-TUNE", "One download", Brand.updatePlugins, "install.log", "the plug-ins too"] {
             XCTAssertTrue(text.contains(needle), "What's New lacks \"\(needle)\"")
         }
-        // all of it is inside the 0.1.78 section, the one that ships next
-        let section = try XCTUnwrap(text.components(separatedBy: "0.1.78").dropFirst().first)
+        // all of it is inside the 0.1.79 section, the one that ships next
+        let section = try XCTUnwrap(text.components(separatedBy: "0.1.79").dropFirst().first)
         XCTAssertTrue(section.contains("SEND AUTO-TUNE"))
     }
 

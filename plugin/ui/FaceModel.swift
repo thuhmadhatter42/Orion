@@ -9,6 +9,19 @@ final class FaceModel: ObservableObject {
     /// The face's message line (a send's outcome, a refusal); nil = the instance's own status.
     @Published private(set) var line: FaceLine?
     @Published private(set) var sendingBPM = false
+    /// The link field (DOWNLOAD), its focus, and the Open Audio field's (hidden in a plug-in).
+    @Published var url = ""
+    @Published var fieldFocused = false
+    @Published var pickFocused = false
+    /// A DOWNLOAD is under way (the caps go dark).
+    @Published private(set) var downloading = false
+    /// The DOWNLOAD menu is open (Pro Tools: where the beat goes).
+    @Published var downloadMenuOpen = false
+    /// The colour swatches are open (COLOR lights).
+    @Published var colorOpen = false
+    /// The clipboard holds a link (PASTE + DOWNLOAD lights).
+    @Published private(set) var clipboardLink: String?
+    private var pasteboardCount = -1
 
     private var timer: Timer?
     private var lineExpiry: Timer?
@@ -42,6 +55,54 @@ final class FaceModel: ObservableObject {
     func refresh() {
         let s = FaceState.read(token)
         if s != state { state = s }
+        let n = NSPasteboard.general.changeCount
+        if n != pasteboardCount {
+            pasteboardCount = n
+            let link = PluginDownload.isLink(NSPasteboard.general.string(forType: .string) ?? "")
+                ? NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines) : nil
+            if link != clipboardLink { clipboardLink = link }
+        }
+    }
+
+    // MARK: DOWNLOAD (overnight plan §4-§5)
+
+    /// The host: Pro Tools imports (the menu); any other host saves and shows the file in Finder.
+    var hostIsProTools: Bool {
+        let h = bpmEnv.host()
+        return PluginDownload.isProTools(bundleID: h.bundleID, name: h.name)
+    }
+
+    /// DOWNLOAD pressed with a link in the field: in Pro Tools the menu opens (nothing is pre-selected,
+    /// nothing runs until a pick); elsewhere the file is saved and shown in Finder.
+    func downloadPressed() {
+        guard !downloading else { NSSound.beep(); return }
+        let link = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard PluginDownload.isLink(link) else {
+            show("Paste a YouTube link first.", kind: .error)
+            FaceLog.line(token, "download: pressed with no link in the field or on the clipboard")
+            return
+        }
+        if hostIsProTools { downloadMenuOpen.toggle() } else { startDownload(nil) }
+    }
+
+    /// A pick from the menu (nil = Save Only): the download starts.
+    func startDownload(_ placement: DownloadPlacement?, settings: FaceSettings = .shared) {
+        downloadMenuOpen = false
+        guard !downloading else { return }
+        let link = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard PluginDownload.isLink(link) else { return }
+        if let p = placement { settings.recordPlacement(p) }
+        downloading = true
+        let token = self.token
+        DownloadSend(token: token, url: link, placement: placement, env: bpmEnv,
+                     progress: { [weak self] p in self?.show(p, kind: .info, hold: 60) },
+                     done: { [weak self] r in
+                         guard let self else { return }
+                         self.downloading = false
+                         if !r.path.isEmpty { settings.recordDownload(r.path) }
+                         if r.ok { self.url = "" }
+                         self.show(r.message, kind: r.ok ? .ok : .error, detail: r.path.isEmpty ? nil : r.path, hold: r.ok ? 10 : 20)
+                     }).start()
     }
 
     // MARK: the line
@@ -143,7 +204,8 @@ struct FaceLine: Equatable {
 /// The face's own settings: the display colour (house kit accent), remembered for every Beat Key
 /// plug-in on this Mac (UserDefaults suite com.jshriver.orion.plugin, key accentColor: [r, g, b]).
 final class FaceSettings: ObservableObject {
-    static let shared = FaceSettings()
+    /// $BKP_FACE_SUITE moves the settings to another defaults domain (plugin/test.sh: never the user's own).
+    static let shared = FaceSettings(defaults: UserDefaults(suiteName: ProcessInfo.processInfo.environment["BKP_FACE_SUITE"] ?? suite))
     static let suite = "com.jshriver.orion.plugin"
     static let key = "accentColor"
     /// The swatches (amber first). The app's colour wheel is an app window; a plug-in in someone
@@ -163,6 +225,7 @@ final class FaceSettings: ObservableObject {
                 FaceLog.line(0, "face: stored \(FaceSettings.key) unreadable (\(raw)); amber")
             }
         }
+        loadChoices()
     }
 
     func set(_ a: Accent) {
@@ -171,5 +234,56 @@ final class FaceSettings: ObservableObject {
         if a == .amber { defaults?.removeObject(forKey: FaceSettings.key) }
         else { defaults?.set([a.r, a.g, a.b], forKey: FaceSettings.key) }
         FaceLog.line(0, "face: colour \(a.described)" + (shown != a ? " (shown as \(shown.described))" : ""))
+    }
+
+    // MARK: the face's other remembered choices (same suite, every Beat Key plug-in on this Mac)
+
+    /// ADVANCED: the harmony column (the view grows wider, never taller, as the app's window does).
+    @Published var advanced = false { didSet { save("advanced", advanced) } }
+    /// HELP: hovering a control explains it.
+    @Published var help = false { didSet { save("helpMode", help) } }
+    /// Advanced mode's chord and MATCH TO choices.
+    @Published var harmony = HarmonyPrefs() {
+        didSet {
+            save("chordQuality", harmony.quality.rawValue); save("chordVoicing", harmony.voicing.rawValue)
+            save("chordBars", harmony.bars); save("matchKey", harmony.matchKey ?? "")
+        }
+    }
+    /// The DOWNLOAD menu's history (never pre-selected).
+    @Published private(set) var placements = DownloadHistory() { didSet { save("downloadPlacements", placements.wires) } }
+    /// RECENT ▾: the files DOWNLOAD saved, newest first.
+    @Published private(set) var downloads: [String] = [] { didSet { save("recentDownloads", downloads) } }
+    static let downloadLimit = 10
+    private var loading = false
+
+    private func save(_ key: String, _ value: Any) {
+        guard !loading else { return }
+        defaults?.set(value, forKey: key)
+    }
+
+    /// Reads the choices back (called once from init).
+    private func loadChoices() {
+        loading = true
+        defer { loading = false }
+        guard let d = defaults else { return }
+        advanced = d.bool(forKey: "advanced")
+        help = d.bool(forKey: "helpMode")
+        var p = HarmonyPrefs()
+        if let q = d.string(forKey: "chordQuality").flatMap(ChordQuality.init(rawValue:)) { p.quality = q }
+        if let v = d.string(forKey: "chordVoicing").flatMap(Voicing.init(rawValue:)) { p.voicing = v }
+        let bars = d.integer(forKey: "chordBars")
+        if ChordClip.barChoices.contains(bars) { p.bars = bars }
+        if let m = d.string(forKey: "matchKey"), KeyNames.parse(m) != nil { p.matchKey = m }
+        harmony = p
+        placements = DownloadHistory(wires: d.stringArray(forKey: "downloadPlacements") ?? [])
+        downloads = Array((d.stringArray(forKey: "recentDownloads") ?? []).prefix(FaceSettings.downloadLimit))
+    }
+
+    func recordPlacement(_ p: DownloadPlacement) { placements.record(p) }
+
+    func recordDownload(_ path: String) {
+        var d = downloads.filter { $0 != path }
+        d.insert(path, at: 0)
+        downloads = Array(d.prefix(FaceSettings.downloadLimit))
     }
 }

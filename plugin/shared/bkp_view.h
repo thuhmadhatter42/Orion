@@ -1,7 +1,7 @@
 /*
  * bkp_view.h: the face every format hosts (plan step 9).  The face itself is SwiftUI (the Swift files in plugin/ui),
  * compiled into each format under its own Swift module name (BeatKeyAU, BeatKeyVST3), so the AU and the
- * VST3 loaded in one host never share a class (plan A6).  Fixed BKP_VIEW_W x BKP_VIEW_H.
+ * VST3 loaded in one host never share a class (plan A6).  Default BKP_VIEW_W x BKP_VIEW_H; bkp_face_size.
  *
  * This header is the face's whole reach into the instance:
  *   - the shims call bkp_view_register / unregister / create (unchanged since step 8);
@@ -20,8 +20,10 @@
 
 #include "bkp.h"
 
-#define BKP_VIEW_W 360
-#define BKP_VIEW_H 120
+/* The face's default size: the app window's face (FaceplateFace.pluginSize(advanced: false)); face_test
+ * checks the two agree.  ADVANCED widens it: bkp_face_size gives the size now. */
+#define BKP_VIEW_W 512
+#define BKP_VIEW_H 750
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,6 +34,9 @@ void bkp_view_unregister(uint64_t token);
 /* An autoreleased NSView * (void * so C++ shims need no Objective-C), or NULL (logged).  Implemented
  * by the Swift face (plugin/ui/FaceBridge.swift, @_cdecl). */
 void *bkp_view_create(uint64_t token);
+/* The face's size now (BKP_VIEW_W x BKP_VIEW_H, wider with ADVANCED on).  Implemented by the Swift face
+ * (FaceBridge.swift, @_cdecl).  Main thread. */
+void bkp_face_size(int32_t *w, int32_t *h);
 
 /* ---- what the face reads, in one go (one lock) ---- */
 typedef struct bkp_view_state {
