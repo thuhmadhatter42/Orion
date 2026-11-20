@@ -98,7 +98,7 @@ if [ $# -eq 0 ]; then
     xcrun swiftc -parse-as-library -module-name BeatKeyFaceTest -target "$a-apple-macos12.0" -sdk "$SDK" -swift-version 5 \
       -O -wmo -emit-object -o "$TMP/face-test/ft-$a.o" -import-objc-header "$HERE/ui/FaceBridge.h" \
       -I "$ROOT/core/include" -I "$HERE/shared" \
-      "$ROOT"/app/Sources/BeatKeyShared/*.swift "$ROOT/app/Sources/Orion/House/Glow.swift" "$HERE"/ui/*.swift "$HERE/test/face_test.swift" \
+      "$ROOT"/app/Sources/BeatKeyShared/*.swift "$ROOT/app/Sources/Orion/House/Glow.swift" "$ROOT"/app/Sources/Orion/Face/*.swift "$HERE"/ui/*.swift "$HERE/test/face_test.swift" \
       || fail "face_test.swift did not compile ($a)"
   done
   lipo -create "$TMP/face-test/ft-arm64.o" "$TMP/face-test/ft-x86_64.o" -output "$TMP/face-test/ft.o"

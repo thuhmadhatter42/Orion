@@ -11,7 +11,9 @@
 #   app/Sources/BeatKeyShared/*.swift        key names, tempo text, tuning, Auto-Tune hand-off, SEND BPM contract, look,
 #                                            chords (the MIDI variant's notes), the MIDI file writer (its drag-out .mid)
 #   app/Sources/Orion/House/Glow.swift       the house glow module, as the app has it
-#   plugin/ui/*.swift                        the face
+#   app/Sources/Orion/Face/*.swift           THE face: the app window's own view tree (overnight plan 2026-11-20 §2),
+#                                            fed plain values; Face/FaceHost.swift lists what this side provides
+#   plugin/ui/*.swift                        the plug-in's side: the instance's reading, the sends, DOWNLOAD
 set -e
 [ $# -eq 3 ] || { echo "usage: build-face.sh <SwiftModuleName> <out dir> <version>" >&2; exit 2; }
 MOD=$1; OUT=$2; VERSION=$3
@@ -25,7 +27,7 @@ SDK=$(xcrun --sdk macosx --show-sdk-path) || refuse "no macOS SDK"
 SWIFTC=$(xcrun --find swiftc) || refuse "no swiftc"
 TOOLCHAIN_LIB=$(cd "$(dirname "$SWIFTC")/../lib/swift/macosx" && pwd) || refuse "no Swift toolchain lib folder"
 
-SRCS="$ROOT/app/Sources/BeatKeyShared/*.swift $ROOT/app/Sources/Orion/House/Glow.swift $HERE/*.swift"
+SRCS="$ROOT/app/Sources/BeatKeyShared/*.swift $ROOT/app/Sources/Orion/House/Glow.swift $ROOT/app/Sources/Orion/Face/*.swift $HERE/*.swift"
 for a in arm64 x86_64; do
   # shellcheck disable=SC2086
   "$SWIFTC" -parse-as-library -module-name "$MOD" -target "$a-apple-macos12.0" -sdk "$SDK" -swift-version 5 \

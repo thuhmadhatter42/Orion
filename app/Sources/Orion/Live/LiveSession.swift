@@ -394,11 +394,6 @@ extension AudioCapture {
     var onDrop: ((CaptureDrop) -> Void)? { get { nil } set {} }
 }
 
-/// Listen's input level, 0...1, on its own so its 20 Hz ticks redraw only the meter segments.
-final class LiveLevel: ObservableObject {
-    @Published var value: Float = 0
-}
-
 /// The song Listen hears changed: started, ended, or another song began (LiveSession.song).
 struct LiveSongChange: Equatable {
     /// The song that ended (nil = Listen was off) and the one heard now (nil = Listen is off).

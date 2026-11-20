@@ -38,6 +38,20 @@ struct PocketActions {
     var toggleHelp: () -> Void = {}
     /// The footer's ADVANCED box: this surface's Advanced mode on / off.
     var toggleAdvanced: () -> Void = {}
+    /// COLOR: the display colour picker (the app's colour wheel; the plug-in's swatches).
+    var color: () -> Void = {}
+    /// REPORT: the house kit's Report sheet (the app's ReportCenter; the plug-in's FaceHouse.report).
+    var report: () -> Void = {}
+    /// Manual Key Selection from the face: pin `key` on `result` (a key wheel or top-3 click), or
+    /// clear it (a click on the pinned slot, the wheel's white section, or the dial). The app writes
+    /// SpellingSettings (ManualKeySelection.swift); the plug-in, its instance's pin.
+    var pinKey: (_ key: String, _ result: Result, _ source: ManualKeySource) -> Void = { _, _, _ in }
+    var clearPin: (_ result: Result?, _ source: ManualKeySource) -> Void = { _, _ in }
+    /// The DOWNLOAD menu's pick (nil = Save Only), and closing it without a pick.
+    var pickPlacement: (DownloadPlacement?) -> Void = { _ in }
+    var closeDownloadMenu: () -> Void = {}
+    /// EXPORT MIDI's drag-out (the plug-in's; nil = a click only).
+    var midiDrag: (() -> NSItemProvider)? = nil
 }
 
 enum Pocket {
@@ -359,7 +373,16 @@ struct AutoTuneCap: View {
 struct ExportMidiCap: View {
     let state: PocketState
     let action: () -> Void
+    /// The plug-in: the cap also drags out the .mid (tempo + key) straight into the session.
+    var drag: (() -> NSItemProvider)? = nil
     var body: some View {
+        if let drag {
+            cap.onDrag(drag)
+        } else {
+            cap
+        }
+    }
+    private var cap: some View {
         ActionCap(title: "EXPORT MIDI", ready: state.canSend, label: "Export MIDI tempo and key file", action: action)
             .helpTip(HelpText.exportMidi)
     }
@@ -573,11 +596,11 @@ private struct PocketLCD: View {
         let shape = RoundedRectangle(cornerRadius: Theme.R.well, style: .continuous)
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center, spacing: Theme.S.l) {
-                Dial(state: state).frame(width: Dial.side, height: Dial.side)
+                Dial(state: state, actions: actions).frame(width: Dial.side, height: Dial.side)
                 right.frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(height: Dial.side)
-            KeyStrip(state: state, onManual: actions.manualMenu, keyboardHeight: Pocket.keyboardHeight).padding(.top, Theme.S.s)
+            KeyStrip(state: state, onManual: actions.manualMenu, keyboardHeight: Pocket.keyboardHeight, actions: actions).padding(.top, Theme.S.s)
         }
         .padding(Theme.S.l)
         .lcdGlass(radius: Theme.R.well)
@@ -664,6 +687,8 @@ struct KeyStrip: View {
     /// MANUAL ⌄: the 24-key menu (nil = not shown).
     var onManual: (() -> Void)? = nil
     var keyboardHeight: CGFloat = Pocket.keyboardHeight
+    /// TOP KEYS' pin / unpin (PocketActions.pinKey / clearPin).
+    var actions = PocketActions()
     /// The hairline's row (MANUAL's height); the line runs through its middle.
     static let ruleRowHeight: CGFloat = Theme.H.sm
 
@@ -677,7 +702,7 @@ struct KeyStrip: View {
                 }
             }
             .frame(height: KeyStrip.ruleRowHeight)
-            KeyStrip.topKeys(state)
+            KeyStrip.topKeys(state, actions: actions)
                 .helpTip(HelpText.topKeys)
                 .padding(.top, Theme.S.s)
             NoteKeyboard(scale: state.scale).frame(height: keyboardHeight).helpTip(HelpText.keyboard)
@@ -688,10 +713,10 @@ struct KeyStrip: View {
     }
 
     /// TOP KEYS: a click on a slot pins its key; a click on the pinned slot unpins it.
-    static func topKeys(_ state: PocketState, settings: SpellingSettings = .shared) -> TopKeys {
+    static func topKeys(_ state: PocketState, actions: PocketActions) -> TopKeys {
         TopKeys(keys: state.result?.keys ?? [], manual: state.manualKey,
-                onChoose: state.result.map { r in { k in _ = settings.setManualKey(k, of: r, from: .topKeys) } },
-                onClear: state.result.map { r in { _ = settings.clearManualKey(of: r, from: .topKeysReset) } })
+                onChoose: state.result.map { r in { k in actions.pinKey(k, r, .topKeys) } },
+                onClear: state.result.map { r in { actions.clearPin(r, .topKeysReset) } })
     }
 
     /// "C minor  C D E♭ F G A♭ B♭": the key's name and its notes (nothing until there is a key).
@@ -854,6 +879,8 @@ struct ChipMenuButton: View {
 struct Dial: View {
     @Environment(\.palette) private var palette
     let state: PocketState
+    /// The manual reset (PocketActions.clearPin).
+    var actions = PocketActions()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var spin = false
 
@@ -975,9 +1002,9 @@ struct Dial: View {
 
     /// A click on the dial during a Manual Key Selection: clear it, detection takes over again.
     /// Not manual = nothing (the dial behaves as it always has).
-    func resetManual(_ settings: SpellingSettings = .shared) {
+    func resetManual() {
         guard manual else { return }
-        settings.clearManualKey(of: state.result, from: .dialReset)
+        actions.clearPin(state.result, .dialReset)
     }
 
     private var isWorking: Bool {

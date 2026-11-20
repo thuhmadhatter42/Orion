@@ -8,7 +8,10 @@ import WebKit
 enum YouTubeLogin {
     /// THE switch. true = LOG IN TO YOUTUBE opens Beat Key's login window. false = the fallback:
     /// a video that needs a login just says Beat Key can't download it (no button, no file).
-    static var inApp = true
+    static var inApp: Bool {
+        get { FaceLogin.inApp }
+        set { FaceLogin.inApp = newValue }
+    }
 
     static let startURL = URL(string: "https://accounts.google.com/ServiceLogin?service=youtube&continue=https://www.youtube.com/")!
 

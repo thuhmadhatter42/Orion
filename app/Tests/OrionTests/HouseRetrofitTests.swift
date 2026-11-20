@@ -153,7 +153,7 @@ final class HouseRetrofitTests: XCTestCase {
         for need in [".quickKeysSheet()", ".reportSheet(", ".uninstallSheet(", "QuickKeysCommands()", "UninstallCommands()", "ReportCommands()"] {
             XCTAssertTrue(app.contains(need), need)
         }
-        let face = try String(contentsOf: appDir.appendingPathComponent("Sources/Orion/Faceplate/FaceplateView.swift"), encoding: .utf8)
+        let face = try String(contentsOf: appDir.appendingPathComponent("Sources/Orion/Face/FaceplateFace.swift"), encoding: .utf8)
         XCTAssertTrue(face.contains("FooterChip(title: \"REPORT\""), "the window has a Report button")
         XCTAssertTrue(HelpText.all.contains(HelpText.report))
     }

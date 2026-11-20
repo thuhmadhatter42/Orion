@@ -276,25 +276,6 @@ extension EnvironmentValues {
     }
 }
 
-/// A surface's root (the window, the pocket, the Mini): the one place the two settings enter.
-/// Observing them here means a new colour re-runs only this modifier; SwiftUI then redraws the
-/// views that read `\.palette`, keeping every view's identity and state.
-struct PaletteRoot: ViewModifier {
-    @ObservedObject var accent: AccentSettings
-    @ObservedObject var display: DisplaySettings
-
-    func body(content: Content) -> some View {
-        content.environment(\.palette, Palette(accent: accent.effective, highContrast: display.highContrast))
-    }
-}
-
-extension View {
-    /// Fills `\.palette` for everything below from the two settings objects.
-    func paletteRoot(_ accent: AccentSettings = .shared, display: DisplaySettings) -> some View {
-        modifier(PaletteRoot(accent: accent, display: display))
-    }
-}
-
 /// The two textures from app/tools/textures.py. Looked up without Bundle.module (which
 /// fatalErrors when its bundle is missing): loose PNGs in Contents/Resources, then the SwiftPM
 /// resource bundle in Contents/Resources (.app) or next to the executable (`swift run`).
@@ -311,7 +292,12 @@ enum Textures {
             .compactMap { $0?.appendingPathComponent(bundleName) }
     }
 
+    /// A plug-in's own bundle (the host is Bundle.main there): set before the first face is drawn
+    /// (plugin/ui/FaceBridge.swift); plugin/build.sh copies the two PNGs into its Resources.
+    static var ownBundle: Bundle?
+
     private static func load(_ name: String) -> NSImage? {
+        if let b = ownBundle, let u = b.url(forResource: name, withExtension: "png") { return NSImage(contentsOf: u) }
         if let u = Bundle.main.url(forResource: name, withExtension: "png") { return NSImage(contentsOf: u) }
         for c in bundleCandidates() {
             if let u = Bundle(url: c)?.url(forResource: name, withExtension: "png") { return NSImage(contentsOf: u) }

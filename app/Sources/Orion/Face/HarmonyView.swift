@@ -16,18 +16,6 @@ struct HarmonyPrefs: Equatable {
     init(quality: ChordQuality = .triad, voicing: Voicing = .root, bars: Int = 1, matchKey: String? = nil) {
         self.quality = quality; self.voicing = voicing; self.bars = bars; self.matchKey = matchKey
     }
-
-    init(_ d: DisplaySettings) {
-        self.init(quality: d.chordQuality, voicing: d.chordVoicing, bars: d.chordBars, matchKey: d.matchKey)
-    }
-
-    /// Writes the choices back.
-    func apply(to d: DisplaySettings) {
-        if d.chordQuality != quality { d.chordQuality = quality }
-        if d.chordVoicing != voicing { d.chordVoicing = voicing }
-        if d.chordBars != bars { d.chordBars = bars }
-        if d.matchKey != matchKey { d.matchKey = matchKey }
-    }
 }
 
 /// The column right of the window's module: one LCD glass with the wheel and the notes heard,
@@ -66,14 +54,14 @@ struct HarmonyPanel: View {
 
     // MARK: the wheel and the notes heard
 
-    private var wheel: KeyWheel { HarmonyPanel.wheel(state) }
+    private var wheel: KeyWheel { HarmonyPanel.wheel(state, actions: actions) }
 
     /// The wheel: a click sets Manual Key Selection; a click on the white (manual) section clears it.
-    static func wheel(_ state: PocketState, settings: SpellingSettings = .shared) -> KeyWheel {
+    static func wheel(_ state: PocketState, actions: PocketActions) -> KeyWheel {
         let r = state.result
         return KeyWheel(keys: r?.keys ?? [], manual: state.manualKey,
-                        onChoose: r.map { r in { k in _ = settings.setManualKey(k, of: r, from: .wheel) } },
-                        onClear: r.map { r in { _ = settings.clearManualKey(of: r, from: .wheelReset) } })
+                        onChoose: r.map { r in { k in actions.pinKey(k, r, .wheel) } },
+                        onClear: r.map { r in { actions.clearPin(r, .wheelReset) } })
     }
 
     @ViewBuilder private var wheelAndNotes: some View {
@@ -130,9 +118,11 @@ struct HarmonyPanel: View {
                     Text("BAR").captionStyle().foregroundColor(palette.a3).accessibility(hidden: true)
                 }
                 .helpTip(HelpText.bars)
-                LCDChip(title: "MINI", on: state.miniOpen, label: state.miniOpen ? "Close Beat Key Mini" : "Open Beat Key Mini",
-                        action: actions.toggleMini)
-                    .helpTip(HelpText.mini)
+                if state.surface.showsMini {
+                    LCDChip(title: "MINI", on: state.miniOpen, label: state.miniOpen ? "Close Beat Key Mini" : "Open Beat Key Mini",
+                            action: actions.toggleMini)
+                        .helpTip(HelpText.mini)
+                }
             }
             chordControls.padding(.top, Theme.S.m)
             // a new key crossfades the whole grid in place (Motion.swap)

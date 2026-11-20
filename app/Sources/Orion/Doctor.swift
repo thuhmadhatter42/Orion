@@ -1,13 +1,5 @@
 import Foundation
 
-/// What the doctor found, as the LCD shows it.
-struct DoctorReport: Equatable {
-    enum Outcome: Equatable { case ok, fixed, failed }
-    let outcome: Outcome
-    let title: String     // "DOCTOR OK" | "DOCTOR FIXED IT" | "DOCTOR FOUND A PROBLEM"
-    let line: String      // one line: the yt-dlp version, what it fixed, or the one thing to do
-}
-
 /// Beat Key › Run Doctor: re-checks and repairs the bundled tools, one step at a time.
 ///   1 yt-dlp: Runtime.repairYtDlp now (ignores the weekly stamp); the LCD line comes from its result
 ///   2 ffmpeg / ffprobe: `-version` from the bin dir the Runtime picks
@@ -17,8 +9,8 @@ struct DoctorReport: Equatable {
 ///     are everything it runs.
 ///   5 the downloads folder is writable
 struct Doctor {
-    static let stages = ["doctor-ytdlp", "doctor-ffmpeg", "doctor-js", "doctor-analyzer", "doctor-downloads"]
-    static let permissionHint = "Allow Downloads access in System Settings › Privacy & Security › Files and Folders"
+    static let stages = DoctorReport.stages
+    static let permissionHint = DoctorReport.permissionHint
 
     let runtime: Runtime
     var runner: CommandRunner = RealRunner()
