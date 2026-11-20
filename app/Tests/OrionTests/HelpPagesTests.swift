@@ -112,7 +112,7 @@ final class HelpPagesTests: XCTestCase {
         }
     }
 
-    /// The newest What's New section is the repo's VERSION (0.1.80, the next ship; VERSION is bumped by the release, not here).
+    /// The newest What's New section is the repo's VERSION (0.1.81, the next ship; VERSION is bumped by the release, not here).
     /// When a later version ships, add its section on top and change this line.
     func testWhatsNewHasTheCurrentVersion() throws {
         let text = try page("WhatsNew.html")
