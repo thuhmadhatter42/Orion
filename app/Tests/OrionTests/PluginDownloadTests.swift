@@ -112,7 +112,7 @@ final class PluginDownloadTests: XCTestCase {
         XCTAssertNil(jobs.calls.first?.cookies)
         XCTAssertEqual(logLines(), [], "a good run writes nothing to the error log")
         // progress: the start, then one line per stage
-        XCTAssertEqual(w.progress.map(\.message), ["Starting the download.", "Downloading.", "Downloading.", "Reading the key and tempo.", "Naming the file."])
+        XCTAssertEqual(w.progress.map(\.message), ["Starting the download.", "Downloading.", "Reading the key and tempo.", "Naming the file."])
         XCTAssertTrue(w.progress.allSatisfy { $0.requestID == "r1" && $0.ok && !$0.final })
     }
 
