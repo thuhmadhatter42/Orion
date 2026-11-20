@@ -37,7 +37,7 @@ enum PTSLImport {
     }
 
     static func notAnswering(_ savedName: String) -> String {
-        "Pro Tools isn't answering on PTSL. File saved: \(savedName)."
+        "Pro Tools isn't answering on PTSL: it isn't open, or PTSL isn't enabled. File saved: \(savedName)."
     }
 
     /// Blocking; call off the main thread.
