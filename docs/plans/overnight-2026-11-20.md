@@ -8,6 +8,36 @@ Checklist: `overnight-2026-11-20-TOC.md`. Work it in order, tick each step, and 
 Read `PICKUP.md`, `docs/plans/plugin-2026-11-19.md`, `plugin/ui/*.swift`, `app/Sources/Orion/Faceplate/*`, `app/Sources/BeatKeyShared/*`, `app/Sources/Orion/DAWSend/PTSLClient.swift` and the app downloader.
 List every Faceplate control, and for each one say whether it can work inside a plug-in host (AU, VST3, AAX, AudioSuite). Write the table into §1 of this file.
 
+### §1 result: Faceplate controls in a plug-in host (AU, VST3, AAX, AudioSuite)
+Source: `FaceplateFace` (app/Sources/Orion/Faceplate/FaceplateView.swift) and the PocketView pieces it uses.
+
+| Control | Works in a host? | Plug-in source / reason |
+|---|---|---|
+| Rail (wordmark, status legend) | Yes | status from the instance (alive, bypass, silent, error) |
+| LCD readout: key dial, hero key, lamp | Yes | plug-in's own analysis (bkp_view_read) |
+| LCD: BPM + ×2/÷2 factor chips | Yes | bkp_view_set_tempo_mult |
+| LCD: top 3 keys with %, pin / MANUAL key menu | Yes | bkp_view_set_pin |
+| LCD: scale keyboard, tuning meter | Yes | reading's key + tuning_cents |
+| LCD: page arrows, SHOW IN FINDER, file name | No (hidden) | the plug-in reads the track, not files |
+| Link field + DOWNLOAD (PASTE + DOWNLOAD) | Yes, via the app | §4: the app's downloader runs it; menu of §5 beside it |
+| LOG IN TO YOUTUBE cap | Via the app | the app owns the login window; face says "Log in from the Beat Key app" |
+| Open Audio field + FIND KEY/BPM | No (hidden) | the host feeds audio; AudioSuite has its own Analyze |
+| Source field + level meter | Yes (read-only) | source = the track ("Track input"); meter not wired (no level in bkp_view yet) |
+| HOLD | No (hidden) | the instance has no hold; pin does the job |
+| NEW SONG (reset key) | Yes | bkp_view_new_song |
+| LISTEN | No (hidden) | the plug-in always listens to its track |
+| SEND TO DAW | Yes, via the app | = SEND BPM (PluginSend listener) |
+| SEND TO AUTO-TUNE | Yes | AutoTuneButton (shared writer, no app) |
+| EXPORT MIDI | Yes | MIDI drag-out .mid (MidiFile shared) / the MIDI variant |
+| RECENT ▾ | Yes (download history) | the §5 menu's recent picks |
+| SETTINGS | No (hidden) | an app window; COLOR + HELP cover the plug-in's settings |
+| COLOR | Yes | FaceSettings swatches (no app colour panel in a host) |
+| REPORT | Yes | FaceHouse.report (log attached) |
+| HELP | Yes | tips (Board Talk) |
+| ADVANCED (harmony column: chords, key wheel, MATCH TO, notes heard) | Yes | chords from the reading; chord sound via the MIDI variant only, drag-out works |
+
+Hidden, not dead: page arrows / SHOW IN FINDER, Open Audio + FIND, HOLD, LISTEN, SETTINGS.
+
 ## §2 One face, shared
 Move the Faceplate views into `BeatKeyShared` behind a small protocol: the model and actions the face needs.
 The app and the plug-in both render that same view tree. The app keeps its behaviour; it is a refactor only.
