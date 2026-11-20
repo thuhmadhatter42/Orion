@@ -56,8 +56,8 @@ final class PluginPagesTests: XCTestCase {
         for needle in ["SEND BPM", "SEND AUTO-TUNE", "One download", Brand.updatePlugins, "install.log", "the plug-ins too"] {
             XCTAssertTrue(text.contains(needle), "What's New lacks \"\(needle)\"")
         }
-        // all of it is inside the 0.1.78 section, the one that ships next
-        let section = try XCTUnwrap(text.components(separatedBy: "0.1.78").dropFirst().first)
+        // all of it is inside the 0.1.79 section, the one that ships next
+        let section = try XCTUnwrap(text.components(separatedBy: "0.1.79").dropFirst().first)
         XCTAssertTrue(section.contains("SEND AUTO-TUNE"))
     }
 
