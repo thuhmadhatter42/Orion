@@ -6,7 +6,7 @@ import XCTest
 /// Help mode: the setting, the tip decision, the placement and the one table of help lines.
 final class HelpTests: XCTestCase {
     private func freshDefaults() -> UserDefaults {
-        let name = "help-tests-\(UUID().uuidString)"
+        let name = TestPrefs.name("help-tests-")
         let d = UserDefaults(suiteName: name)!
         d.removePersistentDomain(forName: name)
         return d

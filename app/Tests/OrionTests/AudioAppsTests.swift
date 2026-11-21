@@ -118,7 +118,7 @@ final class AudioAppsTests: XCTestCase {
     }
 
     func testMacOS12CannotKeepAnAppChoice() {
-        let d = UserDefaults(suiteName: "orion-apps-\(UUID().uuidString)")!
+        let d = UserDefaults(suiteName: TestPrefs.name("orion-apps-"))!
         d.set("app:com.spotify.client", forKey: LiveSettings.sourceKey)
         XCTAssertEqual(LiveSettings(defaults: d, systemAvailable: false).source, .input(uid: nil, channel: 0))
         XCTAssertEqual(LiveSettings(defaults: d, systemAvailable: true).source, .app(bundleID: "com.spotify.client"))
@@ -148,7 +148,7 @@ final class AudioAppsTests: XCTestCase {
 
     private func controller(saved: LiveSource, open: Set<String>, asked: @escaping (LiveSource) -> Void,
                             cap: LiveTests.FakeCapture = LiveTests.FakeCapture()) -> (LiveController, LiveSettings) {
-        let d = UserDefaults(suiteName: "orion-apps-\(UUID().uuidString)")!
+        let d = UserDefaults(suiteName: TestPrefs.name("orion-apps-"))!
         let s = LiveSettings(defaults: d, systemAvailable: true)
         s.source = saved
         return (LiveController(settings: s, launch: { _, _, _ in LiveTests.FakePipe() },

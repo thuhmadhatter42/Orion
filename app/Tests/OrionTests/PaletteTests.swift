@@ -12,7 +12,7 @@ final class PaletteTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        suite = "PaletteTests.\(UUID().uuidString)"
+        suite = TestPrefs.name("PaletteTests.")
         defaults = UserDefaults(suiteName: suite)
     }
 

@@ -81,7 +81,7 @@ final class HoldSpellingTests: XCTestCase {
     }
 
     func testControllerHoldOnlyWhileListeningWithAReading() {
-        let c = LiveController(settings: LiveSettings(defaults: UserDefaults(suiteName: "hold-\(UUID())")!),
+        let c = LiveController(settings: LiveSettings(defaults: UserDefaults(suiteName: TestPrefs.name("hold-"))!),
                                launch: { _, _, _ in nil }, makeCapture: { _ in nil })
         XCTAssertFalse(c.toggleHold())
         XCTAssertFalse(c.isHeld)

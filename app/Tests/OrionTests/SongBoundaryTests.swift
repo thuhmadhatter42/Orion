@@ -9,7 +9,7 @@ final class SongBoundaryTests: XCTestCase {
                keys: [(key, pct), ("Gb", 8), ("Bbm", 4)], bpmExact: bpm == nil ? nil : 128.02)
     }
     func store() -> RecentStore {
-        let name = "orion-tests-\(UUID().uuidString)"
+        let name = TestPrefs.name("orion-tests-")
         let d = UserDefaults(suiteName: name)!
         addTeardownBlock { d.removePersistentDomain(forName: name) }
         return RecentStore(defaults: d)

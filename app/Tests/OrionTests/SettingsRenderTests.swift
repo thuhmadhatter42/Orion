@@ -7,7 +7,7 @@ import XCTest
 /// (ORION_SNAPSHOT_DIR=<dir> swift test --filter SettingsRenderTests).
 final class SettingsRenderTests: XCTestCase {
     private func fresh() -> UserDefaults {
-        let n = "settings-render-\(UUID().uuidString)"
+        let n = TestPrefs.name("settings-render-")
         let d = UserDefaults(suiteName: n)!
         d.removePersistentDomain(forName: n)
         return d

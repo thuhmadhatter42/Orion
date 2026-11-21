@@ -10,7 +10,7 @@ final class AccentTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        suite = "AccentTests.\(UUID().uuidString)"
+        suite = TestPrefs.name("AccentTests.")
         defaults = UserDefaults(suiteName: suite)
     }
 

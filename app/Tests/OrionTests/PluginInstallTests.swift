@@ -83,7 +83,7 @@ final class PluginInstallTests: XCTestCase {
     }
 
     private func freshDefaults() -> UserDefaults {
-        let name = "PluginInstallTests-\(UUID().uuidString)"
+        let name = TestPrefs.name("PluginInstallTests-")
         let d = UserDefaults(suiteName: name)!
         addTeardownBlock { d.removePersistentDomain(forName: name) }
         return d

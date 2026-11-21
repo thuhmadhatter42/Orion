@@ -243,7 +243,7 @@ final class BroadcastTests: XCTestCase {
     func testInstalledPipelinePostsNewReadingsAndPinChanges() {
         let engine = Engine()
         let model = FaceplateModel()
-        let live = LiveController(settings: LiveSettings(defaults: UserDefaults(suiteName: "bc-\(UUID())")!),
+        let live = LiveController(settings: LiveSettings(defaults: UserDefaults(suiteName: TestPrefs.name("bc-"))!),
                                   launch: { _, _, _ in nil }, makeCapture: { _ in nil })
         let shared = SpellingSettings.shared
         shared.manualKey = nil

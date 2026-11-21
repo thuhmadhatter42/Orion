@@ -168,7 +168,7 @@ final class MiniTests: XCTestCase {
     }
 
     func testSoundDefaultsOffAndPersists() {
-        let name = "mini-tests-\(UUID().uuidString)"
+        let name = TestPrefs.name("mini-tests-")
         let d = UserDefaults(suiteName: name)!
         defer { d.removePersistentDomain(forName: name) }
         let a = MiniController(defaults: d)

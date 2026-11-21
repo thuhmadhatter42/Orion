@@ -9,7 +9,7 @@ import XCTest
 /// borrowed set, MATCH TO, the chord's MIDI clip, and the analyzer's chroma / tuning fields.
 final class HarmonyTests: XCTestCase {
     func defaults() -> UserDefaults {
-        let name = "orion-tests-\(UUID().uuidString)"
+        let name = TestPrefs.name("orion-tests-")
         let d = UserDefaults(suiteName: name)!
         addTeardownBlock { d.removePersistentDomain(forName: name) }
         return d

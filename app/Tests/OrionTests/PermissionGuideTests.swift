@@ -32,7 +32,7 @@ final class PermissionGuideTests: XCTestCase {
     private func logged() -> [String] { lock.lock(); defer { lock.unlock() }; return lines }
 
     private func defaults() -> UserDefaults {
-        let name = "orion-tests-\(UUID().uuidString)"
+        let name = TestPrefs.name("orion-tests-")
         let d = UserDefaults(suiteName: name)!
         addTeardownBlock { d.removePersistentDomain(forName: name) }
         return d

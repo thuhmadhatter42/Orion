@@ -10,7 +10,7 @@ final class LiveTests: XCTestCase {
                keys: [(key, pct), ("F#", 8), ("Bbm", 4)], bpmExact: bpm == nil ? nil : 128.02)
     }
     func defaults() -> UserDefaults {
-        let name = "orion-tests-\(UUID().uuidString)"
+        let name = TestPrefs.name("orion-tests-")
         let d = UserDefaults(suiteName: name)!
         addTeardownBlock { d.removePersistentDomain(forName: name) }
         return d

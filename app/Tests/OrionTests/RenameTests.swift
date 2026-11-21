@@ -15,7 +15,7 @@ final class RenameTests: XCTestCase {
     override func tearDown() { AppLog.sink = nil; super.tearDown() }
 
     func defaults() -> UserDefaults {
-        let name = "rename-tests-\(UUID().uuidString)"
+        let name = TestPrefs.name("rename-tests-")
         let d = UserDefaults(suiteName: name)!
         addTeardownBlock { d.removePersistentDomain(forName: name) }
         return d

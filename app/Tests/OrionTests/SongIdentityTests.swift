@@ -16,7 +16,7 @@ final class SongIdentityTests: XCTestCase {
     }
 
     private func defaults() -> UserDefaults {
-        let name = "orion-song-identity-\(UUID().uuidString)"
+        let name = TestPrefs.name("orion-song-identity-")
         let d = UserDefaults(suiteName: name)!
         addTeardownBlock { d.removePersistentDomain(forName: name) }
         return d

@@ -8,7 +8,7 @@ import XCTest
 @MainActor
 final class HotkeyTests: XCTestCase {
     func defaults() -> UserDefaults {
-        let name = "orion-tests-\(UUID().uuidString)"
+        let name = TestPrefs.name("orion-tests-")
         let d = UserDefaults(suiteName: name)!
         addTeardownBlock { d.removePersistentDomain(forName: name) }
         return d

@@ -15,7 +15,7 @@ final class QuickKeysTests: XCTestCase {
     ] + QuickKeys.standardRows
 
     override func setUp() async throws {
-        suite = "QuickKeysTests.\(UUID().uuidString)"
+        suite = TestPrefs.name("QuickKeysTests.")
         defaults = UserDefaults(suiteName: suite)
     }
 
