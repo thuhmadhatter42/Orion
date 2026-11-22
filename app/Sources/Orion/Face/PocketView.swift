@@ -1,8 +1,9 @@
 import AppKit
 import SwiftUI
 
-/// What the popover's controls do. MenuBar.swift wires these to the engine, Listen, the DAW and
-/// Auto-Tune senders and the MIDI export: the same calls the window and the menus make.
+/// What the face's controls do (the window, the pocket, the plug-in). MenuBar.swift wires these to
+/// the engine, Listen, the DAW and Auto-Tune senders and the MIDI export: the same calls the window
+/// and the menus make.
 struct PocketActions {
     var setFactor: (TempoFactor) -> Void = { _ in }
     var page: (Int) -> Void = { _ in }
@@ -17,6 +18,7 @@ struct PocketActions {
     /// MANUAL ⌄: the 24-key menu; the pick pins the key and teaches nothing.
     var manualMenu: () -> Void = {}
     var pickSource: () -> Void = {}
+    /// The pocket's drop zone, clicked: Analyze a File… (the open panel, then Intake).
     var analyzeFile: () -> Void = {}
     var sendDAW: () -> Void = {}
     /// False = the key could not be written (a beep, and the cap says so).
@@ -31,12 +33,12 @@ struct PocketActions {
     var pickMatchKey: () -> Void = {}
     /// MINI: Beat Key Mini's floating pad panel, open / closed.
     var toggleMini: () -> Void = {}
+    /// The pocket's OPEN BEAT KEY ›: the full window to the front.
     var openWindow: () -> Void = {}
     var settings: () -> Void = {}
-    var quit: () -> Void = {}
     /// HELP: help mode on / off (both surfaces).
     var toggleHelp: () -> Void = {}
-    /// The footer's ADVANCED box: this surface's Advanced mode on / off.
+    /// The window footer's ADVANCED box: Advanced mode on / off.
     var toggleAdvanced: () -> Void = {}
     /// COLOR: the display colour picker (the app's colour wheel; the plug-in's swatches).
     var color: () -> Void = {}
@@ -56,32 +58,26 @@ struct PocketActions {
 
 enum Pocket {
     static let width: CGFloat = 376
-    /// The download cap fits its longer legend (PASTE + DOWNLOAD) so the field never jumps.
-    static let downloadCapWidth: CGFloat = 152
     static let listenCapWidth: CGFloat = 112
-    /// HOLD and the square reset key: a tight pair.
-    static let transportGap: CGFloat = 8
-    /// The scale keyboard under the top keys (J 2026-11-09: taller, same width).
-    static let keyboardHeight: CGFloat = 64
+    /// The drop zone's height: a cap and a half, an easy target for a file.
+    static let dropZoneHeight: CGFloat = 44
     /// Offscreen renders (tests): AppKit-backed pieces (the link field) draw a stand-in.
     static var snapshot = false
 }
 
-/// The menu-bar popover: a pocket Beat Key faceplate. Readout on top (dial + key, BPM, top three
-/// keys, the scale on a keyboard), then download, listen and the send caps, then the small links.
+/// The menu-bar popover (J 2026-11-22, option C "sleek + send"): a glance at the reading from inside
+/// a session. Top to bottom: the header, the readout (dial + key, BPM and its factor, top three
+/// keys), LISTEN and its source, the drop zone, the two send caps, then SETTINGS · HELP · OPEN BEAT
+/// KEY ›. Everything else lives in the window; QUIT is on the status item's right-click menu.
 struct PocketView: View {
     let state: PocketState
-    @Binding var url: String
     var actions = PocketActions()
-    @State private var fieldFocused = false
 
     var body: some View {
         VStack(spacing: Theme.S.l) {
             PocketHeader(state: state)
             PocketLCD(state: state, actions: actions)
             module
-            // Advanced mode (the pocket's own): the window's harmony pieces, fitted to the pocket
-            if state.advanced { PocketHarmony(state: state, actions: actions) }
             footer
         }
         .padding(Theme.S.l)
@@ -91,98 +87,94 @@ struct PocketView: View {
         .background(PocketPlate())
     }
 
-    // MARK: module: download, listen, send (on the plate itself: no extra panel box)
+    // MARK: module: listen, the drop zone, send (on the plate itself: no extra panel box)
 
     private var module: some View {
         let g = Theme.S.s
-        return VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: g) {
-                LinkField(text: $url, focused: $fieldFocused, onSubmit: { actions.downloadPressed(state) })
-                DownloadCap(state: state, action: { actions.downloadPressed(state) })
-                    .frame(width: Pocket.downloadCapWidth)
-            }
+        return VStack(spacing: g) {
             HStack(spacing: g) {
                 ListenCap(state: state, action: actions.toggleListen).frame(width: Pocket.listenCapWidth)
                 SourceField(source: state.source, level: state.level, listening: state.listening,
                             action: actions.pickSource)
             }
-            .padding(.top, g)
-            if state.listening {
-                // HOLD and the reset key sit under LISTEN, the pair as wide as LISTEN's cap
-                HStack(spacing: Pocket.transportGap) {
-                    HoldCap(state: state, height: Theme.H.md, action: actions.toggleHold)
-                    NewSongCap(lit: true, keys: state.newSongKeys, height: Theme.H.md, action: actions.newSong)
-                }
-                .frame(width: Pocket.listenCapWidth)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, g)
-            }
-            ModuleRule().padding(.vertical, Theme.S.l)
-            VStack(spacing: g) {
-                HStack(spacing: g) {
-                    ActionCap(title: "ANALYZE FILE", ready: !state.busy, label: "Analyze a file", action: actions.analyzeFile)
-                        .helpTip(HelpText.analyzeFile)
-                    SendDAWCap(state: state, action: actions.sendDAW)
-                }
-                HStack(spacing: g) {
-                    AutoTuneCap(state: state, send: actions.sendAutoTune)
-                    ExportMidiCap(state: state, action: actions.exportMidi)
-                }
+            PocketDropZone(targeted: state.dropTargeted, action: actions.analyzeFile)
+            HStack(spacing: g) {
+                SendDAWCap(state: state, action: actions.sendDAW)
+                AutoTuneCap(state: state, send: actions.sendAutoTune)
             }
         }
     }
 
     // MARK: footer
 
-    /// RECENT ▾ · WINDOW · SETTINGS · HELP chips (FooterChip, the window's chip), then ADVANCED and
-    /// QUIT (its power symbol) on the right. The 344 pt row holds the four chips 8 apart; the
-    /// ADVANCED box keeps its word only when it fits (PocketFooter.showsAdvancedLabel).
+    /// SETTINGS · HELP on the left, OPEN BEAT KEY › on the right, each one FooterChip (the window's
+    /// chip). The row's fit is measured (PocketFooter).
     private var footer: some View {
-        HStack(spacing: 0) {
-            HStack(spacing: PocketFooter.gap) {
-                RecentLink(state: state, action: actions.showRecents)
-                FooterChip(title: "WINDOW", label: "Show the Beat Key window", action: actions.openWindow)
-                    .helpTip(HelpText.window)
-                FooterChip(title: "SETTINGS", label: "Settings", action: actions.settings).helpTip(HelpText.settings)
-                HelpChip(on: state.help, action: actions.toggleHelp)
-            }
+        HStack(spacing: PocketFooter.gap) {
+            FooterChip(title: "SETTINGS", label: "Settings", action: actions.settings).helpTip(HelpText.settings)
+            HelpChip(on: state.help, action: actions.toggleHelp)
             Spacer(minLength: PocketFooter.gap)
-            HStack(spacing: PocketFooter.gap) {
-                AdvancedBox(on: state.advanced, showsLabel: PocketFooter.showsAdvancedLabel,
-                            action: actions.toggleAdvanced)
-                QuitLink(action: actions.quit).helpTip(HelpText.quit)
-            }
+            FooterChip(title: PocketFooter.openTitle, label: "Open the Beat Key window", accent: true,
+                       action: actions.openWindow)
+                .nativeHelp("Open the full Beat Key window")
+                .helpTip(HelpText.openWindow)
         }
         .frame(height: Theme.H.xs)
     }
 }
 
-/// The pocket footer's fit (J 2026-11-09 14:23, every action one chip): measured in the caption
-/// type, not guessed. The four chips at the window's size leave no room for ADVANCED's word, so
-/// the pocket shows the box alone (its native tip, help card and VoiceOver label still say
-/// Advanced mode); the drop, or a row that cannot fit at all, is logged once.
+/// The pocket footer's fit, measured in the caption type, not guessed: the three chips and the gaps
+/// must fit the plate's width less its padding; a row that cannot fit is logged once.
 enum PocketFooter {
     static let gap: CGFloat = Theme.S.s
+    static let openTitle = "OPEN BEAT KEY ›"
     /// The plate's width less its padding.
     static let usable: CGFloat = Pocket.width - Theme.S.l * 2
-    static let chipTitles = [RecentLink.title, "WINDOW", "SETTINGS", "HELP"]
-    static var chipsWidth: CGFloat {
+    static let chipTitles = ["SETTINGS", "HELP", openTitle]
+    /// The chips, the gaps between them and the spacer's minimum.
+    static var width: CGFloat {
         chipTitles.map { FooterChip.width($0) }.reduce(0, +) + gap * CGFloat(chipTitles.count - 1)
     }
-    /// Chips, the spacer's minimum, ADVANCED (box, or box and word), the gap, QUIT.
-    static func width(advancedLabel: Bool) -> CGFloat {
-        chipsWidth + gap + AdvancedBox.width(showsLabel: advancedLabel) + gap + QuitLink.width
-    }
-    static let showsAdvancedLabel: Bool = {
-        let full = width(advancedLabel: true), bare = width(advancedLabel: false)
-        if full <= usable { return true }
-        if bare > usable {
-            AppLog.log("pocket footer: fit failure: chips + ADVANCED box + quit need \(bare) pt of \(usable)")
-        } else {
-            AppLog.log("pocket footer: ADVANCED shows its box only (with the word it needs \(full) pt of \(usable))")
-        }
-        return false
+    static let fits: Bool = {
+        let w = width
+        if w > usable { AppLog.log("pocket footer: fit failure: SETTINGS, HELP and OPEN BEAT KEY need \(w) pt of \(usable)") }
+        return w <= usable
     }()
+}
+
+/// The pocket's drop zone: "Drop audio here · or click to ANALYZE". A file dropped anywhere on the
+/// pocket goes to Intake (PocketContainer's one drop target; this zone lights while a file hovers);
+/// a click runs Analyze a File… (PocketActions.analyzeFile).
+struct PocketDropZone: View {
+    @Environment(\.palette) private var palette
+    /// A file hovers over the pocket.
+    let targeted: Bool
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: Theme.R.well, style: .continuous)
+        let hot = targeted || hover
+        Button(action: action) {
+            (Text("Drop audio here · or click to ").font(Theme.T.body)
+                + Text("ANALYZE").font(Theme.T.caption).tracking(Theme.T.captionTracking))
+                .foregroundColor(targeted ? palette.a1 : hover ? Theme.textHi : Theme.textLo)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity)
+                .frame(height: Pocket.dropZoneHeight)
+                .background(shape.fill(targeted ? palette.a5 : Color.clear))
+                .overlay(shape.strokeBorder(targeted ? palette.a1 : hot ? Theme.textLo : Theme.textFaint,
+                                            style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])))
+                .contentShape(shape)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onHover { hover = $0 }
+        .animation(Theme.Motion.hover, value: hot)
+        .pointingHand()
+        .accessibility(label: Text("Analyze a file"))
+        .accessibility(hint: Text("Drop audio on the pocket, or click to choose files"))
+        .helpTip(HelpText.dropZone)
+    }
 }
 
 extension PocketActions {
@@ -408,26 +400,6 @@ enum PocketText {
     }
 }
 
-/// QUIT as the power symbol (the pocket's footer has no room for the word next to ADVANCED).
-struct QuitLink: View {
-    static let width: CGFloat = 16
-    let action: () -> Void
-    @State private var hover = false
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: "power").font(.system(size: 11, weight: .semibold))
-                .foregroundColor(hover ? Theme.textHi : Theme.textLo)
-                .frame(width: QuitLink.width, height: Theme.H.xs)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(PlainButtonStyle())
-        .onHover { hover = $0 }
-        .pointingHand()
-        .nativeHelp(Brand.quit)
-        .accessibility(label: Text(Brand.quit))
-    }
-}
-
 /// Every footer action, both surfaces (J 2026-11-09 14:23: "two of them look like buttons and two
 /// of them look like words... why don't they all look the same?"): RECENT ▾, WINDOW, SETTINGS,
 /// COLOR and HELP are one outlined chip. H.xs high, R.cap corners, the caption type, S.s each
@@ -600,7 +572,10 @@ private struct PocketLCD: View {
                 right.frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(height: Dial.side)
-            KeyStrip(state: state, onManual: actions.manualMenu, keyboardHeight: Pocket.keyboardHeight, actions: actions).padding(.top, Theme.S.s)
+            // the top keys under the dial (no keyboard, scale or tuning: those are the window's)
+            KeyStrip.topKeys(state, actions: actions)
+                .helpTip(HelpText.topKeys)
+                .padding(.top, Theme.S.l)
         }
         .padding(Theme.S.l)
         .lcdGlass(radius: Theme.R.well)
@@ -611,8 +586,8 @@ private struct PocketLCD: View {
 
     @ViewBuilder private var right: some View {
         switch state.readout {
-        case .result(let r, let page, _, let note, let o):
-            ResultSide(result: r, page: page, note: note, options: o, state: state, actions: actions)
+        case .result(let r, _, _, _, let o):
+            ResultSide(result: r, options: o, actions: actions)
         case .working(let stage, let download):
             VStack(alignment: .leading, spacing: 0) {
                 Text(Faceplate.stageText(stage)).font(Theme.T.title).tracking(Theme.T.titleTracking)
@@ -656,11 +631,11 @@ private struct PocketLCD: View {
             // the empty state: an invitation, not a skeleton of missing numbers (F11)
             VStack(alignment: .leading, spacing: Theme.S.s) {
                 Text(Faceplate.idleTitle).font(Theme.T.title).foregroundColor(palette.a2)
-                Text(Faceplate.idleHint).font(Theme.T.caption)
+                Text(Faceplate.pocketIdleHint).font(Theme.T.caption)
                     .foregroundColor(palette.a3).fixedSize(horizontal: false, vertical: true)
             }
             .accessibilityElement(children: .ignore)
-            .accessibility(label: Text(Faceplate.idleLabel))
+            .accessibility(label: Text(Faceplate.pocketIdleLabel))
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             .contentShape(Rectangle())
             .helpTip(HelpText.readout)
@@ -679,14 +654,15 @@ private struct PocketLCD: View {
     }
 }
 
-/// The lower half of both readouts: a hairline ending in the MANUAL key menu, TOP KEYS (a click
-/// picks the key), the scale on a one-octave keyboard, and the scale line with the tuning.
+/// The lower half of the window's readout: a hairline ending in the MANUAL key menu, TOP KEYS (a
+/// click picks the key), the scale on a one-octave keyboard, and the scale line with the tuning.
+/// The pocket draws only its TOP KEYS (`topKeys`).
 struct KeyStrip: View {
     @Environment(\.palette) private var palette
     let state: PocketState
     /// MANUAL ⌄: the 24-key menu (nil = not shown).
     var onManual: (() -> Void)? = nil
-    var keyboardHeight: CGFloat = Pocket.keyboardHeight
+    var keyboardHeight: CGFloat = FaceplateFace.keyboardHeight
     /// TOP KEYS' pin / unpin (PocketActions.pinKey / clearPin).
     var actions = PocketActions()
     /// The hairline's row (MANUAL's height); the line runs through its middle.
@@ -1085,14 +1061,12 @@ struct BPMNumber: View {
     }
 }
 
-/// BPM (clickable, x0.5 / x1 / x2 chips) and the file line beside the dial.
+/// BPM (clickable, x0.5 / x1 / x2 chips) beside the dial, centred on it (the file line and its
+/// paging are the window's).
 private struct ResultSide: View {
     @Environment(\.palette) private var palette
     let result: Result
-    let page: String?
-    let note: String?
     let options: ResultOptions
-    let state: PocketState
     let actions: PocketActions
 
     var body: some View {
@@ -1114,34 +1088,6 @@ private struct ResultSide: View {
             .accessibility(label: Text(bpm.map { "BPM \($0)" } ?? "BPM not found"))
             .accessibility(hint: Text("Click to switch between normal, double and half time"))
             .helpTip(HelpText.bpm)
-            if showsFileRow {
-                Spacer(minLength: 0)
-                fileRow
-            }
-        }
-    }
-
-    /// No file line while listening (the header already says LIVE and the source): the BPM then
-    /// sits centred beside the dial.
-    private var showsFileRow: Bool { note != nil || options.live == nil }
-
-    /// The file's name (yours: warm white, its own case) or the note; nothing while listening
-    /// (the header already says LIVE and the source).
-    @ViewBuilder private var fileRow: some View {
-        if note != nil || options.live == nil {
-            HStack(spacing: Theme.S.xs) {
-                Text(note ?? (result.name as NSString).deletingPathExtension)
-                    .font(note == nil ? Theme.T.body : Theme.T.caption)
-                    .foregroundColor(note == nil ? Theme.textHi : palette.a2)
-                    .lineLimit(1).truncationMode(.middle)
-                    .helpTip(HelpText.fileLine)
-                if let p = page {
-                    Spacer(minLength: 2)
-                    PageArrow(glyph: "‹", label: "Previous file") { actions.page(-1) }
-                    Text(p).captionStyle().foregroundColor(palette.a2).fixedSize().helpBlocker()
-                    PageArrow(glyph: "›", label: "Next file") { actions.page(1) }
-                }
-            }
         }
     }
 }

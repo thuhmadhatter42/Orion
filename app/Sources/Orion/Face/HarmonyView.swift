@@ -24,10 +24,6 @@ struct HarmonyPanel: View {
     @Environment(\.palette) private var palette
     let state: PocketState
     var actions = PocketActions()
-    /// The menu-bar pocket's fit (its 344 pt column): the wheel on its own, centred, its head in
-    /// the corner beside it (no notes heard: no room), the chord choices 8 apart, a tighter glass.
-    /// The pocket grows taller, not wider.
-    var compact = false
 
     static let width: CGFloat = 432
 
@@ -40,15 +36,15 @@ struct HarmonyPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             wheelAndNotes
-            HarmonyRule().padding(.vertical, compact ? Theme.S.m : Theme.S.l)
+            HarmonyRule().padding(.vertical, Theme.S.l)
             chords
-            HarmonyRule().padding(.vertical, compact ? Theme.S.m : Theme.S.l)
+            HarmonyRule().padding(.vertical, Theme.S.l)
             MatchToRow(key: key, target: prefs.matchKey, pick: actions.pickMatchKey)
-            if !compact { Spacer(minLength: 0) }
+            Spacer(minLength: 0)
         }
-        .padding(.vertical, compact ? Theme.S.m : Theme.S.l)
-        .padding(.horizontal, compact ? Theme.S.m : Theme.S.lcd)
-        .frame(maxHeight: compact ? nil : .infinity, alignment: .top)
+        .padding(.vertical, Theme.S.l)
+        .padding(.horizontal, Theme.S.lcd)
+        .frame(maxHeight: .infinity, alignment: .top)
         .lcdGlass(radius: Theme.R.well)
     }
 
@@ -64,20 +60,7 @@ struct HarmonyPanel: View {
                         onClear: r.map { r in { actions.clearPin(r, .wheelReset) } })
     }
 
-    @ViewBuilder private var wheelAndNotes: some View {
-        if compact {
-            ZStack(alignment: .topLeading) {
-                wheel
-                    .frame(width: KeyWheel.side, height: KeyWheel.side)
-                    .frame(maxWidth: .infinity)
-                Text.cap("KEY WHEEL", palette).helpTip(HelpText.keyWheel)
-            }
-        } else {
-            wideWheelAndNotes
-        }
-    }
-
-    private var wideWheelAndNotes: some View {
+    private var wheelAndNotes: some View {
         HStack(alignment: .top, spacing: Theme.S.l) {
             VStack(alignment: .leading, spacing: Theme.S.s) {
                 Text.cap("KEY WHEEL", palette).helpTip(HelpText.keyWheel)
@@ -142,7 +125,7 @@ struct HarmonyPanel: View {
 
     /// TRIAD / 7TH / 9TH · ROOT / 1ST / 2ND / OPEN.
     private var chordControls: some View {
-        HStack(spacing: compact ? Theme.S.s : Theme.S.m) { chordChoices; Spacer(minLength: 0) }
+        HStack(spacing: Theme.S.m) { chordChoices; Spacer(minLength: 0) }
     }
 
     @ViewBuilder private var chordChoices: some View {

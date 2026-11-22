@@ -27,8 +27,8 @@ struct ResultOptions {
 }
 
 /// The amber LCD, grown into the whole face. The top shows the state
-/// (BPM and the key dial for a reading); under it the popover's own KeyStrip (TOP KEYS, the
-/// scale on a keyboard, the scale line), fed the same PocketState.
+/// (BPM and the key dial for a reading); under it the KeyStrip (TOP KEYS, the scale on a keyboard,
+/// the scale line), fed the same PocketState as the pocket.
 struct LCD: View {
     @Environment(\.palette) private var palette
     let state: PocketState

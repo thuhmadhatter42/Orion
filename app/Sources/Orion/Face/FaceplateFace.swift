@@ -65,6 +65,8 @@ struct FaceplateFace: View {
     /// Every cap on the right of a field shares one width so the fields line up; it fits the
     /// longest legend in that column (PASTE + DOWNLOAD).
     static let capWidth: CGFloat = 152
+    /// HOLD and the square reset key: a tight pair.
+    static let transportGap: CGFloat = 8
     /// The scale keyboard in the window's readout (J 2026-11-09: taller and narrower, not stubby):
     /// 432 x 96, white keys about 62 x 96 (was 456 x 84).
     static let keyboardHeight: CGFloat = 96
@@ -140,7 +142,7 @@ struct FaceplateFace: View {
                 SourceField(source: state.source, level: state.level, listening: state.listening,
                             meterGap: 1, action: actions.pickSource)
                 if state.surface.showsListen {
-                    HStack(spacing: Pocket.transportGap) {
+                    HStack(spacing: FaceplateFace.transportGap) {
                         HoldCap(state: state, action: actions.toggleHold).frame(width: 72)
                         NewSongCap(lit: state.listening, keys: state.newSongKeys, action: actions.newSong)
                     }

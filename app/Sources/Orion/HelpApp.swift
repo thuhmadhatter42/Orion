@@ -86,7 +86,7 @@ extension HelpText {
         HelpSection(title: "Window and pocket: getting audio in",
                     tips: [linkField, download, login, openAudio, findKey, source, listen, hold, reset]),
         HelpSection(title: "Window and pocket: sending", tips: [sendDAW, autoTune, exportMidi]),
-        HelpSection(title: "Menu bar pocket only", tips: [analyzeFile, window, quit]),
+        HelpSection(title: "Menu bar pocket only", tips: [dropZone, openWindow]),
         HelpSection(title: "Footer", tips: [recent, settings, color, report, advanced, help]),
         HelpSection(title: "Advanced mode",
                     tips: [pitchToFit, keyWheel, notesHeard, chords, quality, voicing, bars, borrowed, matchTo, matchShift, mini]),

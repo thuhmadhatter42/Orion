@@ -36,8 +36,8 @@ enum Clipboard {
 /// Everything the popover draws, as plain values (so it can be rendered offscreen and tested).
 struct PocketState {
     var readout: Readout = .idle
-    /// A file hovers over the WINDOW (the drop ring and DROP TO GET BPM AND KEY cover the readout).
-    /// The popover never sets it.
+    /// A file hovers over the surface: the window's drop ring and DROP TO GET BPM AND KEY cover its
+    /// readout; the pocket's drop zone lights (PocketContainer sets it).
     var dropTargeted = false
     /// Listen is on (listening, reading or locked).
     var listening = false
@@ -60,8 +60,7 @@ struct PocketState {
     var held = false
     /// Hold's global shortcut as printed; nil = none set.
     var holdKeys: String? = nil
-    /// Advanced mode of the surface drawn: the window's harmony column, or the pocket's harmony
-    /// pieces (PocketContainer puts the pocket's own setting in).
+    /// Advanced mode: the window's (and the plug-in's) harmony column. The pocket has none.
     var advanced = false
     /// Advanced mode's chord and MATCH TO choices.
     var harmony = HarmonyPrefs()

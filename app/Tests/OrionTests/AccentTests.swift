@@ -129,54 +129,14 @@ final class AccentTests: XCTestCase {
         XCTAssertEqual(HelpText.problems(), [])
     }
 
-    // MARK: ADVANCED: first change this launch sets both, later ones only their own
+    // MARK: ADVANCED: the window's own (the pocket has none since option C)
 
-    func testOldAdvancedSettingMigratesIntoBoth() {
-        defaults.set(true, forKey: DisplaySettings.advancedKey)
+    func testAdvancedIsTheWindowsAndPersists() {
         let d = DisplaySettings(defaults: defaults)
-        XCTAssertTrue(d.advanced)
-        XCTAssertTrue(d.pocketAdvanced)
-        XCTAssertEqual(defaults.object(forKey: DisplaySettings.pocketAdvancedKey) as? Bool, true)
-    }
-
-    func testFirstToggleSetsBothThenEachOnItsOwn() {
-        let d = DisplaySettings(defaults: defaults)
-        XCTAssertFalse(d.advanced); XCTAssertFalse(d.pocketAdvanced)
-        d.pocketAdvanced.toggle()                         // first change, from the menu bar
-        XCTAssertTrue(d.advanced); XCTAssertTrue(d.pocketAdvanced)
-        d.pocketAdvanced.toggle()                         // second: the menu bar only
-        XCTAssertTrue(d.advanced); XCTAssertFalse(d.pocketAdvanced)
-        d.advanced.toggle()                               // third, from the window: the window only
-        XCTAssertFalse(d.advanced); XCTAssertFalse(d.pocketAdvanced)
+        XCTAssertFalse(d.advanced)
         d.advanced.toggle()
-        XCTAssertTrue(d.advanced); XCTAssertFalse(d.pocketAdvanced)
-        // both persisted on their own
         XCTAssertEqual(defaults.bool(forKey: DisplaySettings.advancedKey), true)
-        XCTAssertEqual(defaults.bool(forKey: DisplaySettings.pocketAdvancedKey), false)
-
-        // the next launch starts over: its first change links again
-        let next = DisplaySettings(defaults: defaults)
-        XCTAssertTrue(next.advanced); XCTAssertFalse(next.pocketAdvanced)
-        XCTAssertFalse(next.advancedLinkUsed)
-        next.advanced.toggle()                            // window (also ⌥⌘A, Settings): both off
-        XCTAssertFalse(next.advanced); XCTAssertFalse(next.pocketAdvanced)
-        next.pocketAdvanced.toggle()
-        XCTAssertFalse(next.advanced); XCTAssertTrue(next.pocketAdvanced)
-    }
-
-    func testFirstChangeSetsBothToTheNewValueEvenWhenTheyDiffered() {
-        defaults.set(true, forKey: DisplaySettings.advancedKey)
-        defaults.set(false, forKey: DisplaySettings.pocketAdvancedKey)
-        let d = DisplaySettings(defaults: defaults)
-        d.pocketAdvanced = true                           // the window is on already: both on
-        XCTAssertTrue(d.advanced); XCTAssertTrue(d.pocketAdvanced)
-        XCTAssertTrue(d.advancedLinkUsed)
-    }
-
-    func testSettingTheSameValueIsNotAChange() {
-        let d = DisplaySettings(defaults: defaults)
-        d.advanced = false
-        XCTAssertFalse(d.advancedLinkUsed)
+        XCTAssertTrue(DisplaySettings(defaults: defaults).advanced)
     }
 
     // MARK: offscreen renders (swift test --filter AccentTests/testRender)
@@ -216,18 +176,14 @@ final class AccentTests: XCTestCase {
             palette.accent = a.readable().accent
             try write(FaceplateFace(state: s, picked: [], url: .constant(""), fieldFocused: .constant(false),
                                     pickFocused: .constant(false)), "window-\(name)")
-            try write(PocketView(state: s, url: .constant("")), "pocket-\(name)")
+            try write(PocketView(state: s), "pocket-\(name)")
         }
         palette.accent = .amber
         try write(FaceplateFace(state: adv, picked: [], url: .constant(""), fieldFocused: .constant(false),
                                 pickFocused: .constant(false)), "window-advanced-amber")
         try write(FaceplateFace(state: s, picked: [], url: .constant(""), fieldFocused: .constant(false),
                                 pickFocused: .constant(false)), "window-footer", crop: 44)
-        try write(PocketView(state: s, url: .constant("")), "pocket-advanced-off")
-        try write(PocketView(state: adv, url: .constant("")), "pocket-advanced-on")
-        try write(PocketView(state: s, url: .constant("")), "pocket-footer", crop: 40)
-        palette.accent = Accent(70, 150, 255).readable().accent
-        try write(PocketView(state: adv, url: .constant("")), "pocket-advanced-on-blue")
+        try write(PocketView(state: s), "pocket-footer", crop: 40)
         // a too-dark pick as shown (navy, lifted)
         palette.accent = Accent(10, 20, 90).readable().accent
         try write(FaceplateFace(state: s, picked: [], url: .constant(""), fieldFocused: .constant(false),

@@ -136,10 +136,8 @@ struct SettingsView: View {
 /// key). Views that observe this object redraw when any of them changes.
 final class DisplaySettings: ObservableObject {
     static let key = "highContrast"
-    /// The window's Advanced mode (the key from before the pocket had one).
+    /// The window's Advanced mode (the menu-bar pocket has none since option C, J 2026-11-22).
     static let advancedKey = "advancedMode"
-    /// The menu-bar pocket's Advanced mode; a first run copies the window's (`advancedMode`).
-    static let pocketAdvancedKey = "pocketAdvancedMode"
     static let matchKeyKey = "matchToKey"
     static let qualityKey = "chordQuality"
     static let voicingKey = "chordVoicing"
@@ -160,30 +158,7 @@ final class DisplaySettings: ObservableObject {
             guard advanced != oldValue else { return }
             defaults.set(advanced, forKey: DisplaySettings.advancedKey)
             AppLog.log("advanced mode (window) \(advanced ? "on" : "off")")
-            linkFirstChange(window: true)
         }
-    }
-
-    /// The menu-bar pocket's Advanced mode: the harmony pieces under its usual content.
-    @Published var pocketAdvanced: Bool {
-        didSet {
-            guard pocketAdvanced != oldValue else { return }
-            defaults.set(pocketAdvanced, forKey: DisplaySettings.pocketAdvancedKey)
-            AppLog.log("advanced mode (menu bar) \(pocketAdvanced ? "on" : "off")")
-            linkFirstChange(window: false)
-        }
-    }
-
-    /// J 2026-11-09: "first change per launch affects both the window and menu bar, second change
-    /// only affects where it was clicked". False until the first change this launch (a new
-    /// DisplaySettings each launch starts it over).
-    private(set) var advancedLinkUsed = false
-
-    private func linkFirstChange(window: Bool) {
-        guard !advancedLinkUsed else { return }
-        advancedLinkUsed = true            // before the copy: the other side's didSet must not link back
-        if window { pocketAdvanced = advanced } else { advanced = pocketAdvanced }
-        AppLog.log("advanced mode: first change this launch, window and menu bar both \(advanced ? "on" : "off")")
     }
 
     /// The project's key MATCH TO compares against ("Eb", "F#m"); nil = none picked.
@@ -214,15 +189,6 @@ final class DisplaySettings: ObservableObject {
         self.defaults = defaults
         highContrast = defaults.bool(forKey: DisplaySettings.key)
         advanced = defaults.bool(forKey: DisplaySettings.advancedKey)
-        // migrate: a first run of this version starts the pocket as the window was
-        let migrate = defaults.object(forKey: DisplaySettings.pocketAdvancedKey) == nil
-        let pocket = migrate ? defaults.bool(forKey: DisplaySettings.advancedKey)
-                             : defaults.bool(forKey: DisplaySettings.pocketAdvancedKey)
-        pocketAdvanced = pocket
-        if migrate {
-            defaults.set(pocket, forKey: DisplaySettings.pocketAdvancedKey)
-            AppLog.log("advanced mode: menu bar setting created from the window's (\(pocket ? "on" : "off"))")
-        }
         matchKey = defaults.string(forKey: DisplaySettings.matchKeyKey).flatMap { KeyNames.parse($0) == nil ? nil : $0 }
         chordQuality = defaults.string(forKey: DisplaySettings.qualityKey).flatMap(ChordQuality.init(rawValue:)) ?? .triad
         chordVoicing = defaults.string(forKey: DisplaySettings.voicingKey).flatMap(Voicing.init(rawValue:)) ?? .root

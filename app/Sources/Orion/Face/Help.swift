@@ -60,7 +60,8 @@ enum HelpText {
     static let download = HelpTip(title: "DOWNLOAD", body: "Download MP3 from YouTube (pasted or copied link).")
     static let openAudio = HelpTip(title: "OPEN AUDIO", body: "Open audio file/s from Finder.")
     static let findKey = HelpTip(title: "ANALYZE", body: "Get BPM and key of the file. ← → page files.")
-    static let analyzeFile = HelpTip(title: "ANALYZE FILE", body: withKeys("Pick audio files, get BPM and key.", keys("analyzeFile")))
+    /// The pocket's drop zone (a drop anywhere on the pocket, or a click: Analyze a File…).
+    static let dropZone = HelpTip(title: "DROP AUDIO", body: withKeys("Get BPM and key of audio, video or MIDI files.", keys("analyzeFile")))
     static let source = HelpTip(title: "SOURCE", body: "System Audio, External Input, or App Input.")
     static let listen = HelpTip(title: "LISTEN", body: withKeys("Live BPM and key.", keys("listen")))
     static let hold = HelpTip(title: "HOLD", body: withKeys("Freeze the reading. Click again to unfreeze.", keys("hold")))
@@ -79,8 +80,8 @@ enum HelpText {
     static let color = HelpTip(title: "COLOR", body: "Pick the display colour. Reset to Amber.")
     static let report = HelpTip(title: "REPORT", body: "Email a report with log attached.")
     static let advanced = HelpTip(title: "ADVANCED", body: withKeys("Select to get the full Beat Key experience.", keys("advancedMode")))
-    static let window = HelpTip(title: "WINDOW", body: "Open the full window.")
-    static let quit = HelpTip(title: "QUIT", body: withKeys("Quit Beat Key.", keys("quit")))
+    /// The pocket's OPEN BEAT KEY ›.
+    static let openWindow = HelpTip(title: "OPEN BEAT KEY", body: "Open the full window: YouTube, MIDI export, chords.")
     static let help = HelpTip(title: "HELP", body: "Help on. Hover for tips. Click to turn off.")
 
     // Advanced mode

@@ -236,8 +236,8 @@ final class ManualKeySelectionTests: XCTestCase {
 
         var pocket = state(s)
         pocket.source = "System Audio"
-        try write(PocketView(state: pocket, url: .constant("")), "pocket-manual")
-        try write(PocketView(state: pocket, url: .constant("")).environment(\.manualHoverForced, "dial"),
+        try write(PocketView(state: pocket), "pocket-manual")
+        try write(PocketView(state: pocket).environment(\.manualHoverForced, "dial"),
                   "pocket-manual-dial-hover")
 
         try write(window(manual).environment(\.palette, Palette(highContrast: true)), "window-advanced-manual-high-contrast")

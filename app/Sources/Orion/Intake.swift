@@ -22,11 +22,15 @@ enum Intake {
         let files = Faceplate.audioFiles(all)
         AppLog.log("intake via \(via): \(urls.count) item(s), \(files.count) audio, \(all.count - files.count) skipped"
                    + (handler == nil ? ", held until the window is up" : ""))
-        guard !files.isEmpty else { NSSound.beep(); return false }
+        guard !files.isEmpty else {
+            AppLog.log("ERROR intake via \(via): no audio, video or MIDI among \(urls.count) item(s) (beep)")
+            NSSound.beep()
+            return false
+        }
         guard let go = handler else { waiting += files; return true }
         NSApp?.activate(ignoringOtherApps: true)
         if go(files) { return true }
-        AppLog.log("intake via \(via): the window refused \(files.count) file(s)")
+        AppLog.log("ERROR intake via \(via): the window refused \(files.count) file(s)")
         NSSound.beep()
         return false
     }
@@ -48,7 +52,7 @@ enum Intake {
                 if let d = item as? Data { u = URL(dataRepresentation: d, relativeTo: nil) }
                 else if let x = item as? URL { u = x }
                 if let u = u, u.isFileURL { lock.lock(); urls[i] = u; lock.unlock() }
-                else { AppLog.log("intake via \(via): one dropped item could not be read\(error.map { " (\($0))" } ?? "")") }
+                else { AppLog.log("ERROR intake via \(via): one dropped item could not be read\(error.map { " (\($0))" } ?? "")") }
             }
         }
         group.notify(queue: .main) { receive(urls.keys.sorted().compactMap { urls[$0] }, via: via) }

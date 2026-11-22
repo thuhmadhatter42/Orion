@@ -59,11 +59,11 @@ final class FooterReadoutRenderTests: XCTestCase {
         try write(window(listening), "window-listening")
         try write(window(adv), "window-advanced")
         try write(window(file), "window-footer", crop: 44)
-        try write(PocketView(state: file, url: .constant("")), "pocket-full")
-        try write(PocketView(state: file, url: .constant("")), "pocket-footer", crop: 40)
+        try write(PocketView(state: file), "pocket-full")
+        try write(PocketView(state: file), "pocket-footer", crop: 40)
         var helpOn = file
         helpOn.help = true
-        try write(PocketView(state: helpOn, url: .constant("")), "pocket-footer-help-on", crop: 40)
+        try write(PocketView(state: helpOn), "pocket-footer-help-on", crop: 40)
         try write(window(helpOn), "window-footer-help-on", crop: 44)
     }
 }

@@ -126,6 +126,51 @@ final class PocketTests: XCTestCase {
         XCTAssertFalse(KeyGlyphShape().path(in: CGRect(x: 0, y: 0, width: 22, height: 12)).isEmpty)
     }
 
+    // MARK: option C (J 2026-11-22): what the pocket holds, and nothing else
+
+    /// Every tip, forced one at a time on the real pocket: the ones it places are its controls. The
+    /// pocket draws exactly option C's (header, readout, LISTEN + SOURCE, the drop zone, the two sends,
+    /// SETTINGS · HELP · OPEN BEAT KEY ›) and none of the window's own.
+    @MainActor
+    func testPocketDrawsOptionCControlsOnly() throws {
+        guard #available(macOS 13.0, *) else { throw XCTSkip("ImageRenderer is macOS 13+") }
+        Pocket.snapshot = true
+        var placed = Set<String>()
+        HelpTipLogic.onPlace = { placed.insert($0.tip) }
+        defer { Pocket.snapshot = false; HelpTipLogic.onPlace = nil }
+        var s = PocketState()
+        s.help = true
+        s.daw = "Pro Tools"
+        s.readout = .result(result(cents: 12), page: "1 OF 2", download: true, options: ResultOptions(
+            factor: .one, tuning: Tuning.meter(12, reference: 440), onCycleTempo: {}))
+        for tip in HelpText.all {
+            let v = PocketView(state: s).environment(\.helpTipForced, tip.id).environment(\.colorScheme, .dark)
+            _ = ImageRenderer(content: v).cgImage
+        }
+        let want: [HelpTip] = [HelpText.status, HelpText.keyDial, HelpText.confidence, HelpText.bpm, HelpText.tempoFactor,
+                                  HelpText.topKeys, HelpText.listen, HelpText.source, HelpText.dropZone, HelpText.sendDAW,
+                                  HelpText.autoTune, HelpText.settings, HelpText.help, HelpText.openWindow]
+        for t in want { XCTAssertTrue(placed.contains(t.id), "the pocket lost \(t.title)") }
+        let gone: [HelpTip] = [HelpText.keyboard, HelpText.scale, HelpText.tuning, HelpText.manual, HelpText.fileLine,
+                               HelpText.prevFile, HelpText.nextFile, HelpText.linkField, HelpText.download, HelpText.login,
+                               HelpText.exportMidi, HelpText.hold, HelpText.reset, HelpText.recent, HelpText.color,
+                               HelpText.advanced, HelpText.keyWheel, HelpText.chords, HelpText.mini]
+        for t in gone { XCTAssertFalse(placed.contains(t.id), "the pocket still draws \(t.title)") }
+    }
+
+    func testPocketOnlyTipsAreTheDropZoneAndOpenBeatKey() {
+        let section = HelpText.sections.first { $0.title == "Menu bar pocket only" }
+        XCTAssertEqual(section?.tips, [HelpText.dropZone, HelpText.openWindow])
+        for t in [HelpText.dropZone, HelpText.openWindow] {
+            XCTAssertLessThanOrEqual(t.body.count, HelpTip.maxBody, t.title)
+            XCTAssertFalse(t.body.uppercased().contains(t.title), "\(t.title): the tip repeats the legend")
+        }
+        // the drop zone's click is Analyze a File…: its tip shows that Quick Key (when it has one)
+        let k = HelpText.keys("analyzeFile")
+        if !k.isEmpty { XCTAssertTrue(HelpText.dropZone.body.hasSuffix("(\(k))"), HelpText.dropZone.body) }
+        XCTAssertFalse(HelpText.all.contains { ["QUIT", "WINDOW", "ANALYZE FILE"].contains($0.title) })
+    }
+
     // MARK: offscreen renders (swift test --filter PocketTests/testRender)
 
     @MainActor
@@ -197,12 +242,17 @@ final class PocketTests: XCTestCase {
         doctorFailed.readout = .doctor(DoctorReport(outcome: .failed, title: "DOWNLOADS BROKEN",
                                                     line: "Reinstall Beat Key from the website"))
 
+        // option C's drop zone lit: a file hovers over the pocket
+        var dropping = locked
+        dropping.dropTargeted = true
+
         let states: [(String, PocketState)] = [("idle", idle), ("downloading", working), ("listening", listening),
                                                ("unsure", unsure), ("locked", locked), ("high-contrast", hc),
                                                ("error", failed), ("held", held),
-                                               ("ab", ab), ("long", long), ("doctor-failed", doctorFailed)]
+                                               ("ab", ab), ("long", long), ("doctor-failed", doctorFailed),
+                                               ("drop-targeted", dropping)]
         for (name, s) in states {
-            let view = PocketView(state: s, url: .constant(s.url))
+            let view = PocketView(state: s)
                 .environment(\.palette, Palette(highContrast: name == "high-contrast"))
                 .environment(\.colorScheme, .dark)
             let r = ImageRenderer(content: view)

@@ -97,15 +97,19 @@ final class FaceplateTests: XCTestCase {
         }
     }
 
-    // J 2026-11-09 14:23: every footer action one chip; the pocket's row fits its 344 pt
+    // J 2026-11-09 14:23: every footer action one chip. Option C (J 2026-11-22): the pocket's row is
+    // SETTINGS · HELP · OPEN BEAT KEY ›, measured to fit its 344 pt
     func testFooterChipsFitThePocket() {
-        XCTAssertLessThanOrEqual(PocketFooter.width(advancedLabel: PocketFooter.showsAdvancedLabel), PocketFooter.usable)
+        XCTAssertEqual(PocketFooter.chipTitles, ["SETTINGS", "HELP", "OPEN BEAT KEY ›"])
+        XCTAssertEqual(PocketFooter.usable, 344)
+        XCTAssertTrue(PocketFooter.fits)
+        XCTAssertLessThanOrEqual(PocketFooter.width, PocketFooter.usable)
         for t in PocketFooter.chipTitles {
             XCTAssertEqual(FooterChip.width(t), FooterChip.textWidth(t) + FooterChip.padding * 2, t)
         }
         // the window's row: four chips 16 apart, ADVANCED with its word, inside the plate's text edges
         let window = ["RECENT ▾", "SETTINGS", "HELP"].map { FooterChip.width($0) }.reduce(0, +)
-            + FooterChip.width("COLOR", swatch: true) + Theme.S.l * 4 + AdvancedBox.width(showsLabel: true)
+            + FooterChip.width("COLOR", swatch: true) + Theme.S.l * 4 + AdvancedBox.width
         XCTAssertLessThanOrEqual(window, FaceplateFace.plateWidth(advanced: false) - Theme.S.lcd * 2)
     }
 

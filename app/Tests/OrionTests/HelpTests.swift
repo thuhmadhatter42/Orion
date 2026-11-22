@@ -463,7 +463,7 @@ final class HelpTests: XCTestCase {
         advanced.advanced = true
         advanced.harmony = HarmonyPrefs(quality: .seventh, voicing: .root, bars: 2, matchKey: "Am")
         let surfaces: [(String, AnyView)] = [("window", face(s)), ("window+advanced", face(advanced)),
-                                             ("pocket", AnyView(PocketView(state: s, url: .constant(""))))]
+                                             ("pocket", AnyView(PocketView(state: s)))]
         var checked = 0
         var crowded: [String] = []
         for (name, view) in surfaces {
@@ -552,7 +552,7 @@ final class HelpTests: XCTestCase {
                                   pickFocused: .constant(false)))
         }
         let surfaces: [(String, AnyView)] = [("window", face(s)), ("window+advanced", face(advanced)),
-                                             ("pocket", AnyView(PocketView(state: s, url: .constant(""))))]
+                                             ("pocket", AnyView(PocketView(state: s)))]
         for (name, view) in surfaces {
             var frames: [HelpTipLogic.TipFrame] = []
             for tip in HelpText.all {
@@ -560,7 +560,8 @@ final class HelpTests: XCTestCase {
                 _ = ImageRenderer(content: view.environment(\.helpTipForced, tip.id).environment(\.colorScheme, .dark)).cgImage
                 if let p = seen[tip.id] { frames.append(HelpTipLogic.TipFrame(id: tip.id, rect: p.control)) }
             }
-            XCTAssertGreaterThan(frames.count, 25, "\(name): too few tips drawn to prove anything")
+            // option C's pocket holds 14 tipped controls (PocketTests.testPocketDrawsOptionCControlsOnly)
+            XCTAssertGreaterThan(frames.count, name == "pocket" ? 13 : 25, "\(name): too few tips drawn to prove anything")
             for (i, f) in frames.enumerated() {
                 // the middle and each corner, a little in (a circle's corners are not its own)
                 let c = f.rect
@@ -632,9 +633,9 @@ final class HelpTests: XCTestCase {
         try write(window(plainOn, forced: HelpText.help), "window-default-help-chip")
         // the forced tip with help off: nothing shows (inert)
         try write(window(off, forced: HelpText.chords), "window-advanced-help-off-forced")
-        try write(PocketView(state: plainOn, url: .constant("")).environment(\.helpTipForced, HelpText.bpm.id),
+        try write(PocketView(state: plainOn).environment(\.helpTipForced, HelpText.bpm.id),
                   "pocket-help-bpm")
-        try write(PocketView(state: plainOn, url: .constant("")).environment(\.helpTipForced, HelpText.sendDAW.id),
+        try write(PocketView(state: plainOn).environment(\.helpTipForced, HelpText.sendDAW.id),
                   "pocket-help-send")
     }
 }

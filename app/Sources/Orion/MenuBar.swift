@@ -85,7 +85,8 @@ struct MenuBarReadout: Equatable {
 /// The menu-bar item (NSStatusItem: one mechanism on macOS 12 and later; MenuBarExtra is 13+ and
 /// would need a second, fallback path for 12). The title follows the LCD's reading. A click opens
 /// the pocket faceplate (an NSPopover holding PocketView); a right-click or Control-click opens
-/// the short menu (listen, analyze, window, settings, quit).
+/// the short menu (listen, new song, hold, analyze, window, settings, quit). QUIT lives only here
+/// and in the app menu: the pocket has no QUIT of its own (option C, J 2026-11-22).
 final class StatusItemController: NSObject, NSMenuDelegate {
     static let shared = StatusItemController()
 
@@ -145,12 +146,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             }
             .store(in: &bag)
 
-        var actions = PocketActions.wired(surface: "pocket", engine: engine, model: model, live: live, tuning: tuning,
+        let actions = PocketActions.wired(surface: "pocket", engine: engine, model: model, live: live, tuning: tuning,
                                           recents: recents, extras: extras, toggleListening: toggleListening,
                                           newSong: newSong, toggleHold: toggleHold, showAgain: showAgain,
                                           close: { [weak self] in self?.closePopover() })
-        actions.wireHarmony(surface: "pocket", engine: engine, model: model, live: live, display: display)
-        actions.toggleAdvanced = { [display] in display.pocketAdvanced.toggle() }
         let root = PocketContainer(engine: engine, model: model, live: live, tuning: tuning, recents: recents,
                                    display: display, shortcuts: shortcuts, extras: extras, actions: actions) { [weak self] size in
             guard let self = self, size.width > 0, size.height > 0 else { return }
@@ -214,6 +213,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     private func showMenu() {
+        AppLog.log("pocket: menu-bar menu (right-click)")
         popover.performClose(nil)
         guard let it = item else { return }
         it.menu = menu
@@ -278,20 +278,24 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     @objc private func showWindow() { StatusItemController.bringWindowForward() }
-    @objc private func quit() { NSApp.terminate(nil) }
+    @objc private func quit() {
+        AppLog.log("pocket: menu-bar menu: quit")
+        NSApp.terminate(nil)
+    }
     @objc private func openSettings() { SettingsOpener.open() }
     @objc private func listenToggled() { toggleListening?() }
     @objc private func newSongChosen() { newSong?() }
     @objc private func holdChosen() { toggleHold?() }
 
-    /// The faceplate window to the front (it may be minimised or behind other apps).
-    static func bringWindowForward() {
+    /// The faceplate window to the front (it may be minimised or behind other apps). False = there
+    /// is no window to bring (the caller logs it).
+    @discardableResult
+    static func bringWindowForward() -> Bool {
         NSApp.activate(ignoringOtherApps: true)
-        let w = NSApp.windows.first { $0.canBecomeMain && !($0 is NSPanel) }
-        if let w = w {
-            if w.isMiniaturized { w.deminiaturize(nil) }
-            w.makeKeyAndOrderFront(nil)
-        }
+        guard let w = NSApp.windows.first(where: { $0.canBecomeMain && !($0 is NSPanel) }) else { return false }
+        if w.isMiniaturized { w.deminiaturize(nil) }
+        w.makeKeyAndOrderFront(nil)
+        return true
     }
 }
 
@@ -339,6 +343,7 @@ extension PocketActions {
             })
         }
         a.pickSource = { log("source menu"); SourceMenu.show(live: live, extras: extras, close: close) }
+        // the pocket's drop zone, clicked (files dropped on the pocket go to Intake.drop, logged there)
         a.analyzeFile = {
             log("analyze a file")
             close()
@@ -370,9 +375,12 @@ extension PocketActions {
             PopupMenu.show(recents.readings.map { r in PopupMenu.Item(title: r.title) { showAgain(r) } }
                            + [.separator, PopupMenu.Item(title: "Clear Menu") { recents.clear() }])
         }
-        a.openWindow = { log("show window"); close(); StatusItemController.bringWindowForward() }
+        a.openWindow = {
+            log("open beat key (the window)")
+            close()
+            if !StatusItemController.bringWindowForward() { log("ERROR open beat key: no window to open") }
+        }
         a.settings = { log("settings"); close(); SettingsOpener.open() }
-        a.quit = { log("quit"); NSApp.terminate(nil) }
         a.toggleHelp = { HelpSettings.shared.toggle(from: surface) }
         // the face's pin / unpin (SpellingSettings) and COLOR / REPORT, the app's way
         return a.pinning().appHouse()
@@ -504,15 +512,18 @@ struct PocketContainer: View {
     @ObservedObject private var spelling = SpellingSettings.shared
     @ObservedObject private var watcher = DAWWatcher.shared
     @ObservedObject private var help = HelpSettings.shared
-    @ObservedObject private var mini = MiniController.shared
     let actions: PocketActions
     let onSize: (CGSize) -> Void
+    /// A file hovers over the open popover: the drop zone lights (the window's drop ring is its own,
+    /// FaceplateModel.dropTargeted).
+    @State private var dropTargeted = false
 
     var body: some View {
-        PocketView(state: state, url: $model.url, actions: actions)
+        PocketView(state: state, actions: actions)
             .paletteRoot(display: display)   // the display colour and High Contrast for every view below
             .environment(\.liveLevel, live.meter)   // the meter ticks on its own (LiveLevel)
-            .acceptsFileDrops(via: "pocket")   // files dropped on the open popover
+            // files dropped anywhere on the open popover (the drop zone shows it): one drop target
+            .acceptsFileDrops(via: "pocket", isTargeted: $dropTargeted)
             .fixedSize()
             .background(GeometryReader { g in Color.clear.preference(key: PocketSizeKey.self, value: g.size) })
             .onPreferenceChange(PocketSizeKey.self, perform: onSize)
@@ -521,8 +532,7 @@ struct PocketContainer: View {
     private var state: PocketState {
         var s = PocketState.make(engine: engine, model: model, live: live, tuning: tuning, recents: recents, display: display,
                                  shortcuts: shortcuts, extras: extras, spelling: spelling, daw: watcher.target?.name)
-        s.advanced = display.pocketAdvanced   // the pocket's own Advanced mode
-        s.miniOpen = mini.isOpen
+        s.dropTargeted = dropTargeted
         return s
     }
 }

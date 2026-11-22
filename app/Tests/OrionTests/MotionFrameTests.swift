@@ -37,7 +37,7 @@ final class MotionFrameTests: XCTestCase {
     struct PocketReadout: View {
         @ObservedObject var box: Box
         var body: some View {
-            PocketView(state: box.state, url: .constant(""))
+            PocketView(state: box.state)
                 .background(Color.black)
                 .environment(\.liveLevel, box.meter)
                 .environment(\.colorScheme, .dark)

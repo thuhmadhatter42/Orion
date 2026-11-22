@@ -96,10 +96,13 @@ enum Faceplate {
         return download ? steps(stage) : [("ANALYZE", .on)]
     }
 
-    /// The empty readout, window and pocket: the invitation, and what VoiceOver says for it.
+    /// The window's empty readout: the invitation, and what VoiceOver says for it.
     static let idleTitle = "Drop a beat"
     static let idleHint = "or paste a YouTube link, open a file or listen"
     static let idleLabel = "No reading yet. Paste a link, analyze a file or listen."
+    /// The pocket's empty readout: it has no link field, only the drop zone and LISTEN.
+    static let pocketIdleHint = "on the drop zone below, or listen"
+    static let pocketIdleLabel = "No reading yet. Drop or analyze a file, or listen."
 
     /// macOS said no to the Downloads folder (the user clicked Don't Allow): EPERM.
     static func isPermissionError(_ message: String) -> Bool {

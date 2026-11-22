@@ -73,7 +73,7 @@ final class MarketingRenderTests: XCTestCase {
         write(window(file), "window-default")
         write(window(adv), "window-advanced")
         write(window(listening), "window-listening")
-        write(PocketView(state: file, url: .constant("")), "panel")
+        write(PocketView(state: file), "panel")
         write(MiniView(state: MiniViewState(key: "Cm", layout: MiniLayout(key: "Cm", quality: .triad))), "mini")
         write(window(manual), "window-manual")
 
