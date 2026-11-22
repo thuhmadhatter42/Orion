@@ -1,0 +1,34 @@
+diff --git a/app/Sources/Orion/Face/Help.swift b/app/Sources/Orion/Face/Help.swift
+index 7caaaaf..dcabebd 100644
+--- a/app/Sources/Orion/Face/Help.swift
++++ b/app/Sources/Orion/Face/Help.swift
+@@ -320,16 +320,20 @@ enum HelpTipLogic {
+         let blocked = blockers(others, control: control)
+         let baseCovers = coverage(CGRect(origin: base, size: card), control: control, blockers: blocked)
+         if baseCovers == 0 { return Plan(origin: base, covers: 0) }
+-        let key = SpotKey(card: card, bounds: bounds, control: control, blockers: blocked)
+-        var best = spotCache.lookup(key) ?? {
+-            let found = bestSpot(card: card, bounds: bounds, control: control, blockers: blocked, keepOff: nil)
+-            spotCache.store(key, found)
+-            return found
+-        }()
+-        if CGRect(origin: best.origin, size: card).intersects(cursorRect(p)) {
+-            best = bestSpot(card: card, bounds: bounds, control: control, blockers: blocked, keepOff: cursorRect(p))
++        // J 2026-11-22: the card stays at the pointer, never across the surface. When down-right of
++        // the pointer covers something, try just below / just above the hovered control at the
++        // pointer's x (never over the control or the pointer) and take whichever covers least.
++        let m: CGFloat = 6
++        let x = min(max(p.x + 12, m), max(m, bounds.width - card.width - m))
++        var best = Plan(origin: base, covers: baseCovers)
++        for y in [control.maxY + m, control.minY - card.height - m]
++        where y >= m && y + card.height <= bounds.height - m {
++            let r = CGRect(x: x, y: y, width: card.width, height: card.height)
++            if r.intersects(cursorRect(p)) || r.intersects(control) { continue }
++            let c = coverage(r, control: control, blockers: blocked)
++            if c < best.covers { best = Plan(origin: r.origin, covers: c) }
+         }
+-        return best.covers < baseCovers ? best : Plan(origin: base, covers: baseCovers)
++        return best
+     }
+ 
+     /// One placement search's inputs (the cache's key).
