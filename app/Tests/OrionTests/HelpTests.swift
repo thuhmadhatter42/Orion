@@ -500,6 +500,89 @@ final class HelpTests: XCTestCase {
         XCTAssertEqual(crowded, [], "a card covers part of a control in the real window")
     }
 
+    // MARK: which tip is under the pointer (J 2026-11-22: TUNING showed TOP KEYS, the keyboard / scale /
+    // Camelot code / FILE / PITCH TO FIT showed nothing)
+
+    func testPointerResolvesToTheInnermostFrame() {
+        typealias F = HelpTipLogic.TipFrame
+        let group = F(id: "group", rect: CGRect(x: 0, y: 0, width: 200, height: 100))
+        let inner = F(id: "inner", rect: CGRect(x: 10, y: 10, width: 40, height: 20))
+        let beside = F(id: "beside", rect: CGRect(x: 100, y: 10, width: 40, height: 20))
+        let frames = [group, inner, beside]
+        XCTAssertEqual(HelpTipLogic.resolve(at: CGPoint(x: 20, y: 20), in: frames), 1, "a chip inside its group wins")
+        XCTAssertEqual(HelpTipLogic.resolve(at: CGPoint(x: 110, y: 20), in: frames), 2)
+        XCTAssertEqual(HelpTipLogic.resolve(at: CGPoint(x: 70, y: 80), in: frames), 0, "the group where no chip is")
+        XCTAssertNil(HelpTipLogic.resolve(at: CGPoint(x: 300, y: 20), in: frames), "off every control: no card")
+        XCTAssertNil(HelpTipLogic.resolve(at: CGPoint(x: CGFloat.nan, y: 5), in: frames))
+        XCTAssertEqual(HelpTipLogic.resolve(at: CGPoint(x: 20, y: 20), in: [inner, F(id: "twin", rect: inner.rect)]), 1,
+                       "equal frames: the later one")
+        // a tip further down the window never answers for a pointer on another
+        let top = F(id: "top", rect: CGRect(x: 40, y: 290, width: 432, height: 33))
+        let tuning = F(id: "tuning", rect: CGRect(x: 40, y: 463, width: 432, height: 12))
+        XCTAssertEqual(HelpTipLogic.resolve(at: CGPoint(x: 120, y: 469), in: [top, tuning]), 1)
+        // a panel over controls hides what is under it
+        let menu = F(id: "menu", rect: CGRect(x: 0, y: 0, width: 60, height: 60), occludes: true)
+        XCTAssertNil(HelpTipLogic.resolve(at: CGPoint(x: 20, y: 20), in: [inner, menu]))
+        XCTAssertEqual(HelpTipLogic.resolve(at: CGPoint(x: 80, y: 80), in: [group, menu]), 0)
+    }
+
+    /// The real surfaces, real frames: the pointer on any control's own frame resolves to that control
+    /// (or a part inside it), and no two tips' frames cross (one holds the other, or they are apart).
+    @MainActor
+    func testEveryTipFrameResolvesToItselfOnTheRealSurfaces() throws {
+        guard #available(macOS 13.0, *) else { throw XCTSkip("ImageRenderer is macOS 13+") }
+        Pocket.snapshot = true
+        var seen: [String: HelpTipLogic.Placement] = [:]
+        HelpTipLogic.onPlace = { seen[$0.tip] = $0 }
+        defer { Pocket.snapshot = false; HelpTipLogic.onPlace = nil }
+        let r = Result(file: URL(fileURLWithPath: "/x/Beats/Beat C.wav"), name: "Beat C.wav", bpm: "142.0",
+                       keys: [("Cm", 61), ("Eb", 18), ("Gm", 9)], bpmExact: 141.98, tuningCents: 12,
+                       chroma: [1.0, 0.08, 0.42, 0.81, 0.06, 0.37, 0.1, 0.93, 0.62, 0.05, 0.48, 0.12])
+        var s = PocketState()
+        s.source = "System Audio"
+        s.daw = "Pro Tools"
+        s.help = true
+        s.readout = .result(r, page: "3 OF 3", download: false, options: ResultOptions(
+            factor: .one, tuning: Tuning.meter(12, reference: 440), onCycleTempo: {}))
+        var advanced = s
+        advanced.advanced = true
+        advanced.harmony = HarmonyPrefs(quality: .seventh, voicing: .root, bars: 2, matchKey: "Am")
+        func face(_ st: PocketState) -> AnyView {
+            AnyView(FaceplateFace(state: st, picked: [], url: .constant(""), fieldFocused: .constant(false),
+                                  pickFocused: .constant(false)))
+        }
+        let surfaces: [(String, AnyView)] = [("window", face(s)), ("window+advanced", face(advanced)),
+                                             ("pocket", AnyView(PocketView(state: s, url: .constant(""))))]
+        for (name, view) in surfaces {
+            var frames: [HelpTipLogic.TipFrame] = []
+            for tip in HelpText.all {
+                seen[tip.id] = nil
+                _ = ImageRenderer(content: view.environment(\.helpTipForced, tip.id).environment(\.colorScheme, .dark)).cgImage
+                if let p = seen[tip.id] { frames.append(HelpTipLogic.TipFrame(id: tip.id, rect: p.control)) }
+            }
+            XCTAssertGreaterThan(frames.count, 25, "\(name): too few tips drawn to prove anything")
+            for (i, f) in frames.enumerated() {
+                // the middle and each corner, a little in (a circle's corners are not its own)
+                let c = f.rect
+                let points = [CGPoint(x: c.midX, y: c.midY), CGPoint(x: c.minX + 3, y: c.midY), CGPoint(x: c.maxX - 3, y: c.midY)]
+                for p in points {
+                    guard let hit = HelpTipLogic.resolve(at: p, in: frames) else {
+                        XCTFail("\(name): the pointer at \(p) on \(f.id) shows no card"); continue
+                    }
+                    let got = frames[hit]
+                    XCTAssertTrue(got.id == f.id || f.rect.insetBy(dx: -0.5, dy: -0.5).contains(got.rect),
+                                  "\(name): the pointer at \(p) on \(f.id) shows the \(got.id) card")
+                }
+                for g in frames[(i + 1)...] {
+                    let inter = f.rect.intersection(g.rect)
+                    guard !inter.isNull, inter.width > 1, inter.height > 1 else { continue }
+                    let nested = f.rect.insetBy(dx: -0.5, dy: -0.5).contains(g.rect) || g.rect.insetBy(dx: -0.5, dy: -0.5).contains(f.rect)
+                    XCTAssertTrue(nested, "\(name): \(f.id) \(f.rect) and \(g.id) \(g.rect) cross: one swallows part of the other")
+                }
+            }
+        }
+    }
+
     // MARK: offscreen renders (swift test --filter HelpTests/testRender)
 
     @MainActor
