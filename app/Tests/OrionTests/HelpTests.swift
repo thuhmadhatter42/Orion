@@ -307,27 +307,54 @@ final class HelpTests: XCTestCase {
 
     // MARK: the card keeps off the neighbours
 
-    func testCardAvoidsTheNeighbouringButton() {
+    /// The new rule (J 2026-11-22), checked the same way everywhere: the card is inside the surface
+    /// margins, never over the hovered control, never over the pointer, and its nearest edge is
+    /// within `reach` of the pointer (never up by a far-away header).
+    private func assertCardAtThePointer(_ o: CGPoint, card: CGSize, bounds: CGSize, control: CGRect, pointer p: CGPoint,
+                                        reach: CGFloat = 40, measuredFrom: CGRect? = nil, _ what: String, file: StaticString = #filePath, line: UInt = #line) {
+        let r = CGRect(origin: o, size: card), m = HelpTipLogic.margin
+        XCTAssertGreaterThanOrEqual(r.minX, m - 0.001, "\(what): card \(r) leaves the surface", file: file, line: line)
+        XCTAssertGreaterThanOrEqual(r.minY, m - 0.001, "\(what): card \(r) leaves the surface", file: file, line: line)
+        XCTAssertLessThanOrEqual(r.maxX, bounds.width - m + 0.001, "\(what): card \(r) leaves the surface", file: file, line: line)
+        XCTAssertLessThanOrEqual(r.maxY, bounds.height - m + 0.001, "\(what): card \(r) leaves the surface", file: file, line: line)
+        XCTAssertFalse(r.intersects(control), "\(what): card \(r) covers its own control \(control)", file: file, line: line)
+        XCTAssertFalse(r.intersects(HelpTipLogic.cursorRect(p)), "\(what): card \(r) covers the pointer \(p)", file: file, line: line)
+        let from = measuredFrom ?? CGRect(origin: p, size: .zero)
+        let d = hypot(max(r.minX - from.maxX, 0, from.minX - r.maxX), max(r.minY - from.maxY, 0, from.minY - r.maxY))
+        XCTAssertLessThanOrEqual(d, reach, "\(what): card \(r) is \(Int(d)) pt from \(measuredFrom == nil ? "the pointer \(p)" : "its control \(from)")",
+                                 file: file, line: line)
+    }
+
+    /// Down-right of the pointer is taken by neighbours: the card moves to a spot touching the
+    /// pointer's control (here above it), never across the surface, and covers no neighbour.
+    func testCardStaysAtThePointerWhenANeighbourIsInTheWay() {
         let bounds = CGSize(width: 552, height: 700)
         let card = CGSize(width: 212, height: 60)
         let download = CGRect(x: 400, y: 200, width: 140, height: 36)
         let findKey = CGRect(x: 400, y: 244, width: 140, height: 36)     // right under it
         let link = CGRect(x: 20, y: 200, width: 372, height: 36)         // right beside it
         let listen = CGRect(x: 20, y: 288, width: 200, height: 36)
-        let cursor = CGPoint(x: 470, y: 215)
-        let o = HelpTipLogic.cardOrigin(cursor: cursor, card: card, in: bounds, control: download,
-                                        avoiding: [download, findKey, link, listen])
-        let r = CGRect(origin: o, size: card)
-        for n in [findKey, link, listen] { XCTAssertFalse(r.intersects(n), "card \(r) covers \(n)") }
-        XCTAssertFalse(r.intersects(HelpTipLogic.cursorRect(cursor)))
-        XCTAssertGreaterThanOrEqual(o.x, HelpTipLogic.margin)
-        XCTAssertGreaterThanOrEqual(o.y, HelpTipLogic.margin)
-        XCTAssertLessThanOrEqual(r.maxX, bounds.width - HelpTipLogic.margin)
-        XCTAssertLessThanOrEqual(r.maxY, bounds.height - HelpTipLogic.margin)
-        // and it holds still while the mouse moves inside the control
-        let o2 = HelpTipLogic.cardOrigin(cursor: CGPoint(x: 430, y: 220), card: card, in: bounds, control: download,
-                                         avoiding: [download, findKey, link, listen])
-        XCTAssertEqual(o, o2)
+        let others = [download, findKey, link, listen]
+        for cursor in [CGPoint(x: 470, y: 215), CGPoint(x: 430, y: 220)] {
+            let o = HelpTipLogic.cardOrigin(cursor: cursor, card: card, in: bounds, control: download, avoiding: others)
+            assertCardAtThePointer(o, card: card, bounds: bounds, control: download, pointer: cursor, "download \(cursor)")
+            for n in [findKey, link, listen] { XCTAssertFalse(CGRect(origin: o, size: card).intersects(n), "card covers \(n)") }
+        }
+    }
+
+    /// Nothing adjacent is clear: the card still sits at the pointer and covers the neighbour
+    /// (normal tooltip behaviour) rather than jumping to an empty corner of the surface.
+    func testCardCoversANeighbourRatherThanLeaveThePointer() {
+        let bounds = CGSize(width: 600, height: 500)
+        let card = CGSize(width: 212, height: 60)
+        let control = CGRect(x: 100, y: 200, width: 100, height: 30)
+        let below = CGRect(x: 0, y: 236, width: 600, height: 80)         // full-width bands above and below
+        let above = CGRect(x: 0, y: 130, width: 600, height: 64)
+        let side = CGRect(x: 210, y: 196, width: 380, height: 40)        // and a block right beside it
+        let cursor = CGPoint(x: 120, y: 215)
+        let o = HelpTipLogic.cardOrigin(cursor: cursor, card: card, in: bounds, control: control,
+                                        avoiding: [control, below, above, side])
+        assertCardAtThePointer(o, card: card, bounds: bounds, control: control, pointer: cursor, "boxed in")
     }
 
     func testCardFollowsTheMouseWhenNothingIsInTheWay() {
@@ -351,15 +378,11 @@ final class HelpTests: XCTestCase {
         for r in rects {
             let p = CGPoint(x: r.midX, y: r.midY)
             let o = HelpTipLogic.cardOrigin(cursor: p, card: card, in: bounds, control: r, avoiding: rects)
-            let c = CGRect(origin: o, size: card)
-            XCTAssertGreaterThanOrEqual(o.x, HelpTipLogic.margin - 0.001)
-            XCTAssertGreaterThanOrEqual(o.y, HelpTipLogic.margin - 0.001)
-            XCTAssertLessThanOrEqual(c.maxX, bounds.width - HelpTipLogic.margin + 0.001)
-            XCTAssertLessThanOrEqual(c.maxY, bounds.height - HelpTipLogic.margin + 0.001)
+            assertCardAtThePointer(o, card: card, bounds: bounds, control: r, pointer: p, "row \(Int(r.minY))")
         }
     }
 
-    // MARK: no card covers a control (J 2026-11-17, Sofia check of 0.1.74)
+    // MARK: the card stays at the pointer (J 2026-11-22; before that, 11-17: never over a control)
 
     /// The explainable controls of the real window (default size, a reading with 3 files), as the layer reports them.
     static let windowFrames: [CGRect] = [
@@ -394,7 +417,7 @@ final class HelpTests: XCTestCase {
     ]
 
     /// The send row of the real 528 x 756 window, as the layer measured it (card 212 x 84): hovering
-    /// SEND TO AUTO-TUNE put the card on the right half of the button, EXPORT MIDI, HELP and ADVANCED.
+    /// SEND TO AUTO-TUNE put the card on the right half of the button; it must now stay at the pointer, off the button.
     func testAutoTuneCardKeepsOffItsOwnButtonAndTheFooter() {
         let bounds = CGSize(width: 528, height: 756)
         let card = CGSize(width: 212, height: 84)
@@ -402,9 +425,7 @@ final class HelpTests: XCTestCase {
         let others = Self.windowFrames
         let cursor = CGPoint(x: 220, y: 680)
         let o = HelpTipLogic.cardOrigin(cursor: cursor, card: card, in: bounds, control: autoTune, avoiding: others)
-        let r = CGRect(origin: o, size: card)
-        XCTAssertFalse(r.intersects(autoTune), "card \(r) covers the hovered button")
-        for n in others where n != autoTune { XCTAssertFalse(r.intersects(n), "card \(r) covers \(n)") }
+        assertCardAtThePointer(o, card: card, bounds: bounds, control: autoTune, pointer: cursor, "send to auto-tune")
     }
 
     /// A cramped row: the hovered arrow, a counter and a link right beside it, a group around all three.
@@ -420,11 +441,12 @@ final class HelpTests: XCTestCase {
         let o = HelpTipLogic.cardOrigin(cursor: CGPoint(x: 56, y: 208), card: card, in: bounds, control: prev,
                                         avoiding: [group, prev, counter, next, finder, above])
         let r = CGRect(origin: o, size: card)
+        assertCardAtThePointer(o, card: card, bounds: bounds, control: prev, pointer: CGPoint(x: 56, y: 208), "prev arrow")
         for n in [prev, counter, next, finder, above] { XCTAssertFalse(r.intersects(n), "card \(r) covers \(n)") }
     }
 
-    /// No spot is fully clear: the card still never covers the hovered control and covers the least.
-    func testCrowdedSurfaceKeepsOffTheHoveredControlAndCoversLeast() {
+    /// No adjacent spot is fully clear: the card still never covers the hovered control and covers the least of the adjacent spots.
+    func testCrowdedSurfaceKeepsOffTheHoveredControlAndCoversLeastNearby() {
         let bounds = CGSize(width: 376, height: 300)
         let card = CGSize(width: 212, height: 60)
         var rects: [CGRect] = []
@@ -433,14 +455,19 @@ final class HelpTests: XCTestCase {
         let o = HelpTipLogic.cardOrigin(cursor: CGPoint(x: hovered.midX, y: hovered.midY), card: card, in: bounds,
                                         control: hovered, avoiding: rects)
         let r = CGRect(origin: o, size: card)
-        XCTAssertFalse(r.intersects(hovered), "card \(r) covers the hovered control")
+        assertCardAtThePointer(o, card: card, bounds: bounds, control: hovered,
+                               pointer: CGPoint(x: hovered.midX, y: hovered.midY), reach: 40 + hovered.height / 2, "crowded")
         let touched = rects.filter { r.intersects(HelpTipLogic.solid($0)) }.count
         XCTAssertLessThanOrEqual(touched, 2, "a 60 pt card needs at most two 34 pt rows")
     }
 
-    /// The real window, real frames, every tip: the card covers no control, and the hovered one never.
+    /// The real window, real frames, every tip (forced renders: the control's centre stands in for the
+    /// pointer): the card is inside the surface, never over its own control or the pointer, and
+    /// right beside the control (nearest edge within ~40 pt of it; a real pointer is somewhere on
+    /// the control, so that is what "next to the pointer" can mean for a render). Not up by the
+    /// header, across the surface (Sofia, 0.1.82).
     @MainActor
-    func testRealWindowCardsCoverNoControl() throws {
+    func testRealWindowCardsStayAtThePointer() throws {
         guard #available(macOS 13.0, *) else { throw XCTSkip("ImageRenderer is macOS 13+") }
         Pocket.snapshot = true
         var seen: [String: HelpTipLogic.Placement] = [:]
@@ -465,7 +492,6 @@ final class HelpTests: XCTestCase {
         let surfaces: [(String, AnyView)] = [("window", face(s)), ("window+advanced", face(advanced)),
                                              ("pocket", AnyView(PocketView(state: s)))]
         var checked = 0
-        var crowded: [String] = []
         for (name, view) in surfaces {
             for tip in HelpText.all {
                 seen[tip.id] = nil
@@ -474,30 +500,13 @@ final class HelpTests: XCTestCase {
                 // a tip this surface doesn't draw has no placement
                 guard let p = seen[tip.id] else { continue }
                 checked += 1
-                let card = CGRect(origin: p.origin, size: p.card)
                 XCTAssertGreaterThan(p.card.height, 30, "\(name) \(tip.id): the card was never measured")
-                XCTAssertFalse(card.intersects(p.control), "\(name) \(tip.id): card \(card) covers its own control \(p.control)")
-                let blocked = HelpTipLogic.blockers(p.others, control: p.control)
-                let covers = HelpTipLogic.coverage(card, control: p.control, blockers: blocked)
-                // never worse than an exhaustive search of the surface (4 pt steps)
-                var least = CGFloat.infinity
-                for y in stride(from: HelpTipLogic.margin, through: max(HelpTipLogic.margin, p.bounds.height - p.card.height - HelpTipLogic.margin), by: 4) {
-                    for x in stride(from: HelpTipLogic.margin, through: max(HelpTipLogic.margin, p.bounds.width - p.card.width - HelpTipLogic.margin), by: 4) {
-                        let c = HelpTipLogic.coverage(CGRect(origin: CGPoint(x: x, y: y), size: p.card), control: p.control, blockers: blocked)
-                        least = min(least, c)
-                    }
-                }
-                XCTAssertLessThanOrEqual(covers, least + 0.15, "\(name) \(tip.id): card \(card) covers more than the best spot")
-                // the window (the Sofia check): no control is touched beyond a sliver of its edge
-                if name == "window" {
-                    for n in blocked where card.intersects(HelpTipLogic.solid(n)) {
-                        crowded.append("window \(tip.id): card \(card) covers \(n)")
-                    }
-                }
+                let centre = CGPoint(x: p.control.midX, y: p.control.midY)
+                assertCardAtThePointer(p.origin, card: p.card, bounds: p.bounds, control: p.control, pointer: centre,
+                                       measuredFrom: p.control, "\(name) \(tip.id)")
             }
         }
         XCTAssertGreaterThan(checked, 25, "the real surfaces drew too few tips to prove anything")
-        XCTAssertEqual(crowded, [], "a card covers part of a control in the real window")
     }
 
     // MARK: which tip is under the pointer (J 2026-11-22: TUNING showed TOP KEYS, the keyboard / scale /
