@@ -47,7 +47,7 @@ Pro Tools tooltips; the Studio D capture, TOOLTIPS.md, never landed.)
 | MANUAL KEY (dial) | Click to reset manual selection. | Click to unpin. |
 | LISTEN | Reads BPM and key live from whatever is playing. Nothing is recorded or saved. | Live BPM and key. Nothing recorded or saved. |
 | SEND TO AUTO-TUNE | Sets the key and reference pitch in Auto-Tune (and Waves Tune Real-Time). Shortcut ⌃⌥⌘A (Reading menu). | Set key in Auto-Tune, Tune Real-Time (⌃⌥⌘A) |
-| OPEN AUDIO | Choose audio files on your Mac, then press FIND KEY/BPM. You can also drop files on the window. | Choose or drop audio files, any number. |
+| OPEN AUDIO | Choose audio files on your Mac, then press ANALYZE. You can also drop files on the window. | Choose or drop audio files, any number. |
 | CHORDS | The key's chords. Click one to hear it; drag it into your DAW or Finder for a MIDI clip. | Click to hear. Drag to a DAW as MIDI. |
 | HOLD | Freezes the reading on screen while listening carries on. Press again to follow the music. | Freeze the reading. Click again to follow. |
 | ADVANCED | Adds the key wheel, chords to hear and drag, and MATCH TO. First switch each launch sets the window and menu bar; then each on its own. | Add key wheel, chords, MATCH TO. |

@@ -35,24 +35,30 @@ final class HelpSettings: ObservableObject {
 }
 
 extension HelpText {
+    /// A Quick Keys row's shortcut for a tip, "" when the row has none (so the tip shows words alone).
+    static func keys(_ id: String) -> String {
+        let d = QuickKeys.tipDisplay(id)
+        return d == "no shortcut" ? "" : d
+    }
+
     // Settings (the Settings window)
-    static let settingsHighContrast = HelpTip(title: "HIGH CONTRAST", body: "Brighter text, no glow. Lamp shapes stay.")
-    static let settingsListenTo = HelpTip(title: "LISTEN TO", body: "System audio or one input. Nothing saved.")
+    static let settingsHighContrast = HelpTip(title: "HIGH CONTRAST", body: "Brighter text, no glow.")
+    static let settingsListenTo = HelpTip(title: "LISTEN TO", body: "Where LISTEN hears from: System Audio, an input or an app.")
     static let settingsChannel = HelpTip(title: "CHANNEL", body: "Interface channel to read, or all.")
     static let settingsStartOver = HelpTip(title: "START OVER AFTER", body: "Silence length that ends a song.")
-    static let settingsRename = HelpTip(title: "FILE NAMES", body: "Add key + BPM to names. Pro Tools files always ask.")
+    static let settingsRename = HelpTip(title: "FILE NAMES", body: "Add key + BPM to names. Pro Tools session files: asks first.")
     static let settingsOpenAtLogin = HelpTip(title: "OPEN AT LOGIN", body: "Start Beat Key at login.")
     static let settingsShortcuts = HelpTip(title: "SHORTCUTS", body: "Quick Keys: every shortcut. Click one, type new keys.")
 
     // Permissions guide
-    static let permissionGuide = HelpTip(title: "SET UP PERMISSIONS", body: "Checks each permission. Menu: \(Brand.setUpPermissions)")
+    static let permissionGuide = HelpTip(title: "SET UP PERMISSIONS", body: "Walks you through each Mac permission Beat Key needs.")
     /// One line per permission (the guide window's own longer text is PermissionKind.why).
     static func permission(_ k: PermissionKind) -> HelpTip {
         let body: String
         switch k {
-        case .screen: body = "Hear Mac audio. Turn on Beat Key."
-        case .microphone: body = "Hear a mic or interface. Turn on Beat Key."
-        case .accessibility: body = "Type BPM and key into your DAW. Turn on Beat Key."
+        case .screen: body = "Hear Mac audio. Allow Beat Key in System Settings."
+        case .microphone: body = "Hear a mic or interface. Allow Beat Key in System Settings."
+        case .accessibility: body = "Type BPM/key in your DAW. Allow Beat Key in System Settings."
         }
         return HelpTip(title: k.title.uppercased(), body: body)
     }
@@ -67,7 +73,7 @@ extension HelpText {
     static let keysOctave = HelpTip(title: "OCTAVE · Z X", body: "Z octave down, X up. Link field empty.")
     static let keysMode = HelpTip(title: "MAJOR / MINOR · SPACE", body: "Space flips the keyboard major/minor.")
     static let keysPaging = HelpTip(title: "PAGE FILES · ← →", body: "Arrows page files. Link field empty.")
-    static let keysAutoTune = HelpTip(title: "AUTO-TUNE SHORTCUT", body: "Send key to Auto-Tune (\(AutoTuneSend.shortcutDisplay))")
+    static let keysAutoTune = HelpTip(title: "AUTO-TUNE SHORTCUT", body: withKeys("Send key to Auto-Tune", keys("sendAutoTune")))
     static let keysAdvanced = HelpTip(title: "ADVANCED SHORTCUT", body: "Advanced on/off (\(QuickKeys.tipDisplay("advancedMode")))")
     static let keysHelp = HelpTip(title: "HELP WINDOW · ⌘?", body: "Help › Beat Key Help. Help Mode: hover tips.")
 

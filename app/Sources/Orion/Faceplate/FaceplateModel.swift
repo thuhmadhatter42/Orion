@@ -15,7 +15,7 @@ extension Faceplate {
 final class FaceplateModel: ObservableObject {
     @Published var url = ""
     @Published var fieldFocused = false
-    /// Audio chosen with the Open Audio... field, waiting for FIND KEY/BPM.
+    /// Audio chosen with the Open Audio... field, waiting for ANALYZE.
     @Published var picked: [URL] = []
     @Published var pickFocused = false
     @Published var dropTargeted = false

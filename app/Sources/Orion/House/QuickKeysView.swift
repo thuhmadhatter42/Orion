@@ -98,7 +98,7 @@ private struct QuickKeyRowView: View {
                 .buttonStyle(.plain).foregroundColor(.secondary)
                 .opacity(row.locked || unassigned ? 0 : 1)
                 .disabled(row.locked || unassigned)
-                .help("Leave this action without a shortcut")
+                .help("Remove this shortcut")
                 .accessibilityLabel("Clear \(row.def.title) shortcut")
         }
         .padding(.vertical, 3)

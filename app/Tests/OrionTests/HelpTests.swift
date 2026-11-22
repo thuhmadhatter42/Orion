@@ -123,7 +123,7 @@ final class HelpTests: XCTestCase {
 
     /// Click-to-respell is gone (2026-11-10): the KEY tip promises no click on the key.
     func testKeyTipDoesNotOfferRespelling() {
-        XCTAssertEqual(HelpText.keyDial.body, "Key heard. Ring and % show how sure.")
+        XCTAssertEqual(HelpText.keyDial.body, "The song's key. Ring and % show how sure Beat Key is.")
         for t in HelpText.all {
             XCTAssertFalse(t.body.lowercased().contains("respell"), t.title)
             XCTAssertFalse(t.body.lowercased().contains("sharp or flat"), t.title)
@@ -132,7 +132,7 @@ final class HelpTests: XCTestCase {
 
     func testChordsTipCarriesTheClickDragLine() {
         // the always-on "CLICK = HEAR · DRAG = MIDI" moved into the tip
-        XCTAssertTrue(HelpText.chords.body.contains("Click to hear"))
+        XCTAssertTrue(HelpText.chords.body.contains("Click to play chord"))
         XCTAssertTrue(HelpText.chords.body.contains("MIDI"))
     }
 
@@ -226,7 +226,7 @@ final class HelpTests: XCTestCase {
     func testLoginHasItsOwnTip() throws {
         XCTAssertNotEqual(HelpText.login, HelpText.download)
         XCTAssertEqual(HelpText.login.title, Faceplate.loginCapLabel)
-        XCTAssertTrue(HelpText.login.body.lowercased().contains("sign-in"))
+        XCTAssertTrue(HelpText.login.body.lowercased().contains("age-restricted"))
         XCTAssertFalse(HelpText.login.body.lowercased().contains("mp3"))
         // both surfaces pick it for the login cap
         XCTAssertTrue(try source("Face/FaceplateFace.swift").contains(".helpTip(HelpText.login)"))

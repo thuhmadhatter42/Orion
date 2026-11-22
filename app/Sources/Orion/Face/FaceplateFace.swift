@@ -12,7 +12,7 @@ import SwiftUI
 /// is the popover's own view, fed the same PocketState and PocketActions.
 struct FaceplateFace: View {
     let state: PocketState
-    /// Audio chosen with the Open Audio... field, waiting for FIND KEY/BPM.
+    /// Audio chosen with the Open Audio... field, waiting for ANALYZE.
     let picked: [URL]
     @Binding var url: String
     @Binding var fieldFocused: Bool
@@ -180,10 +180,10 @@ struct FaceplateFace: View {
                 AudioPickField(label: Faceplate.pickLabel(picked), focused: $pickFocused,
                                onOpen: files.openAudio, onSubmit: { findLit ? files.find() : files.openAudio() })
                     .helpTip(HelpText.openAudio)
-                Button(action: files.find) { SSLCapStyle.label("FIND KEY/BPM").lineLimit(1).frame(maxWidth: .infinity) }
+                Button(action: files.find) { SSLCapStyle.label("ANALYZE").lineLimit(1).frame(maxWidth: .infinity) }
                     .buttonStyle(SSLCapStyle(lit: findLit, height: Theme.H.lg))
                     .frame(width: capWidth)
-                    .accessibility(label: Text("Find key and BPM"))
+                    .accessibility(label: Text("Analyze"))
                     .accessibility(hint: Text(findLit ? "Finds the BPM and key of the chosen audio" : "Open an audio file first"))
                     .helpTip(HelpText.findKey)
         }

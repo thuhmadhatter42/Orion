@@ -30,15 +30,16 @@ enum HelpText {
     /// A body with its shortcut last in parentheses (Board Talk); no shortcut = the words alone (the
     /// plug-in has no global shortcuts: AutoTuneSend.shortcutDisplay is "" there).
     static func withKeys(_ words: String, _ keys: String) -> String { keys.isEmpty ? words : "\(words) (\(keys))" }
+    // keys(_:) — a Quick Keys row's shortcut, "" when none: HelpApp.swift (app), FaceHostPlugin.swift (plug-in).
 
     // the readout
     static let bpm = HelpTip(title: "BPM", body: "Click: normal, double or half time.")
     static let pitchToFit = HelpTip(title: "PITCH TO FIT", body: "Semitones to pitch the beat into your key.")
     static let tempoFactor = HelpTip(title: "×0.5 · ×1 · ×2", body: "Halve or double the BPM.")
-    static let keyDial = HelpTip(title: "KEY", body: "Key heard. Ring and % show how sure.")
-    static let confidence = HelpTip(title: "LOCKED · UNSURE", body: "LOCKED = sure. UNSURE = close call.")
+    static let keyDial = HelpTip(title: "KEY", body: "The song's key. Ring and % show how sure Beat Key is.")
+    static let confidence = HelpTip(title: "LOCKED · UNSURE", body: "LOCKED: 70% sure or more. UNSURE: under 70%.")
     static let topKeys = HelpTip(title: "TOP KEYS", body: "Three likeliest keys. Click to pin, again to unpin.")
-    static let manual = HelpTip(title: "MANUAL", body: "Pin any of the 24 keys.")
+    static let manual = HelpTip(title: "MANUAL", body: "Click to pin any of the 24 keys.")
     /// Pinned key: the dial's hover card while a key is pinned (shown help mode or not, like the
     /// wheel's cards; J 2026-11-09 15:19, pin model 2026-11-18).
     static let manualReset = HelpTip(title: "PINNED KEY", body: "Click to unpin.")
@@ -56,40 +57,40 @@ enum HelpText {
 
     // getting audio in
     static let linkField = HelpTip(title: "LINK", body: "Paste a YouTube link.")
-    static let download = HelpTip(title: "DOWNLOAD", body: "Get MP3, BPM and key. Empty field: clipboard link.")
-    static let openAudio = HelpTip(title: "OPEN AUDIO", body: "Choose or drop audio files, any number.")
-    static let findKey = HelpTip(title: "FIND KEY/BPM", body: "Get BPM and key. Arrows page files.")
-    static let analyzeFile = HelpTip(title: "ANALYZE FILE", body: "Pick audio files, get BPM and key.")
-    static let source = HelpTip(title: "SOURCE", body: "System audio or an input. Meter shows level.")
-    static let listen = HelpTip(title: "LISTEN", body: "Live BPM and key. Nothing recorded or saved.")
-    static let hold = HelpTip(title: "HOLD", body: "Freeze the reading. Click again to follow.")
-    static let reset = HelpTip(title: "NEW SONG", body: "Clear the listen reading, start fresh.")
+    static let download = HelpTip(title: "DOWNLOAD", body: "Download MP3 from YouTube (pasted or copied link).")
+    static let openAudio = HelpTip(title: "OPEN AUDIO", body: "Open audio file/s from Finder.")
+    static let findKey = HelpTip(title: "ANALYZE", body: "Get BPM and key of the file. ← → page files.")
+    static let analyzeFile = HelpTip(title: "ANALYZE FILE", body: withKeys("Pick audio files, get BPM and key.", keys("analyzeFile")))
+    static let source = HelpTip(title: "SOURCE", body: "System Audio, External Input, or App Input.")
+    static let listen = HelpTip(title: "LISTEN", body: withKeys("Live BPM and key.", keys("listen")))
+    static let hold = HelpTip(title: "HOLD", body: withKeys("Freeze the reading. Click again to unfreeze.", keys("hold")))
+    static let reset = HelpTip(title: "NEW SONG", body: withKeys("Clear listen history.", keys("newSong")))
 
     // sending
-    static let sendDAW = HelpTip(title: "SEND TO DAW", body: "Send BPM and key to the open DAW.")
+    static let sendDAW = HelpTip(title: "SEND TO DAW", body: withKeys("Send BPM and key to the open DAW.", keys("sendDAW")))
     // the doctor's result on the LCD
     static let doctorResult = HelpTip(title: "DOCTOR RESULT", body: "OK · FIXED IT · FOUND A PROBLEM (see line below)")
-    static let autoTune = HelpTip(title: "SEND TO AUTO-TUNE", body: withKeys("Set key in Auto-Tune, Tune Real-Time", AutoTuneSend.shortcutDisplay))
-    static let exportMidi = HelpTip(title: "EXPORT MIDI", body: "MIDI file with tempo and key.")
+    static let autoTune = HelpTip(title: "SEND TO AUTO-TUNE", body: withKeys("Set key in Auto-Tune", keys("sendAutoTune")))
+    static let exportMidi = HelpTip(title: "EXPORT MIDI", body: withKeys("Export a MIDI file with tempo and key.", keys("exportMidi")))
 
     // the footer
     static let recent = HelpTip(title: "RECENT", body: "Past readings. Pick one to bring it back.")
-    static let settings = HelpTip(title: "SETTINGS", body: "Display, listen source, shortcuts, login.")
+    static let settings = HelpTip(title: "SETTINGS", body: withKeys("Open Beat Key Settings.", keys("settings")))
     static let color = HelpTip(title: "COLOR", body: "Pick the display colour. Reset to Amber.")
-    static let report = HelpTip(title: "REPORT", body: "Send a report, log attached.")
-    static let advanced = HelpTip(title: "ADVANCED", body: "Add key wheel, chords, MATCH TO. First switch sets both.")
+    static let report = HelpTip(title: "REPORT", body: "Email a report with log attached.")
+    static let advanced = HelpTip(title: "ADVANCED", body: withKeys("Select to get the full Beat Key experience.", keys("advancedMode")))
     static let window = HelpTip(title: "WINDOW", body: "Open the full window.")
-    static let quit = HelpTip(title: "QUIT", body: "Quit Beat Key.")
+    static let quit = HelpTip(title: "QUIT", body: withKeys("Quit Beat Key.", keys("quit")))
     static let help = HelpTip(title: "HELP", body: "Help on. Hover for tips. Click to turn off.")
 
     // Advanced mode
     static let keyWheel = HelpTip(title: "KEY WHEEL", body: "Circle of fifths. Click a key to pin it.")
     static let notesHeard = HelpTip(title: "NOTES HEARD", body: "Note strength. Dotted = in the scale.")
-    static let chords = HelpTip(title: "CHORDS", body: "Click to hear. Drag to a DAW as MIDI.")
+    static let chords = HelpTip(title: "CHORDS", body: "Click to play chord. Drag to a DAW as MIDI.")
     static let quality = HelpTip(title: "TRIAD · 7TH · 9TH", body: "Chord size: 3 notes, add 7th, add 7th and 9th.")
     static let voicing = HelpTip(title: "INVERSION", body: "Root position, 1st inversion, 2nd inversion. OPEN = spread.")
     static let bars = HelpTip(title: "BAR", body: "Bars per chord when dragged out as MIDI.")
-    static let borrowed = HelpTip(title: "BORROWED", body: "Chords from the parallel major or minor.")
+    static let borrowed = HelpTip(title: "BORROWED", body: "Borrowed chords (modal interchange): parallel major/minor.")
     static let matchTo = HelpTip(title: "MATCH TO", body: "Pick your project's key. See the pitch to fit.")
     static let matchShift = HelpTip(title: "−6 … +6", body: "Semitones to pitch. The lit one fits.")
     static let mini = HelpTip(title: "MINI", body: "Small always-on-top chord pad. Plays over MIDI.")
@@ -97,7 +98,7 @@ enum HelpText {
     static let miniSound = HelpTip(title: "SOUND", body: "Also play chords on Beat Key's piano.")
 
     // YouTube sign-in (its own button, not the DOWNLOAD cap's tip)
-    static let login = HelpTip(title: "LOG IN TO YOUTUBE", body: "Open YouTube sign-in. Login stays on this Mac.")
+    static let login = HelpTip(title: "LOG IN TO YOUTUBE", body: "Needed only for age-restricted videos.")
     // paging and the empty readout
     static let prevFile = HelpTip(title: "PREVIOUS FILE", body: "Previous file (←)")
     static let nextFile = HelpTip(title: "NEXT FILE", body: "Next file (→)")
@@ -262,7 +263,7 @@ enum HelpTipLogic {
     }
 
     /// The same as `cardOrigin(cursor:card:in:)`, but the card never covers the hovered control or
-    /// any other control or readable part (J 2026-11-17: DOWNLOAD's card covered FIND KEY/BPM, then
+    /// any other control or readable part (J 2026-11-17: DOWNLOAD's card covered ANALYZE, then
     /// SEND TO AUTO-TUNE's covered itself, EXPORT MIDI, HELP and ADVANCED, PREVIOUS FILE's covered
     /// "3 OF 3"). `control` is the hovered control's frame, `others` every frame the card avoids.
     /// The card follows the mouse as before when that covers nothing; otherwise it takes the

@@ -40,7 +40,7 @@ struct LinkField: View {
 
 /// The second row's recessed field: "Open Audio..." until audio is picked, then its name.
 /// Click (or Space / Return while it is focused and empty) opens the audio-only open panel.
-/// Return with audio picked = FIND KEY/BPM.
+/// Return with audio picked = ANALYZE.
 struct AudioPickField: View {
     @Environment(\.palette) private var palette
     let label: String?

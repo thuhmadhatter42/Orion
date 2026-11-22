@@ -8,7 +8,7 @@ enum Faceplate {
         !busy && text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().hasPrefix("http")
     }
 
-    /// FIND KEY/BPM lights when audio is picked and nothing is running (DOWNLOAD's rule).
+    /// ANALYZE lights when audio is picked and nothing is running (DOWNLOAD's rule).
     static func isFindLit(_ picked: [URL], busy: Bool) -> Bool { !busy && !picked.isEmpty }
 
     /// The picker field's text: nil = the "Open Audio..." placeholder, else "x.wav" / "3 files".
