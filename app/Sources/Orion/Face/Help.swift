@@ -117,6 +117,33 @@ enum HelpTipLogic {
     /// system's slow yellow tooltip never lands on top of the amber card.
     static func nativeTooltip(_ text: String, helpOn: Bool) -> String { helpOn ? "" : text }
 
+    /// One explainable frame on a surface, as the layer sees it (its own coordinates, y down).
+    struct TipFrame: Equatable {
+        let id: String
+        let rect: CGRect
+        /// A panel that sits over controls (the DOWNLOAD menu): the pointer over it explains nothing under it.
+        var occludes = false
+    }
+
+    /// Which tip the pointer is on: the index into `frames`, nil = none. The innermost frame wins
+    /// (the smallest one holding the pointer: a chip inside its group, the % inside the dial), a
+    /// later one on a tie; an occluding panel holding the pointer wins over every tip under it.
+    /// Decided from the frames and the pointer alone: SwiftUI's own `.onHover` did not report whole
+    /// stretches of the window (the keyboard, scale, tuning), and a hover that never ended left
+    /// the previous control's card up on the next one.
+    static func resolve(at p: CGPoint, in frames: [TipFrame]) -> Int? {
+        guard p.x.isFinite, p.y.isFinite else { return nil }
+        var best: Int?
+        for (i, f) in frames.enumerated() where !f.rect.isNull && !f.rect.isInfinite && f.rect.contains(p) {
+            if f.occludes { return nil }
+            if let b = best {
+                let a = f.rect.width * f.rect.height, o = frames[b].rect.width * frames[b].rect.height
+                if a <= o { best = i }
+            } else { best = i }
+        }
+        return best
+    }
+
     static let gap: CGFloat = 6
     static let margin: CGFloat = 8
 
@@ -434,8 +461,18 @@ struct HelpTipAnchor {
 /// What the surface's card layer collects: the hovered control's tip (if any) and, in help mode,
 /// where every explainable control sits, so the card can keep off the neighbours.
 struct HelpTipPrefs {
+    /// An always-on hover card (`hoverCard`): the key wheel's, the pinned dial's.
     var tip: HelpTipAnchor?
     var controls: [Anchor<CGRect>] = []
+    /// Help mode: every `.helpTip` control, whose card shows while the pointer is on it.
+    var frames: [HelpTipFrameAnchor] = []
+}
+
+struct HelpTipFrameAnchor {
+    let tip: HelpTip
+    let anchor: Anchor<CGRect>
+    var forced = false
+    var occludes = false
 }
 
 struct HelpTipKey: PreferenceKey {
@@ -444,6 +481,7 @@ struct HelpTipKey: PreferenceKey {
         let n = nextValue()
         if n.tip != nil { value.tip = n.tip }
         value.controls += n.controls
+        value.frames += n.frames
     }
 }
 
@@ -451,18 +489,29 @@ private struct HelpTipModifier: ViewModifier {
     let tip: HelpTip
     @Environment(\.helpMode) private var helpOn
     @Environment(\.helpTipForced) private var forced
-    @State private var hovering = false
 
     func body(content: Content) -> some View {
-        let active = HelpTipLogic.shows(helpOn: helpOn, hovering: hovering, forced: forced == tip.id)
-        // the same view tree whether help is on or off (nothing inside resets on a toggle)
-        return content
-            .onHover { inside in if helpOn || !inside { hovering = inside } }
-            .transformAnchorPreference(key: HelpTipKey.self, value: .bounds) { v, a in
-                if helpOn { v.controls.append(a) }
-                // an inner control's tip wins over the group around it
-                if active && v.tip == nil { v.tip = HelpTipAnchor(tip: tip, anchor: a) }
+        // the same view tree whether help is on or off (nothing inside resets on a toggle). It only
+        // reports where it is: the surface's layer finds the tip under the pointer from these frames.
+        content.transformAnchorPreference(key: HelpTipKey.self, value: .bounds) { v, a in
+            guard helpOn else { return }
+            v.controls.append(a)
+            v.frames.append(HelpTipFrameAnchor(tip: tip, anchor: a, forced: forced == tip.id))
+        }
+    }
+}
+
+/// A panel drawn over controls: in help mode the pointer on it explains nothing under it.
+private struct HelpOccluderModifier: ViewModifier {
+    @Environment(\.helpMode) private var helpOn
+
+    func body(content: Content) -> some View {
+        content.transformAnchorPreference(key: HelpTipKey.self, value: .bounds) { v, a in
+            if helpOn {
+                v.controls.append(a)
+                v.frames.append(HelpTipFrameAnchor(tip: HelpTip(title: "", body: ""), anchor: a, occludes: true))
             }
+        }
     }
 }
 
@@ -503,20 +552,7 @@ private struct HelpTipLayer: ViewModifier {
         content
             .overlay(tracker)
             .overlayPreferenceValue(HelpTipKey.self) { prefs in
-                GeometryReader { g in
-                    ZStack(alignment: .topLeading) {
-                        Color.clear
-                        if let v = prefs.tip {
-                            FloatingHelpCard(tip: v.tip, width: v.width, control: g[v.anchor], bounds: g.size,
-                                             follow: v.follow, others: prefs.controls.map { g[$0] }, cursor: cursor)
-                                // one card for the whole wheel: crossing a section swaps its text, no fade-out and in
-                                .id(v.follow ? "follow-card" : v.tip.id).transition(.opacity)
-                        }
-                    }
-                    .frame(width: g.size.width, height: g.size.height, alignment: .topLeading)
-                }
-                .animation(.easeOut(duration: 0.12), value: prefs.tip?.tip.id)
-                .allowsHitTesting(false)
+                HelpCardHost(prefs: prefs, cursor: cursor).allowsHitTesting(false)
             }
     }
 
@@ -525,6 +561,48 @@ private struct HelpTipLayer: ViewModifier {
         if !Pocket.snapshot {
             MouseTracker { [cursor] p in cursor.point = p }
         }
+    }
+}
+
+/// What the layer draws: the always-on hover card if there is one, else (help mode) the card of the
+/// control under the pointer, found from the frames (HelpTipLogic.resolve). Only this view observes
+/// the mouse, so a move redraws the card, never the surface.
+private struct HelpCardHost: View {
+    let prefs: HelpTipPrefs
+    @ObservedObject var cursor: HelpCursor
+
+    var body: some View {
+        GeometryReader { g in
+            let shown = shownTip(g)
+            ZStack(alignment: .topLeading) {
+                Color.clear
+                if let v = shown {
+                    FloatingHelpCard(tip: v.tip, width: v.width, control: v.control, bounds: g.size,
+                                     follow: v.follow, others: prefs.controls.map { g[$0] }, cursor: cursor)
+                        // one card for the whole wheel: crossing a section swaps its text, no fade-out and in
+                        .id(v.follow ? "follow-card" : v.tip.id).transition(.opacity)
+                }
+            }
+            .frame(width: g.size.width, height: g.size.height, alignment: .topLeading)
+            .animation(.easeOut(duration: 0.12), value: shown?.tip.id)
+        }
+    }
+
+    private struct Shown {
+        let tip: HelpTip
+        let control: CGRect
+        var width: CGFloat = HelpCard.width
+        var follow = false
+    }
+
+    private func shownTip(_ g: GeometryProxy) -> Shown? {
+        if let v = prefs.tip { return Shown(tip: v.tip, control: g[v.anchor], width: v.width, follow: v.follow) }
+        // an offscreen render's forced tip stands in for a mouse
+        if let f = prefs.frames.first(where: { $0.forced }) { return Shown(tip: f.tip, control: g[f.anchor]) }
+        guard let p = cursor.point, !prefs.frames.isEmpty else { return nil }
+        let frames = prefs.frames.map { HelpTipLogic.TipFrame(id: $0.tip.id, rect: g[$0.anchor], occludes: $0.occludes) }
+        guard let i = HelpTipLogic.resolve(at: p, in: frames) else { return nil }
+        return Shown(tip: prefs.frames[i].tip, control: frames[i].rect)
     }
 }
 
@@ -576,6 +654,9 @@ private struct HelpCardSizeKey: PreferenceKey {
 extension View {
     /// In help mode, hovering this view shows `tip` on the shared amber card. Off = nothing.
     func helpTip(_ tip: HelpTip) -> some View { modifier(HelpTipModifier(tip: tip)) }
+
+    /// A panel drawn over controls (the DOWNLOAD menu): help mode shows no card for what is under it.
+    func helpOccluder() -> some View { modifier(HelpOccluderModifier()) }
 
     /// A readable part or control with no tip of its own (the "3 OF 3" counter): in help mode the
     /// cards keep off it too.

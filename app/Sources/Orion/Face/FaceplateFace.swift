@@ -169,6 +169,7 @@ struct FaceplateFace: View {
         if let m = state.downloadMenu {
             DownloadMenuPanel(menu: m, pick: actions.pickPlacement, dismiss: actions.closeDownloadMenu)
                 .fixedSize()
+                .helpOccluder()
                 .offset(y: -(Theme.H.lg + Theme.S.xs))
         }
     }
