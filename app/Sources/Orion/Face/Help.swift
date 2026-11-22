@@ -87,7 +87,7 @@ enum HelpText {
     static let notesHeard = HelpTip(title: "NOTES HEARD", body: "Note strength. Dotted = in the scale.")
     static let chords = HelpTip(title: "CHORDS", body: "Click to hear. Drag to a DAW as MIDI.")
     static let quality = HelpTip(title: "TRIAD · 7TH · 9TH", body: "Chord size: 3 notes, add 7th, add 7th and 9th.")
-    static let voicing = HelpTip(title: "ROOT · 1ST · 2ND · OPEN", body: "Bottom note of the chord. OPEN spreads it.")
+    static let voicing = HelpTip(title: "INVERSION", body: "Root position, 1st inversion, 2nd inversion. OPEN = spread.")
     static let bars = HelpTip(title: "BAR", body: "Bars per chord when dragged out as MIDI.")
     static let borrowed = HelpTip(title: "BORROWED", body: "Chords from the parallel major or minor.")
     static let matchTo = HelpTip(title: "MATCH TO", body: "Pick your project's key. See the pitch to fit.")
