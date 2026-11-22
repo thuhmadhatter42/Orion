@@ -1,0 +1,123 @@
+Beat Key help text proofread notes — 11/22/2026, 2:28:05 AM
+73 / 81 done — 46 pass · 20 fail · 0 discuss · 7 explain · 0 skip
+
+1. [pass] READOUT (app + plug-in)
+2. [pass] BPM (app + plug-in)
+3. [pass] ×0.5 · ×1 · ×2 (app + plug-in)
+4. [fail] KEY (app + plug-in)
+   "Key heard." ???? Like I get what you're trying to say, but have no idea how to actually word it But that is not how we're gonna do that 
+5. [fail] LOCKED · UNSURE (app + plug-in)
+   This is okay, but I guess, like, what does locked mean? 80% sure or more? Because sure doesn't imply, like, you're 1000% certain. Like, sureness is not certainty. So, locked means 80% or more certain. Or whatever. I don't know. 80% sure. And I don't know if it's 80%, I don't know what the fuck you define locked as. Whatever you have it is good tho
+6. [pass] TOP KEYS (app + plug-in)
+7. [fail] MANUAL (app + plug-in)
+   "Click to pin any of the 24 keys"
+8. [pass] PINNED KEY (app + plug-in)
+9. [explain] KEYBOARD (app + plug-in)
+   I don't see a fucking keyboard option. I don't see this anywhere. 
+10. [explain] SCALE (app + plug-in)
+   Yeah, I don't see this shit anywhere either. And the whole fucking hover thing is fucking broken anyway. Dude. I hover my mouse over somewhere, and the box pops up, like, on the other side of the fucking window, and then it references something totally other than what I'm fucking hovering over. The whole shit's broken. --- Did you fucking test this at all? 
+11. [explain] TUNING (app + plug-in)
+   The wording here for this is fine, but when my mouse hovers over tuning, it says keys. The three likely keys, or whatever the fuck. 
+12. [—] CAMELOT (app + plug-in)
+   Yeah, I don't fucking see this anywhere either. 
+13. [—] FILE (app + plug-in)
+   I don't see this fucking anywhere either. 
+14. [pass] SHOW IN FINDER (app + plug-in)
+15. [pass] PREVIOUS FILE (app + plug-in)
+16. [pass] NEXT FILE (app + plug-in)
+17. [pass] STATUS (app + plug-in)
+18. [pass] LINK (app + plug-in)
+19. [fail] DOWNLOAD (app + plug-in)
+   Yeah, this is more fucking brain dead bullshit. Download. Download what? If it's a help box that tells you what it is, then it should say download mp3 from YouTube. Or it should say paste slash download mp3 from YouTube. 
+20. [fail] LOG IN TO YOUTUBE (app + plug-in)
+   If the button says login to YouTube, why the fuck would you need to say open YouTube sign in? And what the fuck does it even mean login stays on this Mac? What the fuck is that? It should tell them why they would login to YouTube, which I can't remember why we decided we needed that. Wasn't it for like 18 shit? Which no one's ever gonna run into when it's a fucking instrumental with no fucking words on it?  I decided to leave that in there because I assumed that maybe someone downloads audio from a fucking 18 music video, which is fine. It's nice to have an option for anybody to do what they want to do. But can we tell them why they might want to log in? Instead of just saying the exact same thing that the button says? Because I've never seen this log into YouTube button. I can only assume it's in the settings window. But if a button says login to YouTube, it doesn't need to say open YouTube sign in. Like, what the fuck, dude? 
+21. [fail] OPEN AUDIO (app + plug-in)
+   this should "Open audio file/s from Finder"
+22. [fail] FIND KEY/BPM (app + plug-in)
+   this button needs to say "Analyze" not "Find Key/BPM"
+23. [fail] SOURCE (app + plug-in)
+   "System Audio, External Input, or App Input". - It doesn't need to say that the meter shows the level, okay it's kind of self-explanatory. 
+24. [fail] LISTEN (app + plug-in)
+   "Live BPM and key."  --- Saying that we're not recording or saving anything is like. I don't know, man. Why even bring that up? The fuck? 
+25. [fail] HOLD (app + plug-in)
+   "Freeze the reading. Click again to unfreeze".  - There's really 81 of these things and you can't like. Dude, the fuck. Freeze the reading and click again to follow? Why the fuck would you not use the same wording? Oh my god. You are so dumb. This is the dumbest fucking task I've done in months. 
+26. [fail] NEW SONG (app + plug-in)
+   "Clear listen history"
+27. [pass] SEND TO DAW (app + plug-in)
+28. [fail] SEND TO AUTO-TUNE (app + plug-in)
+   "Set key in Auto-Tune (⌃⌥⌘A)". - If one of them is going to show its quick key, then they all should show their quick key. 
+29. [pass] EXPORT MIDI (app + plug-in)
+   "Export a MIDI file with tempo and key."
+   
+   
+30. [—] ANALYZE FILE (app + plug-in)
+   I honestly despise the fact that the fucking meni bar pocket is different than the app. Why the fuck is it different? Like, it either needs to be totally fucking different, where it's really, really sleek and clean, and there's not a ton of options, and then they get everything in the app, or it needs to be the exact fucking same. This whole, like, slightly different thing is fucking bullshit. ---- This applies to thirty, thirty one, and thirty two. 
+31. [—] WINDOW (app + plug-in)
+32. [—] QUIT (app + plug-in)
+33. [pass] RECENT (app + plug-in)
+34. [fail] SETTINGS (app + plug-in)
+   "Open Beat Key Settings
+35. [pass] COLOR (app + plug-in)
+36. [fail] REPORT (app + plug-in)
+   "Email a report with logs attached"
+37. [fail] ADVANCED (app + plug-in)
+   "Select to get the full Beat Key experience"
+38. [pass] HELP (app + plug-in)
+39. [explain] PITCH TO FIT (app + plug-in)
+   Yeah, I don't see pitch to fit anywhere. No idea what the fuck you're even talking about here. 
+40. [pass] KEY WHEEL (app + plug-in)
+41. [pass] NOTES HEARD (app + plug-in)
+42. [fail] CHORDS (app + plug-in)
+   Click to play chord. Drag to a DAW as MIDI.
+   
+   
+43. [pass] TRIAD · 7TH · 9TH (app + plug-in)
+44. [pass] INVERSION (app + plug-in)
+45. [pass] BAR (app + plug-in)
+46. [fail] BORROWED (app + plug-in)
+   I don't know enough about music theory to know if there's a more pro way of saying this, but I'm gonna assume that there is since your inversion thing was bullshit to begin with. Fucking look it up, please. 
+47. [pass] MATCH TO (app + plug-in)
+48. [pass] −6 … +6 (app + plug-in)
+49. [pass] MINI (app + plug-in)
+50. [pass] BEAT KEY MINI (app + plug-in)
+51. [pass] SOUND (app + plug-in)
+52. [explain] HIGH CONTRAST (app + plug-in)
+   What the fuck does it mean when you say lamp shapes stay? What the fuck is that? 
+53. [fail] LISTEN TO (app + plug-in)
+   What the fuck does this even mean? I'm looking at it in the app and it doesn't make fucking sense. I'm guessing that this is the default that it's always gonna default to? Or what the fuck? Nothing saved? Come on, dude! This is so annoying. This is so retarded. You are so brain dead. 
+54. [pass] CHANNEL (app + plug-in)
+55. [pass] START OVER AFTER (app + plug-in)
+56. [explain] FILE NAMES (app + plug-in)
+   What the fuck does it mean when you say Pro Tools files always ask? 
+57. [pass] OPEN AT LOGIN (app + plug-in)
+58. [pass] SHORTCUTS (app + plug-in)
+59. [explain] SET UP PERMISSIONS (app + plug-in)
+60. [—] SCREEN & SYSTEM AUDIO RECORDING (app + plug-in)
+   wtf does "Turn on Beat Key" mean?
+61. [—] MICROPHONE (app + plug-in)
+   wtf does "Turn on Beat Key" mean?
+62. [—] ACCESSIBILITY (app + plug-in)
+   wtf does "Turn on Beat Key" mean?
+63. [pass] RUN DOCTOR (app + plug-in)
+64. [pass] DOCTOR RESULT (app + plug-in)
+65. [pass] OCTAVE · Z X (app + plug-in)
+66. [pass] MAJOR / MINOR · SPACE (app + plug-in)
+67. [pass] PAGE FILES · ← → (app + plug-in)
+68. [pass] AUTO-TUNE SHORTCUT (app + plug-in)
+69. [pass] ADVANCED SHORTCUT (app + plug-in)
+70. [pass] HELP WINDOW · ⌘? (app + plug-in)
+71. [pass] KEY WHEEL · Any wheel key, no reading yet. (app + plug-in)
+72. [pass] KEY WHEEL · The key Beat Key picked. (app + plug-in)
+73. [pass] KEY WHEEL · Relative major/minor of the pick (example names). (app + plug-in)
+74. [pass] KEY WHEEL · A neighbour key on the circle. (app + plug-in)
+75. [pass] KEY WHEEL · Parallel major/minor. (app + plug-in)
+76. [pass] KEY WHEEL · Any far-away key (count changes). (app + plug-in)
+77. [pass] KEY WHEEL · The key you pinned. (app + plug-in)
+78. [fail] QUICK KEYS · NO SHORTCUT (app + plug-in)
+   What the fuck? I'm assuming this means that when I have help on and I scroll over a item in the shortcut menu, if that doesn't have a shortcut, it's gonna say this. Because what the fuck? it should say "This action has no shortcut"
+79. [pass] REPORT · SAVE (app + plug-in)
+80. [fail] REPORT BUTTON (app + plug-in)
+   Huh, great. Here it is again. The same fucking item I already gave you a fucking answer to. Same fucking answer. 
+   
+   "Email a report with log attached"
+81. [pass] MENU BAR ITEM (app + plug-in)

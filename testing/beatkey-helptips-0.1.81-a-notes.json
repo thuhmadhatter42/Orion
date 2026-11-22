@@ -1,0 +1,351 @@
+{
+  "t01": {
+    "status": "pass",
+    "t": 1795340338255
+  },
+  "t02": {
+    "status": "pass",
+    "t": 1795340342011
+  },
+  "t03": {
+    "status": "pass",
+    "t": 1795340345747
+  },
+  "t04": {
+    "status": "fail",
+    "notes": "\"Key heard.\" ???? Like I get what you're trying to say, but have no idea how to actually word it But that is not how we're gonna do that ",
+    "t": 1795340389622
+  },
+  "t05": {
+    "status": "fail",
+    "notes": "This is okay, but I guess, like, what does locked mean? 80% sure or more? Because sure doesn't imply, like, you're 1000% certain. Like, sureness is not certainty. So, locked means 80% or more certain. Or whatever. I don't know. 80% sure. And I don't know if it's 80%, I don't know what the fuck you define locked as. Whatever you have it is good tho",
+    "t": 1795340455216
+  },
+  "t06": {
+    "status": "pass",
+    "t": 1795340464728
+  },
+  "t07": {
+    "status": "fail",
+    "notes": "\"Click to pin any of the 24 keys\"",
+    "t": 1795340490206
+  },
+  "t08": {
+    "status": "pass",
+    "t": 1795340491036
+  },
+  "t09": {
+    "status": "explain",
+    "notes": "I don't see a fucking keyboard option. I don't see this anywhere. ",
+    "t": 1795340568327
+  },
+  "t10": {
+    "status": "explain",
+    "notes": "Yeah, I don't see this shit anywhere either. And the whole fucking hover thing is fucking broken anyway. Dude. I hover my mouse over somewhere, and the box pops up, like, on the other side of the fucking window, and then it references something totally other than what I'm fucking hovering over. The whole shit's broken. --- Did you fucking test this at all? ",
+    "t": 1795340666816
+  },
+  "t11": {
+    "status": "explain",
+    "notes": "The wording here for this is fine, but when my mouse hovers over tuning, it says keys. The three likely keys, or whatever the fuck. ",
+    "t": 1795340696073
+  },
+  "t12": {
+    "status": "",
+    "notes": "Yeah, I don't fucking see this anywhere either. ",
+    "t": 1795340713084
+  },
+  "t13": {
+    "status": "",
+    "notes": "I don't see this fucking anywhere either. ",
+    "t": 1795340729201
+  },
+  "t14": {
+    "status": "pass",
+    "t": 1795340742759
+  },
+  "t15": {
+    "status": "pass",
+    "t": 1795340753860
+  },
+  "t16": {
+    "status": "pass",
+    "t": 1795340757887
+  },
+  "t17": {
+    "status": "pass",
+    "t": 1795340786710
+  },
+  "t18": {
+    "status": "pass",
+    "t": 1795340794631
+  },
+  "t19": {
+    "status": "fail",
+    "notes": "Yeah, this is more fucking brain dead bullshit. Download. Download what? If it's a help box that tells you what it is, then it should say download mp3 from YouTube. Or it should say paste slash download mp3 from YouTube. ",
+    "t": 1795340875412
+  },
+  "t20": {
+    "status": "fail",
+    "notes": "If the button says login to YouTube, why the fuck would you need to say open YouTube sign in? And what the fuck does it even mean login stays on this Mac? What the fuck is that? It should tell them why they would login to YouTube, which I can't remember why we decided we needed that. Wasn't it for like 18 shit? Which no one's ever gonna run into when it's a fucking instrumental with no fucking words on it?  I decided to leave that in there because I assumed that maybe someone downloads audio from a fucking 18 music video, which is fine. It's nice to have an option for anybody to do what they want to do. But can we tell them why they might want to log in? Instead of just saying the exact same thing that the button says? Because I've never seen this log into YouTube button. I can only assume it's in the settings window. But if a button says login to YouTube, it doesn't need to say open YouTube sign in. Like, what the fuck, dude? ",
+    "t": 1795341109496
+  },
+  "t21": {
+    "status": "fail",
+    "notes": "this should \"Open audio file/s from Finder\"",
+    "t": 1795341147243
+  },
+  "t22": {
+    "status": "fail",
+    "notes": "this button needs to say \"Analyze\" not \"Find Key/BPM\"",
+    "t": 1795341192298
+  },
+  "t23": {
+    "status": "fail",
+    "notes": "\"System Audio, External Input, or App Input\". - It doesn't need to say that the meter shows the level, okay it's kind of self-explanatory. ",
+    "t": 1795341365047
+  },
+  "t24": {
+    "status": "fail",
+    "notes": "\"Live BPM and key.\"  --- Saying that we're not recording or saving anything is like. I don't know, man. Why even bring that up? The fuck? ",
+    "t": 1795342193498
+  },
+  "t25": {
+    "status": "fail",
+    "notes": "\"Freeze the reading. Click again to unfreeze\".  - There's really 81 of these things and you can't like. Dude, the fuck. Freeze the reading and click again to follow? Why the fuck would you not use the same wording? Oh my god. You are so dumb. This is the dumbest fucking task I've done in months. ",
+    "t": 1795342256484
+  },
+  "t26": {
+    "status": "fail",
+    "notes": "\"Clear listen history\"",
+    "t": 1795342303713
+  },
+  "t27": {
+    "status": "pass",
+    "t": 1795342302738
+  },
+  "t28": {
+    "status": "fail",
+    "notes": "\"Set key in Auto-Tune (⌃⌥⌘A)\". - If one of them is going to show its quick key, then they all should show their quick key. ",
+    "t": 1795342346053
+  },
+  "t29": {
+    "status": "pass",
+    "notes": "\"Export a MIDI file with tempo and key.\"\n\n",
+    "t": 1795342365324
+  },
+  "t33": {
+    "status": "pass",
+    "t": 1795342398354
+  },
+  "t30": {
+    "status": "",
+    "notes": "I honestly despise the fact that the fucking meni bar pocket is different than the app. Why the fuck is it different? Like, it either needs to be totally fucking different, where it's really, really sleek and clean, and there's not a ton of options, and then they get everything in the app, or it needs to be the exact fucking same. This whole, like, slightly different thing is fucking bullshit. ---- This applies to thirty, thirty one, and thirty two. ",
+    "t": 1795342459632
+  },
+  "t34": {
+    "status": "fail",
+    "notes": "\"Open Beat Key Settings",
+    "t": 1795342495000
+  },
+  "t35": {
+    "status": "pass",
+    "t": 1795342501049
+  },
+  "t36": {
+    "status": "fail",
+    "notes": "\"Email a report with logs attached\"",
+    "t": 1795342556844
+  },
+  "t37": {
+    "status": "fail",
+    "notes": "\"Select to get the full Beat Key experience\"",
+    "t": 1795342558003
+  },
+  "t38": {
+    "status": "pass",
+    "t": 1795342596776
+  },
+  "t39": {
+    "status": "explain",
+    "notes": "Yeah, I don't see pitch to fit anywhere. No idea what the fuck you're even talking about here. ",
+    "t": 1795342616254
+  },
+  "t40": {
+    "status": "pass",
+    "t": 1795342621727
+  },
+  "t41": {
+    "status": "pass",
+    "t": 1795342741681
+  },
+  "t42": {
+    "status": "fail",
+    "notes": "Click to play chord. Drag to a DAW as MIDI.\n\n",
+    "t": 1795342759506
+  },
+  "t43": {
+    "status": "pass",
+    "t": 1795342775081
+  },
+  "t44": {
+    "status": "pass",
+    "t": 1795342779678
+  },
+  "t45": {
+    "status": "pass",
+    "t": 1795342788002
+  },
+  "t46": {
+    "status": "fail",
+    "notes": "I don't know enough about music theory to know if there's a more pro way of saying this, but I'm gonna assume that there is since your inversion thing was bullshit to begin with. Fucking look it up, please. ",
+    "t": 1795342816950
+  },
+  "t47": {
+    "status": "pass",
+    "t": 1795342823545
+  },
+  "t48": {
+    "status": "pass",
+    "t": 1795342826711
+  },
+  "t49": {
+    "status": "pass",
+    "t": 1795342858234
+  },
+  "t50": {
+    "status": "pass",
+    "t": 1795342866353
+  },
+  "t51": {
+    "status": "pass",
+    "t": 1795342889454
+  },
+  "t52": {
+    "status": "explain",
+    "notes": "What the fuck does it mean when you say lamp shapes stay? What the fuck is that? ",
+    "t": 1795342917511
+  },
+  "t53": {
+    "status": "fail",
+    "notes": "What the fuck does this even mean? I'm looking at it in the app and it doesn't make fucking sense. I'm guessing that this is the default that it's always gonna default to? Or what the fuck? Nothing saved? Come on, dude! This is so annoying. This is so retarded. You are so brain dead. ",
+    "t": 1795342966839
+  },
+  "t54": {
+    "status": "pass",
+    "t": 1795342972233
+  },
+  "t55": {
+    "status": "pass",
+    "t": 1795342990796
+  },
+  "t56": {
+    "status": "explain",
+    "notes": "What the fuck does it mean when you say Pro Tools files always ask? ",
+    "t": 1795343018299
+  },
+  "t57": {
+    "status": "pass",
+    "t": 1795343024582
+  },
+  "t58": {
+    "status": "pass",
+    "t": 1795343035671
+  },
+  "t59": {
+    "status": "explain",
+    "t": 1795343052769
+  },
+  "t60": {
+    "status": "",
+    "notes": "wtf does \"Turn on Beat Key\" mean?",
+    "t": 1795343078099
+  },
+  "t61": {
+    "status": "",
+    "notes": "wtf does \"Turn on Beat Key\" mean?",
+    "t": 1795343084665
+  },
+  "t62": {
+    "status": "",
+    "notes": "wtf does \"Turn on Beat Key\" mean?",
+    "t": 1795343088525
+  },
+  "t63": {
+    "status": "pass",
+    "t": 1795343108321
+  },
+  "t64": {
+    "status": "pass",
+    "t": 1795343109563
+  },
+  "t65": {
+    "status": "pass",
+    "t": 1795343114314
+  },
+  "t66": {
+    "status": "pass",
+    "t": 1795343120054
+  },
+  "t67": {
+    "status": "pass",
+    "t": 1795343124874
+  },
+  "t68": {
+    "status": "pass",
+    "t": 1795343128533
+  },
+  "t69": {
+    "status": "pass",
+    "t": 1795343131044
+  },
+  "t70": {
+    "status": "pass",
+    "t": 1795343138593
+  },
+  "t71": {
+    "status": "pass",
+    "t": 1795343146384
+  },
+  "t72": {
+    "status": "pass",
+    "t": 1795343151373
+  },
+  "t73": {
+    "status": "pass",
+    "t": 1795343157073
+  },
+  "t74": {
+    "status": "pass",
+    "t": 1795343160816
+  },
+  "t75": {
+    "status": "pass",
+    "t": 1795343162616
+  },
+  "t76": {
+    "status": "pass",
+    "t": 1795343178986
+  },
+  "t77": {
+    "status": "pass",
+    "t": 1795343184942
+  },
+  "t78": {
+    "status": "fail",
+    "notes": "What the fuck? I'm assuming this means that when I have help on and I scroll over a item in the shortcut menu, if that doesn't have a shortcut, it's gonna say this. Because what the fuck? it should say \"This action has no shortcut\"",
+    "t": 1795343246706
+  },
+  "t79": {
+    "status": "pass",
+    "t": 1795343245773
+  },
+  "t80": {
+    "status": "fail",
+    "notes": "Huh, great. Here it is again. The same fucking item I already gave you a fucking answer to. Same fucking answer. \n\n\"Email a report with log attached\"",
+    "t": 1795343285090
+  },
+  "t81": {
+    "status": "pass",
+    "t": 1795343284091
+  }
+}
