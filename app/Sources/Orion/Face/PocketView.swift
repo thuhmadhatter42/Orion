@@ -402,8 +402,8 @@ enum PocketText {
 
 /// Every footer action, both surfaces (J 2026-11-09 14:23: "two of them look like buttons and two
 /// of them look like words... why don't they all look the same?"): RECENT ▾, WINDOW, SETTINGS,
-/// COLOR and HELP are one outlined chip. H.xs high, R.cap corners, the caption type, S.s each
-/// side. Dim outline at rest, brighter on hover, a faint fill while pressed, lit in the display
+/// COLOR and HELP are one outlined chip. H.xs high, R.cap corners, the caption type, 6 each
+/// side (FooterChip.padding). Dim outline at rest, brighter on hover, a faint fill while pressed, lit in the display
 /// colour while on (HELP, the open colour wheel), faint when there is nothing to do (no recents).
 struct FooterChip: View {
     @Environment(\.palette) private var palette
@@ -418,8 +418,9 @@ struct FooterChip: View {
     let action: () -> Void
     @State private var hover = false
 
-    /// The chip's side padding.
-    static let padding: CGFloat = Theme.S.s
+    /// The chip's side padding: 6, not the grid's 8, so the window's six footer items (RECENT, SETTINGS, COLOR,
+    /// REPORT, HELP, ADVANCED) fit between the plate's screws with 8 between chips (FooterMetrics).
+    static let padding: CGFloat = 6
     /// The chip's width for `title` (the caption type and tracking, both paddings, the swatch).
     static func width(_ title: String, swatch: Bool = false) -> CGFloat {
         textWidth(title) + padding * 2 + (swatch ? swatchSide + Theme.S.xs : 0)

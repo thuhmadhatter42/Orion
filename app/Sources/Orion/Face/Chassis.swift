@@ -1,5 +1,23 @@
 import SwiftUI
 
+/// The plate's measures (Plate is generic, so they live here): padding, screws and their halos.
+enum PlateGeometry {
+    /// The plate's padding round its content.
+    static let padding: CGFloat = 12
+    /// A screw's distance from the plate's edge, its side, and the dark halo behind it.
+    static let screwInset: CGFloat = 6
+    static let screwSide: CGFloat = 10
+    static let screwHalo: CGFloat = 3
+    /// The four screws with their halos, in the plate's own coordinates (origin top left).
+    static func screwRects(width: CGFloat, height: CGFloat) -> [CGRect] {
+        let side = screwSide + screwHalo * 2
+        let near = screwInset - screwHalo
+        return [near, width - screwInset - screwSide - screwHalo].flatMap { x in
+            [near, height - screwInset - screwSide - screwHalo].map { y in CGRect(x: x, y: y, width: side, height: side) }
+        }
+    }
+}
+
 /// The mockup's `.plate`: noise-and-sheen chassis, black outer rings, four screws.
 struct Plate<Content: View>: View {
     let content: Content
@@ -13,7 +31,7 @@ struct Plate<Content: View>: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: r, style: .continuous)
         content
-            .padding(12)
+            .padding(PlateGeometry.padding)
             .frame(width: width)
             .background(
                 ZStack {
@@ -45,7 +63,7 @@ struct Plate<Content: View>: View {
             Spacer()
             HStack { Screw(); Spacer(); Screw() }
         }
-        .padding(6)
+        .padding(PlateGeometry.screwInset)
     }
 }
 
@@ -63,8 +81,8 @@ struct Screw: View {
                 Rectangle().fill(Color.black.opacity(0.75))
                     .frame(width: 7.6, height: 1.1)
                     .rotationEffect(.degrees(32)))
-            .frame(width: 10, height: 10)
-            .background(Circle().fill(Color.white.opacity(0.03)).padding(-3))
+            .frame(width: PlateGeometry.screwSide, height: PlateGeometry.screwSide)
+            .background(Circle().fill(Color.white.opacity(0.03)).padding(-PlateGeometry.screwHalo))
             .background(Circle().fill(Color.black.opacity(0.55)).padding(-2))
             .shadow(color: Color.black.opacity(0.9), radius: 1, y: 1)
             .accessibility(hidden: true)

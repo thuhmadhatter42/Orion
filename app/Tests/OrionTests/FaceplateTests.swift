@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import XCTest
 @testable import Orion
 
@@ -107,10 +108,56 @@ final class FaceplateTests: XCTestCase {
         for t in PocketFooter.chipTitles {
             XCTAssertEqual(FooterChip.width(t), FooterChip.textWidth(t) + FooterChip.padding * 2, t)
         }
-        // the window's row: four chips 16 apart, ADVANCED with its word, inside the plate's text edges
-        let window = ["RECENT ▾", "SETTINGS", "HELP"].map { FooterChip.width($0) }.reduce(0, +)
-            + FooterChip.width("COLOR", swatch: true) + Theme.S.l * 4 + AdvancedBox.width
-        XCTAssertLessThanOrEqual(window, FaceplateFace.plateWidth(advanced: false) - Theme.S.lcd * 2)
+        // the window's row: every chip (REPORT too) and ADVANCED, inside the plate's text edges
+        let window = FooterMetrics.items(settings: true).map { $0.width }.reduce(0, +)
+            + FooterMetrics.spacing * CGFloat(FooterMetrics.items(settings: true).count - 1)
+        XCTAssertLessThanOrEqual(window, FaceplateFace.plateWidth(advanced: false) - PlateGeometry.padding * 2 - FooterMetrics.inset * 2)
+    }
+
+    /// The footer row (window and plug-in, default and Advanced) must keep every item off the plate's
+    /// bottom corner screws and inside the same inset on both sides. 0.1.82 added REPORT without
+    /// re-measuring: the row grew 495 pt into 432 and RECENT and ADVANCED sat on the screws.
+    @MainActor
+    func testFooterItemsClearTheScrews() {
+        let pad = PlateGeometry.padding, inset = FooterMetrics.inset, h = Theme.H.xs
+        for advanced in [false, true] {
+            for settings in [true, false] {
+                let tag = "advanced \(advanced), settings \(settings)"
+                let plateW = FaceplateFace.plateWidth(advanced: advanced)
+                let plateH = FaceplateFace.plateHeight
+                let items = FooterMetrics.items(settings: settings)
+                let left = pad + inset, right = plateW - pad - inset
+                let y = plateH - pad - h
+                // the real view's natural width agrees with the measures, and fits
+                let host = NSHostingView(rootView: FaceplateFooter(state: {
+                    var st = PocketState(); st.advanced = advanced
+                    st.surface = settings ? .app : .plugin
+                    return st
+                }()))
+                let natural = host.fittingSize.width
+                let measured = items.map { $0.width }.reduce(0, +) + FooterMetrics.spacing * CGFloat(items.count) + inset * 2
+                XCTAssertEqual(natural, measured, accuracy: 1.5, "measures differ from the view, \(tag)")
+                XCTAssertLessThanOrEqual(natural, plateW - pad * 2 + 0.5, "footer wider than the plate's content, \(tag)")
+                // every item: inside the inset, clear of every screw (and its halo)
+                var x = left
+                var frames: [(String, CGRect)] = []
+                for it in items.dropLast() {
+                    frames.append((it.title, CGRect(x: x, y: y, width: it.width, height: h)))
+                    x += it.width + FooterMetrics.spacing
+                }
+                let adv = items[items.count - 1]
+                frames.append((adv.title, CGRect(x: right - adv.width, y: y, width: adv.width, height: h)))
+                XCTAssertLessThanOrEqual(x - FooterMetrics.spacing, right - adv.width - FooterMetrics.spacing + 0.5,
+                                         "items run into ADVANCED, \(tag)")
+                for (t, f) in frames {
+                    XCTAssertGreaterThanOrEqual(f.minX, left - 0.01, "\(t) left of the inset, \(tag)")
+                    XCTAssertLessThanOrEqual(f.maxX, right + 0.01, "\(t) right of the inset, \(tag)")
+                    for s in PlateGeometry.screwRects(width: plateW, height: plateH) {
+                        XCTAssertFalse(f.intersects(s), "\(t) \(f) sits on a screw \(s), \(tag)")
+                    }
+                }
+            }
+        }
     }
 
     func testTuningTrackCentreIsThePanelCentre() {

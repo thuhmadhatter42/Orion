@@ -194,10 +194,19 @@ struct FaceplateFace: View {
 
     // MARK: footer
 
-    /// RECENT ▾ · SETTINGS · COLOR · REPORT · HELP, one chip each (FooterChip), 16 apart; ADVANCED on the right.
+    private var footer: some View { FaceplateFooter(state: state, actions: actions) }
+}
+
+/// The window's and the plug-in's footer row, one view and one set of measures (FooterMetrics) so a
+/// test can hold the row to the plate's screws.
+struct FaceplateFooter: View {
+    let state: PocketState
+    var actions = PocketActions()
+
+    /// RECENT ▾ · SETTINGS · COLOR · REPORT · HELP, one chip each (FooterChip); ADVANCED on the right.
     /// REPORT is the house kit's Report button (Help > Send Report… is the same sheet), in the window's own chip look.
-    private var footer: some View {
-        HStack(spacing: Theme.S.l) {
+    var body: some View {
+        HStack(spacing: FooterMetrics.spacing) {
             RecentLink(state: state, action: actions.showRecents)
             if state.surface.showsSettings {
                 FooterChip(title: "SETTINGS", label: "Settings", action: actions.settings).helpTip(HelpText.settings)
@@ -209,8 +218,26 @@ struct FaceplateFace: View {
             AdvancedBox(on: state.advanced, action: actions.toggleAdvanced)
         }
         // clear of the corner screws, on the LCD's text edge
-        .padding(.horizontal, Theme.S.lcd)
+        .padding(.horizontal, FooterMetrics.inset)
         .frame(height: Theme.H.xs)
     }
 }
 
+/// The footer row's measures, in one place (the row and its layout test read the same numbers).
+enum FooterMetrics {
+    /// Between neighbouring items (8 within a group; 16 no longer fits six items between the screws, J 2026-11-22).
+    static let spacing: CGFloat = Theme.S.s
+    /// From the plate's content edge to the first / last item: the LCD's text edge, which clears the
+    /// plate's bottom corner screws (PlateGeometry.screwRects).
+    static let inset: CGFloat = Theme.S.lcd
+    /// The items left to right (the spacer before ADVANCED aside), as (title, width).
+    static func items(settings: Bool) -> [(title: String, width: CGFloat)] {
+        var a: [(String, CGFloat)] = [(RecentLink.title, FooterChip.width(RecentLink.title))]
+        if settings { a.append(("SETTINGS", FooterChip.width("SETTINGS"))) }
+        a.append(("COLOR", FooterChip.width("COLOR", swatch: true)))
+        a.append(("REPORT", FooterChip.width("REPORT")))
+        a.append(("HELP", FooterChip.width("HELP")))
+        a.append((AdvancedBox.label, AdvancedBox.width))
+        return a
+    }
+}
