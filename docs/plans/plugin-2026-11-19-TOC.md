@@ -1,5 +1,7 @@
 # Beat Key plug-in — TOC (plan: plugin-2026-11-19.md)
 
+[SUPERSEDED 2026-11-22: boxes below are stale. Plug-in (face, AAX, AudioSuite, DOWNLOAD, installer/updates, Manual/What's New/Licenses) shipped in 0.1.80/0.1.81 and was tested on Studio D 2026-11-20; see PICKUP.]
+
 Read once before step 1: §V (J's words), §L (licence), §A (architecture), §S (the two buttons). J's open answers: §Q (work goes ahead on the defaults).
 Steps 3-6 (core) and 7-8 (shims) can run side by side. Steps 9-11 and 16 touch `app/`: after the finish plan's app edits are merged.
 

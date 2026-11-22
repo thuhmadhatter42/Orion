@@ -1,6 +1,6 @@
 {
   "title": "beat_dl — the whole job",
-  "subtitle": "YouTube → MP3 with BPM/key tagging, March 2026 → now. Refresh: edit tracker.json, then python3 ~/.claude/skills/progress-tracker/build_tracker.py tracker.json",
+  "subtitle": "[SUPERSEDED 2026-11-22: stale since 2026-10-28; live state is PICKUP.md] YouTube → MP3 with BPM/key tagging, March 2026 → now. Refresh: edit tracker.json, then python3 ~/.claude/skills/progress-tracker/build_tracker.py tracker.json",
   "stamp": "2026-10-28 22:30",
   "statuses": [
     {
