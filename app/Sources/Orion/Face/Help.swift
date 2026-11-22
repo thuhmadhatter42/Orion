@@ -290,15 +290,14 @@ enum HelpTipLogic {
         var covers: CGFloat
     }
 
-    /// The same as `cardOrigin(cursor:card:in:)`, but the card never covers the hovered control or
-    /// any other control or readable part (J 2026-11-17: DOWNLOAD's card covered ANALYZE, then
-    /// SEND TO AUTO-TUNE's covered itself, EXPORT MIDI, HELP and ADVANCED, PREVIOUS FILE's covered
-    /// "3 OF 3"). `control` is the hovered control's frame, `others` every frame the card avoids.
-    /// The card follows the mouse as before when that covers nothing; otherwise it takes the
-    /// clearest spot anywhere on the surface (next to the hovered control first, then the empty
-    /// parts of the panel), and when no spot is fully clear, the one that covers least. Never the
-    /// pointer, always inside the surface. The spot depends only on the control, so the card holds
-    /// still while the mouse moves inside it.
+    /// The same as `cardOrigin(cursor:card:in:)`, but the card never covers the hovered control and
+    /// prefers not to cover the others (J 2026-11-17: DOWNLOAD's card covered ANALYZE, then
+    /// SEND TO AUTO-TUNE's covered itself, EXPORT MIDI, HELP and ADVANCED). `control` is the
+    /// hovered control's frame, `others` every frame the card would rather keep off.
+    /// J 2026-11-22: the card stays next to the pointer. It sits down-right of it when that covers
+    /// nothing; otherwise it tries only the spots adjacent to the pointer / the hovered control
+    /// and takes the one covering least (a neighbour may be covered when nothing adjacent is
+    /// clear, like any tooltip). Never the pointer or the hovered control, always inside the surface.
     static func cardOrigin(cursor p: CGPoint, card: CGSize, in bounds: CGSize,
                            control: CGRect, avoiding others: [CGRect]) -> CGPoint {
         var side = FollowSide()
@@ -308,8 +307,9 @@ enum HelpTipLogic {
     /// `follow` = a hover card over a big surface (the key wheel): the card sits next to the mouse
     /// and nothing else decides where it goes (the hovered "control" is the whole wheel; keeping
     /// off it threw the card above or below it, b982707). Without `follow` (help mode's
-    /// tips over buttons) the card also keeps off the hovered control and its neighbours, so a
-    /// tip never covers its own button. `side` is the card's remembered side (hysteresis).
+    /// tips over buttons) the card also keeps off the hovered control, and off its neighbours
+    /// where an adjacent spot allows, so a tip never covers its own button.
+    /// `side` is the card's remembered side (hysteresis).
     static func plan(cursor p: CGPoint, card: CGSize, in bounds: CGSize,
                      control: CGRect, avoiding others: [CGRect],
                      follow: Bool = false, side: inout FollowSide) -> Plan {
@@ -320,77 +320,37 @@ enum HelpTipLogic {
         let blocked = blockers(others, control: control)
         let baseCovers = coverage(CGRect(origin: base, size: card), control: control, blockers: blocked)
         if baseCovers == 0 { return Plan(origin: base, covers: 0) }
-        let key = SpotKey(card: card, bounds: bounds, control: control, blockers: blocked)
-        var best = spotCache.lookup(key) ?? {
-            let found = bestSpot(card: card, bounds: bounds, control: control, blockers: blocked, keepOff: nil)
-            spotCache.store(key, found)
-            return found
-        }()
-        if CGRect(origin: best.origin, size: card).intersects(cursorRect(p)) {
-            best = bestSpot(card: card, bounds: bounds, control: control, blockers: blocked, keepOff: cursorRect(p))
-        }
-        return best.covers < baseCovers ? best : Plan(origin: base, covers: baseCovers)
-    }
-
-    /// One placement search's inputs (the cache's key).
-    struct SpotKey: Equatable {
-        let card: CGSize
-        let bounds: CGSize
-        let control: CGRect
-        let blockers: [CGRect]
-    }
-
-    /// The last search's answer: a mouse move inside one control asks the same question again.
-    private final class SpotCache {
-        private let lock = NSLock()
-        private var key: SpotKey?
-        private var plan: Plan?
-        func lookup(_ k: SpotKey) -> Plan? {
-            lock.lock(); defer { lock.unlock() }
-            return key == k ? plan : nil
-        }
-        func store(_ k: SpotKey, _ p: Plan) {
-            lock.lock(); key = k; plan = p; lock.unlock()
-        }
-    }
-    private static let spotCache = SpotCache()
-
-    /// The best spot over every origin worth trying: flush to each control's edges and to the
-    /// surface's margins, so a card tucks into whatever gap there is. Least covered first; among
-    /// equals the closest to the hovered control (a small pull, never worth covering something).
-    static func bestSpot(card: CGSize, bounds: CGSize, control: CGRect, blockers: [CGRect],
-                         keepOff: CGRect?) -> Plan {
+        // J 2026-11-22: the card stays next to the pointer, never across the surface (the 11-17 rule,
+        // "never cover another control", threw it up to the header). When down-right of the pointer
+        // covers something, try only the spots touching the pointer / the hovered control: just
+        // below or just above the control at the pointer's x (either side of the pointer), and just
+        // right or left of the control at the pointer's y. Never over the control or the pointer.
+        // Take the one covering least, the nearest to the pointer among equals; when nothing there
+        // is clear the card covers a neighbour (a normal tooltip) and logCrowded says so.
         let m = margin, w = card.width, h = card.height
-        let maxX = max(m, bounds.width - w - m), maxY = max(m, bounds.height - h - m)
-        func clampX(_ x: CGFloat) -> CGFloat { min(max(x, m), maxX) }
-        func clampY(_ y: CGFloat) -> CGFloat { min(max(y, m), maxY) }
-        var xs: Set<CGFloat> = [m, maxX, clampX(control.midX - w / 2)]
-        var ys: Set<CGFloat> = [m, maxY, clampY(control.midY - h / 2)]
-        for r in blockers + [control] {
-            let c = solid(r)    // flush to a control's solid edge fits a card into a gap the margin would waste
-            for x in [r.minX - gap - w, r.maxX + gap, r.minX, r.maxX - w, r.midX - w / 2, c.minX - w, c.maxX] {
-                xs.insert(clampX(x).rounded(.toNearestOrEven))
-            }
-            for y in [r.minY - gap - h, r.maxY + gap, r.minY, r.maxY - h, r.midY - h / 2, c.minY - h, c.maxY] {
-                ys.insert(clampY(y).rounded(.toNearestOrEven))
+        func clampX(_ x: CGFloat) -> CGFloat { min(max(x, m), max(m, bounds.width - w - m)) }
+        func clampY(_ y: CGFloat) -> CGFloat { min(max(y, m), max(m, bounds.height - h - m)) }
+        let off = cursorOffset
+        let xs = [clampX(p.x + off.width), clampX(p.x - 8 - w)]
+        let ys = [clampY(p.y + off.height), clampY(p.y - 6 - h)]
+        var spots: [CGPoint] = []
+        for y in [clampY(control.maxY + gap), clampY(control.minY - gap - h)] { for x in xs { spots.append(CGPoint(x: x, y: y)) } }
+        for x in [clampX(control.maxX + gap), clampX(control.minX - gap - w)] { for y in ys { spots.append(CGPoint(x: x, y: y)) } }
+        func distance(_ r: CGRect) -> CGFloat {     // the card's nearest edge to the pointer
+            hypot(max(r.minX - p.x, 0, p.x - r.maxX), max(r.minY - p.y, 0, p.y - r.maxY))
+        }
+        let pointer = cursorRect(p)
+        var best = Plan(origin: base, covers: baseCovers)
+        var bestDistance = distance(CGRect(origin: base, size: card))
+        for o in spots {
+            let r = CGRect(origin: o, size: card)
+            if r.intersects(pointer) || r.intersects(control) { continue }
+            let c = coverage(r, control: control, blockers: blocked), d = distance(r)
+            if c < best.covers - 1e-9 || (abs(c - best.covers) <= 1e-9 && d < bestDistance - 0.5) {
+                best = Plan(origin: o, covers: c); bestDistance = d
             }
         }
-        for x in stride(from: m, through: maxX, by: 6) { xs.insert(x) }     // open panel anywhere
-        for y in stride(from: m, through: maxY, by: 6) { ys.insert(y) }
-        let reach = hypot(bounds.width, bounds.height)
-        var best: (plan: Plan, score: CGFloat)?
-        for y in ys {
-            for x in xs {
-                let r = CGRect(x: x, y: y, width: w, height: h)
-                if let k = keepOff, r.intersects(k) { continue }
-                let covers = coverage(r, control: control, blockers: blockers)
-                var score = covers + 0.3 * hypot(r.midX - control.midX, r.midY - control.midY) / reach
-                // a clear card with room around it beats one squeezed against a neighbour
-                if covers == 0, coverage(r.insetBy(dx: -gap, dy: -gap), control: control, blockers: blockers) > 0 { score += 0.05 }
-                if best == nil || score < best!.score - 1e-9 { best = (Plan(origin: CGPoint(x: x, y: y), covers: covers), score) }
-            }
-        }
-        return best?.plan ?? Plan(origin: CGPoint(x: clampX(control.maxX + gap), y: clampY(control.minY)), covers: .infinity)
+        return best
     }
 
     /// Cards that had no clear spot, logged once per tip and surface size (a hover would repeat it).
@@ -402,7 +362,7 @@ enum HelpTipLogic {
         guard plan.covers > 0 else { return }
         let key = "\(tip)|\(Int(bounds.width))x\(Int(bounds.height))|\(Int(card.height))"
         guard loggedCrowded.insert(key).inserted else { return }
-        AppLog.log("help card \"\(tip)\": no clear spot on a \(Int(bounds.width))x\(Int(bounds.height)) surface for a "
+        AppLog.log("help card \"\(tip)\": no clear spot next to the pointer on a \(Int(bounds.width))x\(Int(bounds.height)) surface for a "
                    + "\(Int(card.width))x\(Int(card.height)) card; placed at \(Int(plan.origin.x)),\(Int(plan.origin.y)) "
                    + "covering the least (cost \(String(format: "%.2f", Double(plan.covers))))")
     }
