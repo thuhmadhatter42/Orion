@@ -1,0 +1,679 @@
+{
+ "title": "Beat Key help text proofread",
+ "key": "beatkey-helptips-0.1.81-a",
+ "eyebrow": "Beat Key · every help box",
+ "intro": "<p>Every help box in Beat Key 0.1.81 (app, pocket and plug-in share one table): 81 lines. Mark each <b>OK</b> or <b>Fix</b>; type the wording you want (or what's wrong) in the notes box. <b>Huh?</b> = you can't tell what it means. The inversion line already shows tonight's fix (not shipped yet).</p>",
+ "answers": [
+  [
+   "pass",
+   "OK",
+   "o"
+  ],
+  [
+   "fail",
+   "Fix",
+   "f"
+  ],
+  [
+   "explain",
+   "Huh?",
+   "h"
+  ],
+  [
+   "skip",
+   "Skip",
+   "s"
+  ]
+ ],
+ "items": [
+  {
+   "section": "Window and pocket: the readout",
+   "id": "t01",
+   "title": "READOUT",
+   "do": "Hover READOUT with HELP on.",
+   "see": "Paste, open or listen to read a beat.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: the readout",
+   "id": "t02",
+   "title": "BPM",
+   "do": "Hover BPM with HELP on.",
+   "see": "Click: normal, double or half time.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: the readout",
+   "id": "t03",
+   "title": "×0.5 · ×1 · ×2",
+   "do": "Hover ×0.5 · ×1 · ×2 with HELP on.",
+   "see": "Halve or double the BPM.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: the readout",
+   "id": "t04",
+   "title": "KEY",
+   "do": "Hover KEY with HELP on.",
+   "see": "Key heard. Ring and % show how sure.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: the readout",
+   "id": "t05",
+   "title": "LOCKED · UNSURE",
+   "do": "Hover LOCKED · UNSURE with HELP on.",
+   "see": "LOCKED = sure. UNSURE = close call.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: the readout",
+   "id": "t06",
+   "title": "TOP KEYS",
+   "do": "Hover TOP KEYS with HELP on.",
+   "see": "Three likeliest keys. Click to pin, again to unpin.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: the readout",
+   "id": "t07",
+   "title": "MANUAL",
+   "do": "Hover MANUAL with HELP on.",
+   "see": "Pin any of the 24 keys.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: the readout",
+   "id": "t08",
+   "title": "PINNED KEY",
+   "do": "Hover PINNED KEY with HELP on.",
+   "see": "Click to unpin.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: the readout",
+   "id": "t09",
+   "title": "KEYBOARD",
+   "do": "Hover KEYBOARD with HELP on.",
+   "see": "Play A W S E D F T G Y H U J K. Z X: octave.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: the readout",
+   "id": "t10",
+   "title": "SCALE",
+   "do": "Hover SCALE with HELP on.",
+   "see": "The key's seven notes.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: the readout",
+   "id": "t11",
+   "title": "TUNING",
+   "do": "Hover TUNING with HELP on.",
+   "see": "Cents off standard pitch. Green = in tune.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: the readout",
+   "id": "t12",
+   "title": "CAMELOT",
+   "do": "Hover CAMELOT with HELP on.",
+   "see": "Camelot code for DJ mixing.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: the readout",
+   "id": "t13",
+   "title": "FILE",
+   "do": "Hover FILE with HELP on.",
+   "see": "File read, and its folder.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: the readout",
+   "id": "t14",
+   "title": "SHOW IN FINDER",
+   "do": "Hover SHOW IN FINDER with HELP on.",
+   "see": "Reveal the file in Finder.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: the readout",
+   "id": "t15",
+   "title": "PREVIOUS FILE",
+   "do": "Hover PREVIOUS FILE with HELP on.",
+   "see": "Previous file (←)",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: the readout",
+   "id": "t16",
+   "title": "NEXT FILE",
+   "do": "Hover NEXT FILE with HELP on.",
+   "see": "Next file (→)",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: the readout",
+   "id": "t17",
+   "title": "STATUS",
+   "do": "Hover STATUS with HELP on.",
+   "see": "READY, WORKING, FAILED or LIVE.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: getting audio in",
+   "id": "t18",
+   "title": "LINK",
+   "do": "Hover LINK with HELP on.",
+   "see": "Paste a YouTube link.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: getting audio in",
+   "id": "t19",
+   "title": "DOWNLOAD",
+   "do": "Hover DOWNLOAD with HELP on.",
+   "see": "Get MP3, BPM and key. Empty field: clipboard link.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: getting audio in",
+   "id": "t20",
+   "title": "LOG IN TO YOUTUBE",
+   "do": "Hover LOG IN TO YOUTUBE with HELP on.",
+   "see": "Open YouTube sign-in. Login stays on this Mac.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: getting audio in",
+   "id": "t21",
+   "title": "OPEN AUDIO",
+   "do": "Hover OPEN AUDIO with HELP on.",
+   "see": "Choose or drop audio files, any number.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: getting audio in",
+   "id": "t22",
+   "title": "FIND KEY/BPM",
+   "do": "Hover FIND KEY/BPM with HELP on.",
+   "see": "Get BPM and key. Arrows page files.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: getting audio in",
+   "id": "t23",
+   "title": "SOURCE",
+   "do": "Hover SOURCE with HELP on.",
+   "see": "System audio or an input. Meter shows level.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: getting audio in",
+   "id": "t24",
+   "title": "LISTEN",
+   "do": "Hover LISTEN with HELP on.",
+   "see": "Live BPM and key. Nothing recorded or saved.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: getting audio in",
+   "id": "t25",
+   "title": "HOLD",
+   "do": "Hover HOLD with HELP on.",
+   "see": "Freeze the reading. Click again to follow.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: getting audio in",
+   "id": "t26",
+   "title": "NEW SONG",
+   "do": "Hover NEW SONG with HELP on.",
+   "see": "Clear the listen reading, start fresh.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: sending",
+   "id": "t27",
+   "title": "SEND TO DAW",
+   "do": "Hover SEND TO DAW with HELP on.",
+   "see": "Send BPM and key to the open DAW.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: sending",
+   "id": "t28",
+   "title": "SEND TO AUTO-TUNE",
+   "do": "Hover SEND TO AUTO-TUNE with HELP on.",
+   "see": "Set key in Auto-Tune, Tune Real-Time (⌃⌥⌘A)",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Window and pocket: sending",
+   "id": "t29",
+   "title": "EXPORT MIDI",
+   "do": "Hover EXPORT MIDI with HELP on.",
+   "see": "MIDI file with tempo and key.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Menu bar pocket only",
+   "id": "t30",
+   "title": "ANALYZE FILE",
+   "do": "Hover ANALYZE FILE with HELP on.",
+   "see": "Pick audio files, get BPM and key.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Menu bar pocket only",
+   "id": "t31",
+   "title": "WINDOW",
+   "do": "Hover WINDOW with HELP on.",
+   "see": "Open the full window.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Menu bar pocket only",
+   "id": "t32",
+   "title": "QUIT",
+   "do": "Hover QUIT with HELP on.",
+   "see": "Quit Beat Key.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Footer",
+   "id": "t33",
+   "title": "RECENT",
+   "do": "Hover RECENT with HELP on.",
+   "see": "Past readings. Pick one to bring it back.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Footer",
+   "id": "t34",
+   "title": "SETTINGS",
+   "do": "Hover SETTINGS with HELP on.",
+   "see": "Display, listen source, shortcuts, login.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Footer",
+   "id": "t35",
+   "title": "COLOR",
+   "do": "Hover COLOR with HELP on.",
+   "see": "Pick the display colour. Reset to Amber.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Footer",
+   "id": "t36",
+   "title": "REPORT",
+   "do": "Hover REPORT with HELP on.",
+   "see": "Send a report, log attached.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Footer",
+   "id": "t37",
+   "title": "ADVANCED",
+   "do": "Hover ADVANCED with HELP on.",
+   "see": "Add key wheel, chords, MATCH TO. First switch sets both.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Footer",
+   "id": "t38",
+   "title": "HELP",
+   "do": "Hover HELP with HELP on.",
+   "see": "Help on. Hover for tips. Click to turn off.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Advanced mode",
+   "id": "t39",
+   "title": "PITCH TO FIT",
+   "do": "Hover PITCH TO FIT with HELP on.",
+   "see": "Semitones to pitch the beat into your key.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Advanced mode",
+   "id": "t40",
+   "title": "KEY WHEEL",
+   "do": "Hover KEY WHEEL with HELP on.",
+   "see": "Circle of fifths. Click a key to pin it.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Advanced mode",
+   "id": "t41",
+   "title": "NOTES HEARD",
+   "do": "Hover NOTES HEARD with HELP on.",
+   "see": "Note strength. Dotted = in the scale.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Advanced mode",
+   "id": "t42",
+   "title": "CHORDS",
+   "do": "Hover CHORDS with HELP on.",
+   "see": "Click to hear. Drag to a DAW as MIDI.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Advanced mode",
+   "id": "t43",
+   "title": "TRIAD · 7TH · 9TH",
+   "do": "Hover TRIAD · 7TH · 9TH with HELP on.",
+   "see": "Chord size: 3 notes, add 7th, add 7th and 9th.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Advanced mode",
+   "id": "t44",
+   "title": "INVERSION",
+   "do": "Hover INVERSION with HELP on.",
+   "see": "Root position, 1st inversion, 2nd inversion. OPEN = spread.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Advanced mode",
+   "id": "t45",
+   "title": "BAR",
+   "do": "Hover BAR with HELP on.",
+   "see": "Bars per chord when dragged out as MIDI.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Advanced mode",
+   "id": "t46",
+   "title": "BORROWED",
+   "do": "Hover BORROWED with HELP on.",
+   "see": "Chords from the parallel major or minor.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Advanced mode",
+   "id": "t47",
+   "title": "MATCH TO",
+   "do": "Hover MATCH TO with HELP on.",
+   "see": "Pick your project's key. See the pitch to fit.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Advanced mode",
+   "id": "t48",
+   "title": "−6 … +6",
+   "do": "Hover −6 … +6 with HELP on.",
+   "see": "Semitones to pitch. The lit one fits.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Advanced mode",
+   "id": "t49",
+   "title": "MINI",
+   "do": "Hover MINI with HELP on.",
+   "see": "Small always-on-top chord pad. Plays over MIDI.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Beat Key Mini",
+   "id": "t50",
+   "title": "BEAT KEY MINI",
+   "do": "Hover BEAT KEY MINI with HELP on.",
+   "see": "Pads play MIDI in \"Beat Key\". Keys 1-7, Q W E R.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Beat Key Mini",
+   "id": "t51",
+   "title": "SOUND",
+   "do": "Hover SOUND with HELP on.",
+   "see": "Also play chords on Beat Key's piano.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Settings",
+   "id": "t52",
+   "title": "HIGH CONTRAST",
+   "do": "Hover HIGH CONTRAST with HELP on.",
+   "see": "Brighter text, no glow. Lamp shapes stay.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Settings",
+   "id": "t53",
+   "title": "LISTEN TO",
+   "do": "Hover LISTEN TO with HELP on.",
+   "see": "System audio or one input. Nothing saved.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Settings",
+   "id": "t54",
+   "title": "CHANNEL",
+   "do": "Hover CHANNEL with HELP on.",
+   "see": "Interface channel to read, or all.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Settings",
+   "id": "t55",
+   "title": "START OVER AFTER",
+   "do": "Hover START OVER AFTER with HELP on.",
+   "see": "Silence length that ends a song.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Settings",
+   "id": "t56",
+   "title": "FILE NAMES",
+   "do": "Hover FILE NAMES with HELP on.",
+   "see": "Add key + BPM to names. Pro Tools files always ask.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Settings",
+   "id": "t57",
+   "title": "OPEN AT LOGIN",
+   "do": "Hover OPEN AT LOGIN with HELP on.",
+   "see": "Start Beat Key at login.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Settings",
+   "id": "t58",
+   "title": "SHORTCUTS",
+   "do": "Hover SHORTCUTS with HELP on.",
+   "see": "Quick Keys: every shortcut. Click one, type new keys.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Permissions guide",
+   "id": "t59",
+   "title": "SET UP PERMISSIONS",
+   "do": "Hover SET UP PERMISSIONS with HELP on.",
+   "see": "Checks each permission. Menu: Set Up Permissions…",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Permissions guide",
+   "id": "t60",
+   "title": "SCREEN & SYSTEM AUDIO RECORDING",
+   "do": "Hover SCREEN & SYSTEM AUDIO RECORDING with HELP on.",
+   "see": "Hear Mac audio. Turn on Beat Key.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Permissions guide",
+   "id": "t61",
+   "title": "MICROPHONE",
+   "do": "Hover MICROPHONE with HELP on.",
+   "see": "Hear a mic or interface. Turn on Beat Key.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Permissions guide",
+   "id": "t62",
+   "title": "ACCESSIBILITY",
+   "do": "Hover ACCESSIBILITY with HELP on.",
+   "see": "Type BPM and key into your DAW. Turn on Beat Key.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Doctor",
+   "id": "t63",
+   "title": "RUN DOCTOR",
+   "do": "Hover RUN DOCTOR with HELP on.",
+   "see": "Check and repair downloader, ffmpeg, analyzer.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Doctor",
+   "id": "t64",
+   "title": "DOCTOR RESULT",
+   "do": "Hover DOCTOR RESULT with HELP on.",
+   "see": "OK · FIXED IT · FOUND A PROBLEM (see line below)",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Keys and shortcuts",
+   "id": "t65",
+   "title": "OCTAVE · Z X",
+   "do": "Hover OCTAVE · Z X with HELP on.",
+   "see": "Z octave down, X up. Link field empty.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Keys and shortcuts",
+   "id": "t66",
+   "title": "MAJOR / MINOR · SPACE",
+   "do": "Hover MAJOR / MINOR · SPACE with HELP on.",
+   "see": "Space flips the keyboard major/minor.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Keys and shortcuts",
+   "id": "t67",
+   "title": "PAGE FILES · ← →",
+   "do": "Hover PAGE FILES · ← → with HELP on.",
+   "see": "Arrows page files. Link field empty.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Keys and shortcuts",
+   "id": "t68",
+   "title": "AUTO-TUNE SHORTCUT",
+   "do": "Hover AUTO-TUNE SHORTCUT with HELP on.",
+   "see": "Send key to Auto-Tune (⌃⌥⌘A)",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Keys and shortcuts",
+   "id": "t69",
+   "title": "ADVANCED SHORTCUT",
+   "do": "Hover ADVANCED SHORTCUT with HELP on.",
+   "see": "Advanced on/off (⌥⌘A)",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Keys and shortcuts",
+   "id": "t70",
+   "title": "HELP WINDOW · ⌘?",
+   "do": "Hover HELP WINDOW · ⌘? with HELP on.",
+   "see": "Help › Beat Key Help. Help Mode: hover tips.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Key wheel hover (text changes with the reading)",
+   "id": "t71",
+   "title": "KEY WHEEL · Any wheel key, no reading yet.",
+   "do": "Any wheel key, no reading yet.",
+   "see": "Click to use it as the key.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Key wheel hover (text changes with the reading)",
+   "id": "t72",
+   "title": "KEY WHEEL · The key Beat Key picked.",
+   "do": "The key Beat Key picked.",
+   "see": "Beat Key's pick: the closest match to what it heard.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Key wheel hover (text changes with the reading)",
+   "id": "t73",
+   "title": "KEY WHEEL · Relative major/minor of the pick (example names).",
+   "do": "Relative major/minor of the pick (example names).",
+   "see": "The relative minor of Am: the same seven notes, so the two are easy to mix up.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Key wheel hover (text changes with the reading)",
+   "id": "t74",
+   "title": "KEY WHEEL · A neighbour key on the circle.",
+   "do": "A neighbour key on the circle.",
+   "see": "Next to Am on the circle of fifths. They differ by one note, so they fit together.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Key wheel hover (text changes with the reading)",
+   "id": "t75",
+   "title": "KEY WHEEL · Parallel major/minor.",
+   "do": "Parallel major/minor.",
+   "see": "Same root as Am, but major. Three notes differ.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Key wheel hover (text changes with the reading)",
+   "id": "t76",
+   "title": "KEY WHEEL · Any far-away key (count changes).",
+   "do": "Any far-away key (count changes).",
+   "see": "Shares 4 of 7 notes with Am, so it clashes.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Key wheel hover (text changes with the reading)",
+   "id": "t77",
+   "title": "KEY WHEEL · The key you pinned.",
+   "do": "The key you pinned.",
+   "see": "Pinned. Click to unpin.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Plain Mac tooltips (show without HELP on)",
+   "id": "t78",
+   "title": "QUICK KEYS · NO SHORTCUT",
+   "do": "Quick Keys window, the clear button.",
+   "see": "Leave this action without a shortcut",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Plain Mac tooltips (show without HELP on)",
+   "id": "t79",
+   "title": "REPORT · SAVE",
+   "do": "Report window, save button.",
+   "see": "Save the report as a folder.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Plain Mac tooltips (show without HELP on)",
+   "id": "t80",
+   "title": "REPORT BUTTON",
+   "do": "Report button.",
+   "see": "Send a report, log attached.",
+   "format": "app + plug-in"
+  },
+  {
+   "section": "Plain Mac tooltips (show without HELP on)",
+   "id": "t81",
+   "title": "MENU BAR ITEM",
+   "do": "Hover the Beat Key item in the menu bar.",
+   "see": "No reading yet  /  Nothing read  /  Key Am · 120 BPM · Manual",
+   "format": "app + plug-in"
+  }
+ ],
+ "legend": "<div class=\"legend\">Tab to a row, then <b>O</b> OK · <b>F</b> Fix · <b>H</b> Huh? · <b>S</b> Skip (same key again clears it). Type the wording you want in the notes box.</div>"
+}

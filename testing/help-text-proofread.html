@@ -1,0 +1,308 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Beat Key help text proofread</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+</head><body><style>
+:root{
+  --bg:#f3f2ef; --panel:#ffffff; --panel2:#e9e8e4; --line:#cfcdc7; --ink:#17191c; --ink2:#5a5e63; --dim:#8a8f95;
+  --acc:#4a1f63; --acc-ink:#ffffff; --fill-ink:#ffffff;
+  --pass:#2f7d4f; --fail:#b23a3a; --skip:#8a6d1f; --discuss:#1d6f7d; --explain:#4a4fa6;
+  --pass-bg:#e3f1e8; --fail-bg:#f6e1e1; --skip-bg:#f4ecd6; --discuss-bg:#dceff2; --explain-bg:#e6e7f8;
+  --focus:#7b3fa0;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#111214; --panel:#17191c; --panel2:#1c1e21; --line:#35383c; --ink:#e8ebee; --ink2:#b3b8be; --dim:#8a8f95;
+  --acc:#3d1a52; --acc-ink:#EAE0CE; --fill-ink:#0f1113;
+  --pass:#6fd39a; --fail:#f08a8a; --skip:#e3c266; --discuss:#5fc8d8; --explain:#9aa8f5;
+  --pass-bg:#173125; --fail-bg:#3a1c1c; --skip-bg:#332b14; --discuss-bg:#102f35; --explain-bg:#1c1f3c;
+  --focus:#b48ad4;
+}}
+:root[data-theme="dark"]{
+  --bg:#111214; --panel:#17191c; --panel2:#1c1e21; --line:#35383c; --ink:#e8ebee; --ink2:#b3b8be; --dim:#8a8f95;
+  --acc:#3d1a52; --acc-ink:#EAE0CE; --fill-ink:#0f1113;
+  --pass:#6fd39a; --fail:#f08a8a; --skip:#e3c266; --discuss:#5fc8d8; --explain:#9aa8f5;
+  --pass-bg:#173125; --fail-bg:#3a1c1c; --skip-bg:#332b14; --discuss-bg:#102f35; --explain-bg:#1c1f3c;
+  --focus:#b48ad4;
+}
+*{box-sizing:border-box}
+html{scrollbar-color:var(--line) var(--bg);scrollbar-width:thin}
+::selection{background:var(--acc);color:var(--acc-ink)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "IBM Plex Sans",Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;padding-block:0 60px;padding-inline:clamp(16px,4vw,40px)}
+.wrap{max-width:1040px;margin:0 auto}
+
+/* ---- header ---- */
+header{padding-block:22px 14px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px 26px;align-items:flex-end}
+h1{font:700 30px/1 "Barlow Condensed",Helvetica,Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;margin:0}
+h1 small{display:block;font:600 12px/1.4 "Barlow Condensed",sans-serif;letter-spacing:.14em;color:var(--dim);margin-bottom:5px}
+.tally{display:flex;flex-wrap:wrap;align-items:baseline;gap:3px 7px;
+  font:500 12px/1.5 "IBM Plex Mono",monospace;color:var(--dim);font-variant-numeric:tabular-nums}
+.tally span{display:inline-flex;align-items:baseline;gap:4px;white-space:nowrap}
+.tally span+span::before{content:"·";color:var(--line);margin-right:3px}
+.tally b{font-weight:600;font-size:13px}
+.tally .pass b{color:var(--pass)} .tally .fail b{color:var(--fail)} .tally .skip b{color:var(--skip)}
+.tally .discuss b{color:var(--discuss)} .tally .explain b{color:var(--explain)}
+.tally .zero{opacity:.45}
+.tally .done{color:var(--ink)}
+.save{margin-left:auto;font:400 12px/1 "IBM Plex Mono",monospace;color:var(--dim)}
+.save.on{color:var(--pass)}
+.save.bad{color:var(--fail);font-weight:700}
+
+/* ---- intro + legend ---- */
+.intro{padding-block:14px 0;color:var(--ink2);max-width:70ch}
+.intro a{color:var(--focus)}
+.legend{margin:12px 0 0;padding:9px 12px;border:1px solid var(--line);border-radius:3px;background:var(--panel);max-width:86ch}
+.legend p{margin:0;font:400 12.5px/1.55 "IBM Plex Sans",Helvetica,Arial,sans-serif;color:var(--ink2)}
+.legend p+p{margin-top:4px;color:var(--dim)}
+.legend b{font-weight:600;color:var(--ink)}
+kbd{font:600 11px/1 "IBM Plex Mono",monospace;padding:3px 5px;margin-right:1px;border:1px solid var(--line);
+  border-radius:3px;background:var(--panel2);color:var(--ink);text-transform:uppercase}
+
+/* ---- section band ---- */
+h2{font:700 12px/1.25 "Barlow Condensed",sans-serif;letter-spacing:.18em;text-transform:uppercase;color:var(--ink2);
+  margin:24px 0 8px;padding:7px 12px;background:var(--panel2);border:1px solid var(--line);border-radius:3px}
+
+/* ---- row ---- */
+.item{display:grid;grid-template-columns:32px 1fr;gap:0 12px;padding:11px 0 13px;border-bottom:1px solid var(--line)}
+.item.pass{background:linear-gradient(90deg,var(--pass-bg),transparent 32%)}
+.item.fail{background:linear-gradient(90deg,var(--fail-bg),transparent 32%)}
+.item.skip{background:linear-gradient(90deg,var(--skip-bg),transparent 32%)}
+.item.discuss{background:linear-gradient(90deg,var(--discuss-bg),transparent 32%)}
+.item.explain{background:linear-gradient(90deg,var(--explain-bg),transparent 32%)}
+.num{font:600 17px/1.35 "Barlow Condensed",sans-serif;color:var(--dim);text-align:right;
+  font-variant-numeric:tabular-nums}
+.item:focus-within .num{color:var(--focus)}
+.head{display:flex;flex-wrap:wrap;gap:5px 10px;align-items:center;min-height:32px}
+.title{flex:0 1 auto;min-width:0;font-weight:600;font-size:16px;line-height:1.3;text-wrap:balance}
+.fmt{flex:0 0 auto;font:600 11px/1 "Barlow Condensed",sans-serif;letter-spacing:.12em;text-transform:uppercase;
+  padding:4px 7px;border:1px solid var(--line);border-radius:2px;color:var(--ink2);background:var(--panel2)}
+.fmt.hot{border-color:var(--acc);color:var(--acc-ink);background:var(--acc)}
+.do,.see{margin:0;padding-left:34px;text-indent:-34px;max-width:78ch;font-size:14px;line-height:1.45;text-wrap:pretty}
+.do{margin-top:6px}
+.see{margin-top:3px;color:var(--ink2)}
+.do b,.see b{display:inline-block;width:30px;margin-right:4px;text-indent:0;
+  font:600 11px/1.45 "Barlow Condensed",sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+
+/* ---- answers ---- */
+.st{flex:0 0 auto;margin-left:auto;display:flex;border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.st button{display:inline-flex;align-items:center;justify-content:center;min-height:32px;
+  font:600 12px/1 "Barlow Condensed",sans-serif;letter-spacing:.1em;text-transform:uppercase;
+  background:var(--panel);color:var(--ink2);border:0;border-right:1px solid var(--line);padding:0 11px;cursor:pointer}
+.st button:last-child{border-right:0}
+.st button:hover{background:var(--panel2);color:var(--ink)}
+.st button.on{color:var(--fill-ink)}
+.st button.on:hover{color:var(--fill-ink)}
+.st button.pass.on,.st button.pass.on:hover{background:var(--pass)}
+.st button.fail.on,.st button.fail.on:hover{background:var(--fail)}
+.st button.skip.on,.st button.skip.on:hover{background:var(--skip)}
+.st button.discuss.on,.st button.discuss.on:hover{background:var(--discuss)}
+.st button.explain.on,.st button.explain.on:hover{background:var(--explain)}
+button:focus-visible,textarea:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+
+/* ---- notes ---- */
+.nt{display:block;width:100%;height:36px;min-height:36px;margin-top:7px;overflow:hidden;resize:none;
+  font:14px/1.45 "IBM Plex Sans",Helvetica,Arial,sans-serif;color:var(--ink);caret-color:var(--focus);
+  background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:6px 9px}
+.nt::placeholder{color:var(--dim)}
+.nt:focus{border-color:var(--focus)}
+
+/* ---- tail ---- */
+.owed{margin-top:28px;padding:13px 15px;border:1px dashed var(--line);border-radius:3px;color:var(--ink2);max-width:74ch}
+.owed b{color:var(--ink)}
+.foot{margin-top:26px;font:400 12px/1.5 "IBM Plex Mono",monospace;color:var(--dim);max-width:74ch}
+@media (max-width:560px){
+  .item{grid-template-columns:1fr}
+  .num{text-align:left}
+  .st{margin-left:0}
+}
+@media (prefers-reduced-motion:no-preference){
+  .item{transition:background .25s}
+  .st button{transition:background .12s,color .12s}
+  .nt{transition:height .18s cubic-bezier(.16,1,.3,1),border-color .12s}
+}
+</style>
+
+<div class="wrap">
+<header>
+  <h1><small>Beat Key · every help box</small>Beat Key help text proofread</h1>
+  <div class="tally" id="tally"></div>
+  <div class="save" id="saveState">checking disk…</div><button id="exp" class="fmt" style="cursor:pointer">Export notes</button>
+</header>
+
+<p class="intro"><p>Every help box in Beat Key 0.1.81 (app, pocket and plug-in share one table): 81 lines. Mark each <b>OK</b> or <b>Fix</b>; type the wording you want (or what's wrong) in the notes box. <b>Huh?</b> = you can't tell what it means. The inversion line already shows tonight's fix (not shipped yet).</p></p>
+
+<div class="legend">Tab to a row, then <b>O</b> OK · <b>F</b> Fix · <b>H</b> Huh? · <b>S</b> Skip (same key again clears it). Type the wording you want in the notes box.</div>
+
+<div id="list"></div>
+
+
+
+<p class="foot" id="foot">Notes save on every keystroke to this browser AND to disk beside this file (when opened via make.py --launch). Export still writes a copy you can hand me directly.</p>
+</div>
+
+<script>
+const ITEMS = [{"s": "Window and pocket: the readout", "id": "t01", "fmt": "app + plug-in", "hot": false, "t": "READOUT", "d": "Hover READOUT with HELP on.", "e": "Paste, open or listen to read a beat."}, {"s": "Window and pocket: the readout", "id": "t02", "fmt": "app + plug-in", "hot": false, "t": "BPM", "d": "Hover BPM with HELP on.", "e": "Click: normal, double or half time."}, {"s": "Window and pocket: the readout", "id": "t03", "fmt": "app + plug-in", "hot": false, "t": "×0.5 · ×1 · ×2", "d": "Hover ×0.5 · ×1 · ×2 with HELP on.", "e": "Halve or double the BPM."}, {"s": "Window and pocket: the readout", "id": "t04", "fmt": "app + plug-in", "hot": false, "t": "KEY", "d": "Hover KEY with HELP on.", "e": "Key heard. Ring and % show how sure."}, {"s": "Window and pocket: the readout", "id": "t05", "fmt": "app + plug-in", "hot": false, "t": "LOCKED · UNSURE", "d": "Hover LOCKED · UNSURE with HELP on.", "e": "LOCKED = sure. UNSURE = close call."}, {"s": "Window and pocket: the readout", "id": "t06", "fmt": "app + plug-in", "hot": false, "t": "TOP KEYS", "d": "Hover TOP KEYS with HELP on.", "e": "Three likeliest keys. Click to pin, again to unpin."}, {"s": "Window and pocket: the readout", "id": "t07", "fmt": "app + plug-in", "hot": false, "t": "MANUAL", "d": "Hover MANUAL with HELP on.", "e": "Pin any of the 24 keys."}, {"s": "Window and pocket: the readout", "id": "t08", "fmt": "app + plug-in", "hot": false, "t": "PINNED KEY", "d": "Hover PINNED KEY with HELP on.", "e": "Click to unpin."}, {"s": "Window and pocket: the readout", "id": "t09", "fmt": "app + plug-in", "hot": false, "t": "KEYBOARD", "d": "Hover KEYBOARD with HELP on.", "e": "Play A W S E D F T G Y H U J K. Z X: octave."}, {"s": "Window and pocket: the readout", "id": "t10", "fmt": "app + plug-in", "hot": false, "t": "SCALE", "d": "Hover SCALE with HELP on.", "e": "The key's seven notes."}, {"s": "Window and pocket: the readout", "id": "t11", "fmt": "app + plug-in", "hot": false, "t": "TUNING", "d": "Hover TUNING with HELP on.", "e": "Cents off standard pitch. Green = in tune."}, {"s": "Window and pocket: the readout", "id": "t12", "fmt": "app + plug-in", "hot": false, "t": "CAMELOT", "d": "Hover CAMELOT with HELP on.", "e": "Camelot code for DJ mixing."}, {"s": "Window and pocket: the readout", "id": "t13", "fmt": "app + plug-in", "hot": false, "t": "FILE", "d": "Hover FILE with HELP on.", "e": "File read, and its folder."}, {"s": "Window and pocket: the readout", "id": "t14", "fmt": "app + plug-in", "hot": false, "t": "SHOW IN FINDER", "d": "Hover SHOW IN FINDER with HELP on.", "e": "Reveal the file in Finder."}, {"s": "Window and pocket: the readout", "id": "t15", "fmt": "app + plug-in", "hot": false, "t": "PREVIOUS FILE", "d": "Hover PREVIOUS FILE with HELP on.", "e": "Previous file (←)"}, {"s": "Window and pocket: the readout", "id": "t16", "fmt": "app + plug-in", "hot": false, "t": "NEXT FILE", "d": "Hover NEXT FILE with HELP on.", "e": "Next file (→)"}, {"s": "Window and pocket: the readout", "id": "t17", "fmt": "app + plug-in", "hot": false, "t": "STATUS", "d": "Hover STATUS with HELP on.", "e": "READY, WORKING, FAILED or LIVE."}, {"s": "Window and pocket: getting audio in", "id": "t18", "fmt": "app + plug-in", "hot": false, "t": "LINK", "d": "Hover LINK with HELP on.", "e": "Paste a YouTube link."}, {"s": "Window and pocket: getting audio in", "id": "t19", "fmt": "app + plug-in", "hot": false, "t": "DOWNLOAD", "d": "Hover DOWNLOAD with HELP on.", "e": "Get MP3, BPM and key. Empty field: clipboard link."}, {"s": "Window and pocket: getting audio in", "id": "t20", "fmt": "app + plug-in", "hot": false, "t": "LOG IN TO YOUTUBE", "d": "Hover LOG IN TO YOUTUBE with HELP on.", "e": "Open YouTube sign-in. Login stays on this Mac."}, {"s": "Window and pocket: getting audio in", "id": "t21", "fmt": "app + plug-in", "hot": false, "t": "OPEN AUDIO", "d": "Hover OPEN AUDIO with HELP on.", "e": "Choose or drop audio files, any number."}, {"s": "Window and pocket: getting audio in", "id": "t22", "fmt": "app + plug-in", "hot": false, "t": "FIND KEY/BPM", "d": "Hover FIND KEY/BPM with HELP on.", "e": "Get BPM and key. Arrows page files."}, {"s": "Window and pocket: getting audio in", "id": "t23", "fmt": "app + plug-in", "hot": false, "t": "SOURCE", "d": "Hover SOURCE with HELP on.", "e": "System audio or an input. Meter shows level."}, {"s": "Window and pocket: getting audio in", "id": "t24", "fmt": "app + plug-in", "hot": false, "t": "LISTEN", "d": "Hover LISTEN with HELP on.", "e": "Live BPM and key. Nothing recorded or saved."}, {"s": "Window and pocket: getting audio in", "id": "t25", "fmt": "app + plug-in", "hot": false, "t": "HOLD", "d": "Hover HOLD with HELP on.", "e": "Freeze the reading. Click again to follow."}, {"s": "Window and pocket: getting audio in", "id": "t26", "fmt": "app + plug-in", "hot": false, "t": "NEW SONG", "d": "Hover NEW SONG with HELP on.", "e": "Clear the listen reading, start fresh."}, {"s": "Window and pocket: sending", "id": "t27", "fmt": "app + plug-in", "hot": false, "t": "SEND TO DAW", "d": "Hover SEND TO DAW with HELP on.", "e": "Send BPM and key to the open DAW."}, {"s": "Window and pocket: sending", "id": "t28", "fmt": "app + plug-in", "hot": false, "t": "SEND TO AUTO-TUNE", "d": "Hover SEND TO AUTO-TUNE with HELP on.", "e": "Set key in Auto-Tune, Tune Real-Time (⌃⌥⌘A)"}, {"s": "Window and pocket: sending", "id": "t29", "fmt": "app + plug-in", "hot": false, "t": "EXPORT MIDI", "d": "Hover EXPORT MIDI with HELP on.", "e": "MIDI file with tempo and key."}, {"s": "Menu bar pocket only", "id": "t30", "fmt": "app + plug-in", "hot": false, "t": "ANALYZE FILE", "d": "Hover ANALYZE FILE with HELP on.", "e": "Pick audio files, get BPM and key."}, {"s": "Menu bar pocket only", "id": "t31", "fmt": "app + plug-in", "hot": false, "t": "WINDOW", "d": "Hover WINDOW with HELP on.", "e": "Open the full window."}, {"s": "Menu bar pocket only", "id": "t32", "fmt": "app + plug-in", "hot": false, "t": "QUIT", "d": "Hover QUIT with HELP on.", "e": "Quit Beat Key."}, {"s": "Footer", "id": "t33", "fmt": "app + plug-in", "hot": false, "t": "RECENT", "d": "Hover RECENT with HELP on.", "e": "Past readings. Pick one to bring it back."}, {"s": "Footer", "id": "t34", "fmt": "app + plug-in", "hot": false, "t": "SETTINGS", "d": "Hover SETTINGS with HELP on.", "e": "Display, listen source, shortcuts, login."}, {"s": "Footer", "id": "t35", "fmt": "app + plug-in", "hot": false, "t": "COLOR", "d": "Hover COLOR with HELP on.", "e": "Pick the display colour. Reset to Amber."}, {"s": "Footer", "id": "t36", "fmt": "app + plug-in", "hot": false, "t": "REPORT", "d": "Hover REPORT with HELP on.", "e": "Send a report, log attached."}, {"s": "Footer", "id": "t37", "fmt": "app + plug-in", "hot": false, "t": "ADVANCED", "d": "Hover ADVANCED with HELP on.", "e": "Add key wheel, chords, MATCH TO. First switch sets both."}, {"s": "Footer", "id": "t38", "fmt": "app + plug-in", "hot": false, "t": "HELP", "d": "Hover HELP with HELP on.", "e": "Help on. Hover for tips. Click to turn off."}, {"s": "Advanced mode", "id": "t39", "fmt": "app + plug-in", "hot": false, "t": "PITCH TO FIT", "d": "Hover PITCH TO FIT with HELP on.", "e": "Semitones to pitch the beat into your key."}, {"s": "Advanced mode", "id": "t40", "fmt": "app + plug-in", "hot": false, "t": "KEY WHEEL", "d": "Hover KEY WHEEL with HELP on.", "e": "Circle of fifths. Click a key to pin it."}, {"s": "Advanced mode", "id": "t41", "fmt": "app + plug-in", "hot": false, "t": "NOTES HEARD", "d": "Hover NOTES HEARD with HELP on.", "e": "Note strength. Dotted = in the scale."}, {"s": "Advanced mode", "id": "t42", "fmt": "app + plug-in", "hot": false, "t": "CHORDS", "d": "Hover CHORDS with HELP on.", "e": "Click to hear. Drag to a DAW as MIDI."}, {"s": "Advanced mode", "id": "t43", "fmt": "app + plug-in", "hot": false, "t": "TRIAD · 7TH · 9TH", "d": "Hover TRIAD · 7TH · 9TH with HELP on.", "e": "Chord size: 3 notes, add 7th, add 7th and 9th."}, {"s": "Advanced mode", "id": "t44", "fmt": "app + plug-in", "hot": false, "t": "INVERSION", "d": "Hover INVERSION with HELP on.", "e": "Root position, 1st inversion, 2nd inversion. OPEN = spread."}, {"s": "Advanced mode", "id": "t45", "fmt": "app + plug-in", "hot": false, "t": "BAR", "d": "Hover BAR with HELP on.", "e": "Bars per chord when dragged out as MIDI."}, {"s": "Advanced mode", "id": "t46", "fmt": "app + plug-in", "hot": false, "t": "BORROWED", "d": "Hover BORROWED with HELP on.", "e": "Chords from the parallel major or minor."}, {"s": "Advanced mode", "id": "t47", "fmt": "app + plug-in", "hot": false, "t": "MATCH TO", "d": "Hover MATCH TO with HELP on.", "e": "Pick your project's key. See the pitch to fit."}, {"s": "Advanced mode", "id": "t48", "fmt": "app + plug-in", "hot": false, "t": "−6 … +6", "d": "Hover −6 … +6 with HELP on.", "e": "Semitones to pitch. The lit one fits."}, {"s": "Advanced mode", "id": "t49", "fmt": "app + plug-in", "hot": false, "t": "MINI", "d": "Hover MINI with HELP on.", "e": "Small always-on-top chord pad. Plays over MIDI."}, {"s": "Beat Key Mini", "id": "t50", "fmt": "app + plug-in", "hot": false, "t": "BEAT KEY MINI", "d": "Hover BEAT KEY MINI with HELP on.", "e": "Pads play MIDI in \"Beat Key\". Keys 1-7, Q W E R."}, {"s": "Beat Key Mini", "id": "t51", "fmt": "app + plug-in", "hot": false, "t": "SOUND", "d": "Hover SOUND with HELP on.", "e": "Also play chords on Beat Key's piano."}, {"s": "Settings", "id": "t52", "fmt": "app + plug-in", "hot": false, "t": "HIGH CONTRAST", "d": "Hover HIGH CONTRAST with HELP on.", "e": "Brighter text, no glow. Lamp shapes stay."}, {"s": "Settings", "id": "t53", "fmt": "app + plug-in", "hot": false, "t": "LISTEN TO", "d": "Hover LISTEN TO with HELP on.", "e": "System audio or one input. Nothing saved."}, {"s": "Settings", "id": "t54", "fmt": "app + plug-in", "hot": false, "t": "CHANNEL", "d": "Hover CHANNEL with HELP on.", "e": "Interface channel to read, or all."}, {"s": "Settings", "id": "t55", "fmt": "app + plug-in", "hot": false, "t": "START OVER AFTER", "d": "Hover START OVER AFTER with HELP on.", "e": "Silence length that ends a song."}, {"s": "Settings", "id": "t56", "fmt": "app + plug-in", "hot": false, "t": "FILE NAMES", "d": "Hover FILE NAMES with HELP on.", "e": "Add key + BPM to names. Pro Tools files always ask."}, {"s": "Settings", "id": "t57", "fmt": "app + plug-in", "hot": false, "t": "OPEN AT LOGIN", "d": "Hover OPEN AT LOGIN with HELP on.", "e": "Start Beat Key at login."}, {"s": "Settings", "id": "t58", "fmt": "app + plug-in", "hot": false, "t": "SHORTCUTS", "d": "Hover SHORTCUTS with HELP on.", "e": "Quick Keys: every shortcut. Click one, type new keys."}, {"s": "Permissions guide", "id": "t59", "fmt": "app + plug-in", "hot": false, "t": "SET UP PERMISSIONS", "d": "Hover SET UP PERMISSIONS with HELP on.", "e": "Checks each permission. Menu: Set Up Permissions…"}, {"s": "Permissions guide", "id": "t60", "fmt": "app + plug-in", "hot": false, "t": "SCREEN & SYSTEM AUDIO RECORDING", "d": "Hover SCREEN & SYSTEM AUDIO RECORDING with HELP on.", "e": "Hear Mac audio. Turn on Beat Key."}, {"s": "Permissions guide", "id": "t61", "fmt": "app + plug-in", "hot": false, "t": "MICROPHONE", "d": "Hover MICROPHONE with HELP on.", "e": "Hear a mic or interface. Turn on Beat Key."}, {"s": "Permissions guide", "id": "t62", "fmt": "app + plug-in", "hot": false, "t": "ACCESSIBILITY", "d": "Hover ACCESSIBILITY with HELP on.", "e": "Type BPM and key into your DAW. Turn on Beat Key."}, {"s": "Doctor", "id": "t63", "fmt": "app + plug-in", "hot": false, "t": "RUN DOCTOR", "d": "Hover RUN DOCTOR with HELP on.", "e": "Check and repair downloader, ffmpeg, analyzer."}, {"s": "Doctor", "id": "t64", "fmt": "app + plug-in", "hot": false, "t": "DOCTOR RESULT", "d": "Hover DOCTOR RESULT with HELP on.", "e": "OK · FIXED IT · FOUND A PROBLEM (see line below)"}, {"s": "Keys and shortcuts", "id": "t65", "fmt": "app + plug-in", "hot": false, "t": "OCTAVE · Z X", "d": "Hover OCTAVE · Z X with HELP on.", "e": "Z octave down, X up. Link field empty."}, {"s": "Keys and shortcuts", "id": "t66", "fmt": "app + plug-in", "hot": false, "t": "MAJOR / MINOR · SPACE", "d": "Hover MAJOR / MINOR · SPACE with HELP on.", "e": "Space flips the keyboard major/minor."}, {"s": "Keys and shortcuts", "id": "t67", "fmt": "app + plug-in", "hot": false, "t": "PAGE FILES · ← →", "d": "Hover PAGE FILES · ← → with HELP on.", "e": "Arrows page files. Link field empty."}, {"s": "Keys and shortcuts", "id": "t68", "fmt": "app + plug-in", "hot": false, "t": "AUTO-TUNE SHORTCUT", "d": "Hover AUTO-TUNE SHORTCUT with HELP on.", "e": "Send key to Auto-Tune (⌃⌥⌘A)"}, {"s": "Keys and shortcuts", "id": "t69", "fmt": "app + plug-in", "hot": false, "t": "ADVANCED SHORTCUT", "d": "Hover ADVANCED SHORTCUT with HELP on.", "e": "Advanced on/off (⌥⌘A)"}, {"s": "Keys and shortcuts", "id": "t70", "fmt": "app + plug-in", "hot": false, "t": "HELP WINDOW · ⌘?", "d": "Hover HELP WINDOW · ⌘? with HELP on.", "e": "Help › Beat Key Help. Help Mode: hover tips."}, {"s": "Key wheel hover (text changes with the reading)", "id": "t71", "fmt": "app + plug-in", "hot": false, "t": "KEY WHEEL · Any wheel key, no reading yet.", "d": "Any wheel key, no reading yet.", "e": "Click to use it as the key."}, {"s": "Key wheel hover (text changes with the reading)", "id": "t72", "fmt": "app + plug-in", "hot": false, "t": "KEY WHEEL · The key Beat Key picked.", "d": "The key Beat Key picked.", "e": "Beat Key's pick: the closest match to what it heard."}, {"s": "Key wheel hover (text changes with the reading)", "id": "t73", "fmt": "app + plug-in", "hot": false, "t": "KEY WHEEL · Relative major/minor of the pick (example names).", "d": "Relative major/minor of the pick (example names).", "e": "The relative minor of Am: the same seven notes, so the two are easy to mix up."}, {"s": "Key wheel hover (text changes with the reading)", "id": "t74", "fmt": "app + plug-in", "hot": false, "t": "KEY WHEEL · A neighbour key on the circle.", "d": "A neighbour key on the circle.", "e": "Next to Am on the circle of fifths. They differ by one note, so they fit together."}, {"s": "Key wheel hover (text changes with the reading)", "id": "t75", "fmt": "app + plug-in", "hot": false, "t": "KEY WHEEL · Parallel major/minor.", "d": "Parallel major/minor.", "e": "Same root as Am, but major. Three notes differ."}, {"s": "Key wheel hover (text changes with the reading)", "id": "t76", "fmt": "app + plug-in", "hot": false, "t": "KEY WHEEL · Any far-away key (count changes).", "d": "Any far-away key (count changes).", "e": "Shares 4 of 7 notes with Am, so it clashes."}, {"s": "Key wheel hover (text changes with the reading)", "id": "t77", "fmt": "app + plug-in", "hot": false, "t": "KEY WHEEL · The key you pinned.", "d": "The key you pinned.", "e": "Pinned. Click to unpin."}, {"s": "Plain Mac tooltips (show without HELP on)", "id": "t78", "fmt": "app + plug-in", "hot": false, "t": "QUICK KEYS · NO SHORTCUT", "d": "Quick Keys window, the clear button.", "e": "Leave this action without a shortcut"}, {"s": "Plain Mac tooltips (show without HELP on)", "id": "t79", "fmt": "app + plug-in", "hot": false, "t": "REPORT · SAVE", "d": "Report window, save button.", "e": "Save the report as a folder."}, {"s": "Plain Mac tooltips (show without HELP on)", "id": "t80", "fmt": "app + plug-in", "hot": false, "t": "REPORT BUTTON", "d": "Report button.", "e": "Send a report, log attached."}, {"s": "Plain Mac tooltips (show without HELP on)", "id": "t81", "fmt": "app + plug-in", "hot": false, "t": "MENU BAR ITEM", "d": "Hover the Beat Key item in the menu bar.", "e": "No reading yet  /  Nothing read  /  Key Am · 120 BPM · Manual"}];
+
+// [value, label, key] — button order, and the keys the legend promises.
+const ANS=[["pass", "OK", "o"], ["fail", "Fix", "f"], ["explain", "Huh?", "h"], ["skip", "Skip", "s"]];
+// tally reading order
+const TORDER=['pass','fail','discuss','explain','skip'];
+
+const KEY='beatkey-helptips-0.1.81-a';
+const isHttp=/^https?:$/.test(location.protocol);
+let local={};
+try{ local=JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(e){ local={}; }
+const state={};  // id -> {status, notes}
+
+const tallyEl=document.getElementById('tally');
+tallyEl.innerHTML=TORDER.map(v=>`<span class="${v}" id="t-${v}"><b>0</b>${v}</span>`).join('')
+  +'<span class="done" id="tT">0 / 0</span>';
+
+const list=document.getElementById('list');
+let lastSection='';
+ITEMS.forEach((it,i)=>{
+  if(it.s!==lastSection){ const h=document.createElement('h2'); h.textContent=it.s; list.appendChild(h); lastSection=it.s; }
+  const el=document.createElement('div'); el.className='item'; el.id='item-'+it.id;
+  el.innerHTML=`<div class="num">${i+1}</div><div>
+    <div class="head"><span class="title">${it.t}</span><span class="fmt${it.hot?' hot':''}">${it.fmt}</span>
+      <div class="st" role="toolbar" aria-label="Answer for ${it.t}">${
+        ANS.map(([v,label],n)=>`<button class="${v}" data-v="${v}" id="b-${it.id}-${v}" aria-pressed="false" tabindex="${n?-1:0}">${label}</button>`).join('')
+      }</div></div>
+    <p class="do"><b>Do</b>${it.d}</p>
+    <p class="see"><b>See</b>${it.e}</p>
+    <textarea class="nt" rows="1" id="n-${it.id}" placeholder="What happened. Anything odd, even if it passed — or your question."></textarea>
+  </div>`;
+  list.appendChild(el);
+
+  const grp=el.querySelector('.st');
+  grp.querySelectorAll('button').forEach(b=>b.onclick=()=>{ pick(it.id, b.dataset.v); });
+  grp.addEventListener('keydown',ev=>{
+    if(ev.metaKey||ev.ctrlKey||ev.altKey) return;
+    const k=ev.key.toLowerCase();
+    const hit=ANS.find(a=>a[2]===k);
+    if(hit){ ev.preventDefault(); pick(it.id, hit[0], true); return; }
+    const dir=(k==='arrowright'||k==='arrowdown')?1:(k==='arrowleft'||k==='arrowup')?-1:0;
+    if(dir){
+      ev.preventDefault();
+      const bs=[...grp.querySelectorAll('button')];
+      const n=bs[(Math.max(bs.indexOf(document.activeElement),0)+dir+bs.length)%bs.length];
+      bs.forEach(b=>b.tabIndex=-1); n.tabIndex=0; n.focus();
+    }
+  });
+
+  const ta=el.querySelector('.nt');
+  ta.addEventListener('input',()=>{ state[it.id]={...(state[it.id]||{}), notes:ta.value}; grow(ta); persist(it.id); });
+  ta.addEventListener('focus',()=>grow(ta));
+  ta.addEventListener('blur',()=>grow(ta));
+});
+
+function grow(ta){
+  const base=(document.activeElement===ta)?68:36;
+  ta.style.height='auto';
+  ta.style.height=Math.max(base, ta.scrollHeight+2)+'px';
+}
+
+function pick(id,v,keyboard){
+  const cur=state[id]?.status;
+  setStatus(id, cur===v?'':v);
+  persist(id);
+  if(keyboard){ const b=document.getElementById('b-'+id+'-'+v); if(b){ b.tabIndex=0; b.focus(); } }
+}
+
+function setStatus(id,v){
+  state[id]={...(state[id]||{}), status:v};
+  const el=document.getElementById('item-'+id);
+  el.classList.remove('pass','fail','skip','discuss','explain'); if(v) el.classList.add(v);
+  const bs=[...el.querySelectorAll('.st button')];
+  bs.forEach(b=>{
+    const on=b.dataset.v===v;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', on?'true':'false');
+    b.tabIndex=on?0:-1;
+  });
+  if(!v) bs[0].tabIndex=0;
+  tally();
+}
+function render(id){
+  const s=state[id]||{}; setStatus(id, s.status||'');
+  const ta=document.getElementById('n-'+id);
+  if(document.activeElement!==ta){ ta.value=s.notes||''; grow(ta); }
+}
+function countAll(){
+  const c={pass:0,fail:0,skip:0,discuss:0,explain:0};
+  ITEMS.forEach(it=>{ const v=state[it.id]?.status; if(v && v in c) c[v]++; });
+  return c;
+}
+function tally(){
+  const c=countAll();
+  TORDER.forEach(v=>{
+    const el=document.getElementById('t-'+v);
+    el.querySelector('b').textContent=c[v];
+    el.classList.toggle('zero', c[v]===0);
+  });
+  const done=TORDER.reduce((n,v)=>n+c[v],0);
+  document.getElementById('tT').textContent=done+' / '+ITEMS.length+' done';
+}
+
+const saveEl=document.getElementById('saveState');
+let saveTimer=null, saveInFlight=false, pendingSave=false;
+
+function setPill(mode, when){
+  saveEl.classList.remove('on','bad');
+  if(mode==='saving'){ saveEl.textContent='SAVING…'; }
+  else if(mode==='ok'){ saveEl.textContent='saved to disk '+when; saveEl.classList.add('on'); }
+  else { saveEl.textContent='NOT SAVED TO DISK — relaunch with make.py --launch'; saveEl.classList.add('bad'); }
+}
+
+function buildExportText(){
+  const c=countAll(), done=TORDER.reduce((n,v)=>n+c[v],0);
+  const head='Beat Key help text proofread notes — '+new Date().toLocaleString()
+    +'\n'+done+' / '+ITEMS.length+' done — '+TORDER.map(v=>c[v]+' '+v).join(' · ');
+  const lines=ITEMS.map((it,i)=>{const v=state[it.id]||{}; return (i+1)+'. ['+(v.status||'—')+'] '+it.t+' ('+it.fmt+')'+(v.notes?'\n   '+v.notes.replace(/\n/g,'\n   '):'');});
+  return head+'\n\n'+lines.join('\n');
+}
+
+function diskSave(){
+  if(!isHttp){ setPill('bad'); return; }
+  if(saveInFlight){ pendingSave=true; return; }
+  saveInFlight=true;
+  fetch('/save',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({key:KEY, answers:local, text:buildExportText()})})
+    .then(r=>{ if(!r.ok) throw new Error('bad status'); return r.json(); })
+    .then(j=>setPill('ok', j.saved || new Date().toLocaleTimeString()))
+    .catch(()=>setPill('bad'))
+    .finally(()=>{ saveInFlight=false; if(pendingSave){ pendingSave=false; diskSave(); } });
+}
+
+function persist(id){
+  local[id]={...state[id], t:Date.now()};
+  try{ localStorage.setItem(KEY, JSON.stringify(local)); }catch(e){}
+  if(!isHttp){ setPill('bad'); return; }
+  setPill('saving');
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(diskSave, 300);
+}
+
+document.getElementById('exp').onclick=()=>{
+  const blob=new Blob([buildExportText()],{type:'text/plain'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='beatkey-helptips-0.1.81-a-notes.txt'; a.click();
+};
+
+// initial render from whatever localStorage had, then let disk override if it has a copy.
+ITEMS.forEach(it=>{ state[it.id]={...(local[it.id]||{})}; });
+ITEMS.forEach(it=>render(it.id));
+tally();
+
+if(isHttp){
+  fetch('/notes?key='+encodeURIComponent(KEY)).then(r=>r.json()).then(disk=>{
+    if(disk && Object.keys(disk).length){
+      local=disk;
+      ITEMS.forEach(it=>{ state[it.id]={...(local[it.id]||{})}; render(it.id); });
+      tally();
+    }
+    try{ localStorage.setItem(KEY, JSON.stringify(local)); }catch(e){}
+    diskSave();
+  }).catch(()=>setPill('bad'));
+}else{
+  setPill('bad');
+}
+</script>
+</body></html>
