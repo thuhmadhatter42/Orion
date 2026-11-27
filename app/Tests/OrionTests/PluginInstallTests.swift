@@ -1,159 +1,44 @@
 import XCTest
 @testable import Orion
 
-/// Plan step 16: the plug-ins are choices inside the one installer, the uninstaller knows their paths, and the
-/// app offers "Update Plug-ins…" when what is installed is older than the app. Nothing here touches the real
+/// Plan step 16: the plug-ins are choices inside the one installer, the uninstaller knows their paths, and an update
+/// (Sparkle runs the same pkg) re-ticks exactly the plug-ins already installed. Nothing here touches the real
 /// /Library: every path is a fixture tree in a temp folder.
 @MainActor
 final class PluginInstallTests: XCTestCase {
+    /// One plug-in format as the installer lays it down (system-wide; app/uninstall/uninstall.manifest lists the same paths).
+    struct Format: Equatable {
+        let name: String
+        let path: String
+    }
+
+    static let formats = [
+        Format(name: "Audio Unit", path: "/Library/Audio/Plug-Ins/Components/Beat Key.component"),
+        Format(name: "VST3", path: "/Library/Audio/Plug-Ins/VST3/Beat Key.vst3"),
+        Format(name: "AAX", path: "/Library/Application Support/Avid/Audio/Plug-Ins/Beat Key.aaxplugin"),
+        Format(name: "Audio Unit MIDI", path: "/Library/Audio/Plug-Ins/Components/Beat Key MIDI.component"),
+        Format(name: "VST3 MIDI", path: "/Library/Audio/Plug-Ins/VST3/Beat Key MIDI.vst3"),
+        Format(name: "AAX MIDI", path: "/Library/Application Support/Avid/Audio/Plug-Ins/Beat Key MIDI.aaxplugin"),
+    ]
+
     private var root: URL!
-    private var lines: [String] = []
     private let app = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
         .deletingLastPathComponent().deletingLastPathComponent()          // app/
-    private var realOpener: ((URL) -> Bool)!
-    private var realAsker: ((String) -> Bool)!
 
     override func setUpWithError() throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent("PluginInstallTests-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        lines = []
-        AppLog.sink = { [weak self] l in self?.lines.append(l) }
-        realOpener = PluginUpdate.opener
-        realAsker = PluginUpdate.asker
     }
 
     override func tearDown() {
-        PluginUpdate.opener = realOpener
-        PluginUpdate.asker = realAsker
-        AppLog.sink = nil
         try? FileManager.default.removeItem(at: root)
     }
 
-    private func installBundle(_ f: PluginUpdate.Format, version: String?, under r: URL? = nil) throws {
+    private func installBundle(_ f: Format, version: String?, under r: URL? = nil) throws {
         let base = (r ?? root).path + f.path
         try FileManager.default.createDirectory(atPath: base + "/Contents", withIntermediateDirectories: true)
         let dict: NSDictionary = version.map { ["CFBundleShortVersionString": $0] } ?? [:]
         XCTAssertTrue(dict.write(toFile: base + "/Contents/Info.plist", atomically: true))
-    }
-
-    private func fakeApp(withPackage: Bool) throws -> Bundle {
-        let d = root.appendingPathComponent("Fake.app")
-        try FileManager.default.createDirectory(at: d.appendingPathComponent("Contents/Resources"), withIntermediateDirectories: true)
-        let info: NSDictionary = ["CFBundleIdentifier": "com.example.fake", "CFBundleShortVersionString": "0.1.78"]
-        XCTAssertTrue(info.write(toFile: d.path + "/Contents/Info.plist", atomically: true))
-        if withPackage { try "pkg".write(to: d.appendingPathComponent("Contents/Resources/\(PluginUpdate.packageName)"), atomically: true, encoding: .utf8) }
-        return try XCTUnwrap(Bundle(url: d))
-    }
-
-    // MARK: versions
-
-    func testVersionsCompareAsNumbersNotText() {
-        XCTAssertTrue(PluginUpdate.isOlder("0.1.9", than: "0.1.10"))
-        XCTAssertTrue(PluginUpdate.isOlder("0.1.77", than: "0.1.78"))
-        XCTAssertTrue(PluginUpdate.isOlder("0.9.99", than: "1.0.0"))
-        XCTAssertTrue(PluginUpdate.isOlder("0.1", than: "0.1.1"))
-        XCTAssertFalse(PluginUpdate.isOlder("0.1.78", than: "0.1.78"))
-        XCTAssertFalse(PluginUpdate.isOlder("0.2.0", than: "0.1.99"))
-    }
-
-    func testNothingInstalledIsNotAnUpdate() {
-        XCTAssertEqual(PluginUpdate.status(appVersion: "0.1.78", root: root.path), .notInstalled)
-    }
-
-    func testStatusNamesWhatIsOlder() throws {
-        let au = PluginUpdate.formats[0], v3 = PluginUpdate.formats[1], aax = PluginUpdate.formats[2]
-        try installBundle(au, version: "0.1.77")
-        try installBundle(v3, version: "0.1.78")
-        guard case .older(let old) = PluginUpdate.status(appVersion: "0.1.78", root: root.path) else { return XCTFail("want older") }
-        XCTAssertEqual(old.map(\.format.name), ["Audio Unit"])
-        try installBundle(au, version: "0.1.78")
-        guard case .current(let all) = PluginUpdate.status(appVersion: "0.1.78", root: root.path) else { return XCTFail("want current") }
-        XCTAssertEqual(all.map(\.format.name), ["Audio Unit", "VST3"])
-        // a bundle whose Info.plist has no version is damaged: it counts as old
-        try installBundle(aax, version: nil)
-        guard case .older(let old2) = PluginUpdate.status(appVersion: "0.1.78", root: root.path) else { return XCTFail("want older") }
-        XCTAssertEqual(old2.map(\.format.name), ["AAX"])
-        XCTAssertEqual(PluginUpdate.summary(old2), "AAX unreadable")
-    }
-
-    // MARK: the offer
-
-    private func model(_ b: Bundle, defaults: UserDefaults, version: String = "0.1.78") -> PluginUpdateModel {
-        PluginUpdateModel(appVersion: { version }, root: root.path, bundle: b, defaults: defaults)
-    }
-
-    private func freshDefaults() -> UserDefaults {
-        let name = TestPrefs.name("PluginInstallTests-")
-        let d = UserDefaults(suiteName: name)!
-        addTeardownBlock { d.removePersistentDomain(forName: name) }
-        return d
-    }
-
-    func testOlderPlugInsAreAskedOncePerAppVersionAndYesOpensInstaller() throws {
-        try installBundle(PluginUpdate.formats[0], version: "0.1.77")
-        let b = try fakeApp(withPackage: true), d = freshDefaults()
-        var asked: [String] = [], opened: [URL] = []
-        PluginUpdate.asker = { asked.append($0); return true }
-        PluginUpdate.opener = { opened.append($0); return true }
-        let m = model(b, defaults: d)
-        m.checkAtLaunch()
-        XCTAssertTrue(m.needsUpdate)
-        XCTAssertEqual(asked.count, 1)
-        XCTAssertTrue(asked[0].contains("Audio Unit 0.1.77"), asked[0])
-        XCTAssertEqual(opened.map(\.lastPathComponent), [PluginUpdate.packageName])
-        XCTAssertTrue(lines.contains { $0.contains("[plugins]") && $0.contains("older than Beat Key 0.1.78") }, "\(lines)")
-        XCTAssertTrue(lines.contains { $0.contains("asked to update: yes") }, "\(lines)")
-        XCTAssertTrue(lines.contains { $0.contains("opened \(PluginUpdate.packageName) in Installer") }, "\(lines)")
-        // the second launch of the same version does not ask again; the menu item stays
-        m.checkAtLaunch()
-        XCTAssertEqual(asked.count, 1)
-        XCTAssertTrue(m.needsUpdate)
-        // a newer app asks again
-        let m2 = model(b, defaults: d, version: "0.1.79")
-        m2.checkAtLaunch()
-        XCTAssertEqual(asked.count, 2)
-    }
-
-    func testLaterLeavesTheMenuItemAndOpensNothing() throws {
-        try installBundle(PluginUpdate.formats[1], version: "0.1.70")
-        var opened = 0
-        PluginUpdate.asker = { _ in false }
-        PluginUpdate.opener = { _ in opened += 1; return true }
-        let m = model(try fakeApp(withPackage: true), defaults: freshDefaults())
-        m.checkAtLaunch()
-        XCTAssertEqual(opened, 0)
-        XCTAssertTrue(m.needsUpdate, "the menu item is still there")
-        XCTAssertTrue(lines.contains { $0.contains("asked to update: later") }, "\(lines)")
-    }
-
-    func testNoPlugInsOrCurrentOnesNeverAsk() throws {
-        PluginUpdate.asker = { _ in XCTFail("nothing to ask"); return false }
-        let b = try fakeApp(withPackage: true)
-        let m = model(b, defaults: freshDefaults())
-        m.checkAtLaunch()
-        XCTAssertFalse(m.needsUpdate)
-        XCTAssertTrue(lines.contains { $0.contains("no Beat Key plug-in installed") }, "\(lines)")
-        try installBundle(PluginUpdate.formats[0], version: "0.1.78")
-        m.checkAtLaunch()
-        XCTAssertFalse(m.needsUpdate)
-        XCTAssertTrue(lines.contains { $0.contains("up to date") }, "\(lines)")
-    }
-
-    func testAnAppWithoutThePackageNeverAsksAndSaysSoWhenOpened() throws {
-        try installBundle(PluginUpdate.formats[0], version: "0.1.77")
-        PluginUpdate.asker = { _ in XCTFail("no package, no question"); return false }
-        let m = model(try fakeApp(withPackage: false), defaults: freshDefaults())
-        m.checkAtLaunch()
-        XCTAssertFalse(m.openInstaller())
-        XCTAssertTrue(lines.contains { $0.contains("ERROR") && $0.contains("is not in this copy of Beat Key") }, "\(lines)")
-    }
-
-    func testInstallerThatWillNotOpenIsLogged() throws {
-        try installBundle(PluginUpdate.formats[0], version: "0.1.77")
-        PluginUpdate.opener = { _ in false }
-        let m = model(try fakeApp(withPackage: true), defaults: freshDefaults())
-        XCTAssertFalse(m.openInstaller())
-        XCTAssertTrue(lines.contains { $0.contains("ERROR") && $0.contains("Installer would not open") }, "\(lines)")
     }
 
     // MARK: the uninstall manifest knows the plug-ins
@@ -163,7 +48,7 @@ final class PluginInstallTests: XCTestCase {
 
     func testManifestListsEveryPlugInPathAndReceipt() throws {
         let m = try String(contentsOf: manifestURL, encoding: .utf8)
-        for f in PluginUpdate.formats { XCTAssertTrue(m.contains("system  \(f.path)"), "manifest lacks \(f.path)") }
+        for f in Self.formats { XCTAssertTrue(m.contains("system  \(f.path)"), "manifest lacks \(f.path)") }
         for id in ["au", "vst3", "aax"] { XCTAssertTrue(m.contains("receipt  com.jshriver.orion.plugin.\(id).pkg"), id) }
         XCTAssertTrue(m.contains("receipt  com.jshriver.orion.pkg"))
         XCTAssertTrue(m.contains("user    Library/Audio/Plug-Ins/Components/Beat Key.component"))
@@ -185,7 +70,7 @@ final class PluginInstallTests: XCTestCase {
         let fm = FileManager.default
         let home = root.appendingPathComponent("Users/u")
         try fm.createDirectory(at: home.appendingPathComponent(".Trash"), withIntermediateDirectories: true)
-        for f in PluginUpdate.formats { try installBundle(f, version: "0.1.78") }
+        for f in Self.formats { try installBundle(f, version: "0.1.78") }
         let neighbour = root.appendingPathComponent("Library/Audio/Plug-Ins/Components/Other.component")
         try fm.createDirectory(at: neighbour, withIntermediateDirectories: true)
         try fm.createDirectory(at: root.appendingPathComponent("Applications/Beat Key.app"), withIntermediateDirectories: true)
@@ -194,7 +79,7 @@ final class PluginInstallTests: XCTestCase {
                                 "--root", root.path])
         XCTAssertEqual(rc, 0, out)
         XCTAssertTrue(out.contains("DONE"), out)
-        for f in PluginUpdate.formats {
+        for f in Self.formats {
             XCTAssertFalse(fm.fileExists(atPath: root.path + f.path), "\(f.name) is still installed")
             XCTAssertTrue(out.contains("move \(root.path)\(f.path)"), "\(f.name) was not moved: \(out)")
         }
@@ -210,7 +95,7 @@ final class PluginInstallTests: XCTestCase {
         let fm = FileManager.default
         let home = root.appendingPathComponent("Users/u")
         try fm.createDirectory(at: home, withIntermediateDirectories: true)
-        for f in PluginUpdate.formats { try installBundle(f, version: "0.1.78") }
+        for f in Self.formats { try installBundle(f, version: "0.1.78") }
         let folder = root.appendingPathComponent("Library/Audio/Plug-Ins/VST3")
         try fm.setAttributes([.posixPermissions: 0o555], ofItemAtPath: folder.path)
         defer { try? fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: folder.path) }
@@ -236,7 +121,9 @@ final class PluginInstallTests: XCTestCase {
         XCTAssertEqual(try choice("com.jshriver.orion.pkg").attribute(forName: "visible")?.stringValue, "false", "the app is not a choice")
         for fmt in ["au", "vst3", "aax"] {
             let c = try choice("com.jshriver.orion.plugin.\(fmt)")
-            XCTAssertEqual(c.attribute(forName: "start_selected")?.stringValue, "true", fmt)
+            // an update ticks only what is already installed (distribution.xml JS; app/pkg/test.sh evaluates it)
+            let start = try XCTUnwrap(c.attribute(forName: "start_selected")?.stringValue, fmt)
+            XCTAssertTrue(start.hasPrefix("plugInStartsTicked('/Library/"), "\(fmt): \(start)")
             XCTAssertNotNil(c.attribute(forName: "title")?.stringValue)
             let ref = try XCTUnwrap(c.elements(forName: "pkg-ref").first?.attribute(forName: "id")?.stringValue)
             XCTAssertEqual(ref, "com.jshriver.orion.plugin.\(fmt).pkg")
@@ -255,9 +142,9 @@ final class PluginInstallTests: XCTestCase {
         XCTAssertEqual(try d.nodes(forXPath: "//pkg-ref[@id='com.jshriver.orion.pkg'][@version]").count, 1)
     }
 
-    /// The AAX blocks are fenced by BEGIN / END comments so a build without AAX can drop them: balanced, in both files.
+    /// The AAX blocks are fenced by BEGIN / END comments so a build without AAX can drop them: balanced.
     func testTheAAXBlocksAreFencedAndBalanced() throws {
-        for name in ["distribution.xml", "plugins-distribution.xml"] {
+        for name in ["distribution.xml"] {
             let text = try String(contentsOf: app.appendingPathComponent("pkg/\(name)"), encoding: .utf8)
             let begins = text.components(separatedBy: "<!-- BEGIN AAX -->").count - 1
             let ends = text.components(separatedBy: "<!-- END AAX -->").count - 1
@@ -268,16 +155,31 @@ final class PluginInstallTests: XCTestCase {
 
     // MARK: the build wires it
 
-    func testBuildScriptPacksTheChoicesAndTheUpdatePackage() throws {
+    func testBuildScriptPacksTheChoicesIntoTheOneInstaller() throws {
         let b = try String(contentsOf: app.appendingPathComponent("build.sh"), encoding: .utf8)
-        for needle in ["plugin-pkgs.sh\" build", "plugin-pkgs.sh\" distribution", "plugin-pkgs.sh\" verify",
-                       "Beat-Key-Plug-ins.pkg", "components/\"*.pkg"] {
+        for needle in ["plugin-pkgs.sh\" build", "plugin-pkgs.sh\" distribution", "plugin-pkgs.sh\" verify", "components/\"*.pkg"] {
             XCTAssertTrue(b.contains(needle), "build.sh does not call/ship: \(needle)")
         }
-        // the plug-in packages are built BEFORE the app is assembled (the app's seal covers the package it carries)
-        let packed = try XCTUnwrap(b.range(of: "plugin-pkgs.sh\" build"))
-        let assembled = try XCTUnwrap(b.range(of: "echo \"== assemble"))
-        XCTAssertLessThan(packed.lowerBound, assembled.lowerBound)
+        // one installer: no second plug-ins-only package inside the app, no DMG
+        XCTAssertFalse(b.contains("Beat-Key-Plug-ins.pkg"), "no second installer inside the app")
+        XCTAssertFalse(b.contains("hdiutil"), "no DMG")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: app.appendingPathComponent("pkg/plugins-distribution.xml").path))
+    }
+
+    /// Sparkle's enclosure is the bare signed pkg (the same file people download), typed as a package update.
+    func testAppcastEnclosureIsTheBarePkg() throws {
+        let b = try String(contentsOf: app.appendingPathComponent("build.sh"), encoding: .utf8)
+        XCTAssertTrue(b.contains("<enclosure url=\"${DL_PREFIX}Beat-Key-$VER.pkg\" sparkle:installationType=\"package\""))
+        XCTAssertTrue(b.contains("sign_update\" --ed-key-file \"$ED_FILE\" \"$PKG\""), "the EdDSA signature is of the pkg")
+    }
+
+    /// Sparkle relaunches Beat Key after its install; the postinstall opens it only for a hand-run download.
+    func testPostinstallLeavesTheLaunchToSparkleDuringAnUpdate() throws {
+        let t = try String(contentsOf: app.appendingPathComponent("pkg/postinstall"), encoding: .utf8)
+        XCTAssertTrue(t.contains("Autoupdate com\\.jshriver\\.orion "), "detects Sparkle's helper by its arguments")
+        let guardAt = try XCTUnwrap(t.range(of: "Autoupdate com"))
+        let openAt = try XCTUnwrap(t.range(of: "/usr/bin/open \"$APP\""))
+        XCTAssertLessThan(guardAt.lowerBound, openAt.lowerBound, "the Sparkle check comes before the launch")
     }
 
     func testPostinstallsLogToTheUsersInstallLogAndNeverToTmp() throws {

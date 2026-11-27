@@ -4,11 +4,9 @@
 #
 #   plugin-pkgs.sh build <outdir>
 #       Packs each plug-in bundle into its own component package (plain payload, system-wide, no
-#       relocation): Beat Key and Beat Key MIDI (plan step 15) in each format, six in all, and puts them
-#       into Beat-Key-Plug-ins.pkg, the small installer the app carries to
-#       update the plug-ins (Beat Key menu > Update Plug-ins...). Writes <outdir>/components/*.pkg
-#       and <outdir>/Beat-Key-Plug-ins.pkg. Refuses (reason on stderr, exit 1) when a bundle is
-#       missing, unsigned, not universal, or when the AAX is not signed.
+#       relocation): Beat Key and Beat Key MIDI (plan step 15) in each format, six in all. Writes
+#       <outdir>/components/*.pkg; app/build.sh puts them in the one installer. Refuses (reason on
+#       stderr, exit 1) when a bundle is missing, unsigned, not universal, or when the AAX is not signed.
 #   plugin-pkgs.sh distribution <template.xml> <out.xml> <version> <outdir>
 #       Fills @VERSION@ and drops the AAX choice when the build skipped AAX (BEATKEY_SKIP_AAX=1).
 #   plugin-pkgs.sh verify <pkg>
@@ -112,13 +110,8 @@ component() {
   rm -rf "$stage"
 }
 
-# The signing arguments, as an array: the identity has spaces ("Developer ID Installer: J Shriver (…)"), and a
-# string of them word-split into a dozen arguments and productbuild printed its usage (found 2026-11-19, step 19).
-SIGN_ARGS=()
-[ "$PKG_IDENTITY" = "-" ] || SIGN_ARGS=(--sign "$PKG_IDENTITY" --timestamp)
-
 cmd_build() {
-  local out="${1:?usage: plugin-pkgs.sh build <outdir>}" ver pk
+  local out="${1:?usage: plugin-pkgs.sh build <outdir>}" ver
   ver="$(version)"
   [ "$PKG_IDENTITY" = "-" ] || security find-identity -v | grep -qF "\"$PKG_IDENTITY\"" || refuse "no '$PKG_IDENTITY' installer identity in the keychain"
   rm -rf "$out"; mkdir -p "$out"
@@ -140,12 +133,6 @@ cmd_build() {
   component AU-MIDI   "$AU_MIDI"   "$DEST_AU"   midi.au   "$out"
   component VST3-MIDI "$VST3_MIDI" "$DEST_VST3" midi.vst3 "$out"
   [ "$SKIP_AAX" = 1 ] || component AAX-MIDI "$AAX_MIDI" "$DEST_AAX" midi.aax "$out"
-  # the small product the app carries: just the plug-ins, no "Beat Key is open" check (the app is what runs it)
-  pk="$out/Beat-Key-Plug-ins.pkg"
-  cmd_distribution "$HERE/plugins-distribution.xml" "$out/plugins-distribution.xml" "$ver" "$out"
-  productbuild --distribution "$out/plugins-distribution.xml" --package-path "$out/components" ${SIGN_ARGS[@]+"${SIGN_ARGS[@]}"} "$pk" >/dev/null
-  [ "$PKG_IDENTITY" = "-" ] || pkgutil --check-signature "$pk" >/dev/null || refuse "$pk is not signed"
-  say "product: $(basename "$pk") ($(du -h "$pk" | cut -f1))"
 }
 
 cmd_distribution() {

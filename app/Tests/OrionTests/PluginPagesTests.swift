@@ -45,11 +45,11 @@ final class PluginPagesTests: XCTestCase {
 
     func testTheManualPrintsTheFoldersTheInstallerUses() throws {
         let manual = plain(try page("Manual.html"))
-        for f in PluginUpdate.formats {
+        for f in PluginInstallTests.formats {
             let folder = (f.path as NSString).deletingLastPathComponent
             XCTAssertTrue(manual.contains(folder), "the Manual does not print \(folder)")
         }
-        XCTAssertTrue(manual.contains(Brand.updatePlugins), "the menu item's name is \(Brand.updatePlugins)")
+        XCTAssertFalse(manual.contains("Update Plug-ins"), "there is no second installer to run: plug-ins update with the app")
         XCTAssertTrue(manual.contains("Customize"), "the installer's Customize button")
         XCTAssertTrue(manual.contains("install.log") && manual.contains("plugin.log"))
         XCTAssertTrue(manual.contains("sh \"/Applications/Beat Key.app/Contents/Resources/uninstall.sh\""), "the Terminal form of Uninstall")
@@ -57,7 +57,7 @@ final class PluginPagesTests: XCTestCase {
 
     func testWhatsNewSaysWhatShipsWithThePlugIn() throws {
         let text = plain(try page("WhatsNew.html"))
-        for needle in ["SEND BPM", "SEND AUTO-TUNE", "One download", Brand.updatePlugins, "install.log", "the plug-ins too"] {
+        for needle in ["SEND BPM", "SEND AUTO-TUNE", "One download", "Update Plug-ins…", "install.log", "the plug-ins too"] {
             XCTAssertTrue(text.contains(needle), "What's New lacks \"\(needle)\"")
         }
         // all of it is inside the 0.1.79 section, the one that ships next

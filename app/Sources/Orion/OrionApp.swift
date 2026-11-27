@@ -118,7 +118,6 @@ struct OrionApp: App {
                     NSApp.orderFrontStandardAboutPanel(options: [.applicationName: Brand.name])
                 }
                 CheckForUpdatesButton(updater: updater)
-                UpdatePluginsButton(model: PluginUpdateModel.shared)
                 Button(Brand.runDoctor) { engine.runDoctor() }
                     .disabled(engine.state.isBusy)
                 Button(Brand.setUpPermissions) { PermissionGuide.shared.open(at: nil, why: "menu") }
@@ -290,8 +289,6 @@ struct OrionApp: App {
         // Is this the latest version? One Sparkle background check per launch (the same updater as
         // Check for Updates…); it only shows a window when a newer Beat Key exists.
         updater.checkInBackgroundAtLaunch()
-        // Plug-ins installed by the Beat Key installer and older than this app: ask once per version (PluginUpdate.swift).
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { PluginUpdateModel.shared.checkAtLaunch() }
         // Seed yt-dlp into Application Support, then the weekly self-update, on the shared
         // maintenance queue. The Engine stays idle; downloads and Run Doctor wait their turn.
         Runtime.appDefault().launchMaintenance()

@@ -32,7 +32,6 @@ case "$name $*" in
   "curl "*) printf '%s' "${STUB_HTTP:-303}"; exit 0 ;;
   "ssh-rc js-mac-pro true") [ -n "${STUB_SERVER_DOWN:-}" ] && exit 255; exit 0 ;;
   "ssh-rc js-mac-pro test ! -e"*.pkg) [ -n "${STUB_PKG_ON_SERVER:-}" ] && exit 1; exit 0 ;;
-  "ssh-rc js-mac-pro test ! -e"*) [ -n "${STUB_DMG_ON_SERVER:-}" ] && exit 1; exit 0 ;;
   "ssh-rc js-mac-pro printf"*) echo '{"version": "9.8.7"}'; exit 0 ;;
   "ssh-rc js-mac-pro cat"*)
     if [ -n "${STUB_JSON:-}" ]; then echo "$STUB_JSON"; else echo '{"version": "9.8.7"}'; fi; exit 0 ;;
@@ -43,7 +42,7 @@ echo "unexpected stub call: $name $*" >&2; exit 99
 APPCAST = """<rss><channel><item>
 <sparkle:version>{v}</sparkle:version>
 <sparkle:shortVersionString>{v}</sparkle:shortVersionString>
-<enclosure url="https://github.com/thuhmadhatter42/Orion/releases/download/Beat-Key-{v}/Beat-Key-{v}.dmg" />
+<enclosure url="https://github.com/thuhmadhatter42/Orion/releases/download/Beat-Key-{v}/Beat-Key-{v}.pkg" sparkle:installationType="package" />
 </item></channel></rss>
 """
 
@@ -58,7 +57,6 @@ class PublishShTest(unittest.TestCase):
         shutil.copy(ROOT / "tools" / "publish.sh", self.tmp / "tools" / "publish.sh")
         (self.tmp / "VERSION").write_text(V + "\n")
         (self.tmp / "app" / "build").mkdir(parents=True)
-        (self.tmp / "app" / "build" / f"Beat-Key-{V}.dmg").write_text("dmg")
         (self.tmp / "app" / "build" / f"Beat-Key-{V}.pkg").write_text("pkg")
         (self.tmp / "app" / "build" / "appcast.xml").write_text(APPCAST.format(v=V))
         self.bin = self.tmp / "stubbin"
@@ -90,7 +88,7 @@ class PublishShTest(unittest.TestCase):
         self.assertIn(f"PUBLISHED {V}", out)
         pub = [c for c in calls if c.startswith(PUBLISH_CMDS)]
         order = ["git tag", "git push origin main", "git push origin Beat-Key", "scp app/build/Beat-Key",
-                 "scp app/build/Beat-Key", "ssh-rc js-mac-pro printf", "gh release create"]
+                 "ssh-rc js-mac-pro printf", "gh release create"]
         self.assertEqual(len(pub), len(order), pub)
         for c, want in zip(pub, order):
             self.assertTrue(c.startswith(want), (c, want))
@@ -100,8 +98,9 @@ class PublishShTest(unittest.TestCase):
             self.assertTrue(any(c.startswith(want) for c in calls[:first_pub]), want)
         self.assertNotIn("git tag -f", " ".join(calls))
         rel = [c for c in calls if c.startswith("gh release create")][0]
-        for f in (f"Beat-Key-{V}.pkg", f"Beat-Key-{V}.dmg", "appcast.xml"):
+        for f in (f"Beat-Key-{V}.pkg", "appcast.xml"):
             self.assertIn(f, rel)
+        self.assertNotIn(".dmg", rel, "one installer: no DMG asset")
         self.assertTrue(any(c.startswith("scp") and f"Beat-Key-{V}.pkg" in c and "beat-key-releases" in c for c in calls))
         # log file got timestamped lines
         logtxt = (self.tmp / "app" / "build" / f"publish-{V}.log").read_text()
@@ -117,12 +116,6 @@ class PublishShTest(unittest.TestCase):
         self.assertIn(expect, out)
         self.assertIn("completed: none", out)
         self.assert_nothing_public(calls)
-
-    def test_b_dmg_missing(self):
-        self.check_fails("missing", lambda: (self.tmp / "app/build" / f"Beat-Key-{V}.dmg").unlink())
-
-    def test_b_not_stapled(self):
-        self.check_fails("not stapled", STUB_STAPLE_RC="1")
 
     def test_b_pkg_missing(self):
         self.check_fails("missing", lambda: (self.tmp / "app/build" / f"Beat-Key-{V}.pkg").unlink())
@@ -164,8 +157,10 @@ class PublishShTest(unittest.TestCase):
     def test_b_server_down(self):
         self.check_fails("not reachable", STUB_SERVER_DOWN="1")
 
-    def test_b_dmg_on_server(self):
-        self.check_fails("already holds", STUB_DMG_ON_SERVER="1")
+    def test_b_appcast_enclosure_not_the_pkg(self):
+        # an appcast built by the old flow (DMG enclosure) must not publish
+        self.check_fails("does not name", lambda: (self.tmp / "app/build/appcast.xml").write_text(
+            APPCAST.format(v=V).replace(f"Beat-Key-{V}.pkg", f"Beat-Key-{V}.dmg")))
 
     def test_b_pkg_on_server(self):
         self.check_fails("Beat-Key-9.8.7.pkg (never overwrite)", STUB_PKG_ON_SERVER="1")
@@ -175,7 +170,7 @@ class PublishShTest(unittest.TestCase):
         self.assertNotEqual(r.returncode, 0, out)
         self.assertNotIn("PUBLISHED", out)
         self.assertIn(expect, out)
-        for step in ("tag Beat-Key-9.8.7", "push main", "push tag", "DMG to js-mac-pro", "pkg to js-mac-pro",
+        for step in ("tag Beat-Key-9.8.7", "push main", "push tag", "pkg to js-mac-pro",
                      "beat-key-latest.json", "GitHub release"):
             self.assertIn(f"[{step}]", out.split("FAILED")[-1])
         self.assertTrue(any(c.startswith("gh release create") for c in calls))
@@ -187,13 +182,13 @@ class PublishShTest(unittest.TestCase):
         self.final_fails("expected version 9.8.7", STUB_JSON='{"version": "9.8.6"}')
 
     def test_publish_step_failure_names_state(self):
-        # scp failing mid-publish: tag and pushes done, DMG step reported as the one in progress
+        # scp failing mid-publish: tag and pushes done, pkg step reported as the one in progress
         (self.bin / "scp").write_text("#!/bin/bash\necho \"scp $*\" >> \"$CALL_LOG\"; exit 1\n")
         r, out, calls = self.run_publish()
         self.assertNotEqual(r.returncode, 0)
         tail = out.split("FAILED")[-1]
         self.assertIn("[push tag]", tail)
-        self.assertIn("Stopped during: DMG to js-mac-pro", tail)
+        self.assertIn("Stopped during: pkg to js-mac-pro", tail)
         self.assertFalse(any(c.startswith("gh release create") for c in calls))
 
 

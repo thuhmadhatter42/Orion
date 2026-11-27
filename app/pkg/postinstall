@@ -1,7 +1,8 @@
 #!/bin/bash
 # Beat Key installer, postinstall. Runs as root, after the files are in place. Opens Beat Key for the
 # person who is logged in at the screen (never as root). Never fails the install: whatever happens
-# here, the exit is 0. Installer scripts' output goes to /var/log/install.log; every line is
+# here, the exit is 0. One launch either way: this script opens Beat Key for a hand-run download; in a Sparkle
+# update Sparkle's own relaunch is the one launch. Installer scripts' output goes to /var/log/install.log; every line is
 # prefixed "Beat Key postinstall:", sent to syslog (logger -t BeatKeyInstaller) and, for the person at the
 # screen, appended to ~/Library/Logs/Beat Key/install.log (written AS that person, so a link in their
 # folder cannot aim root at a system file; no /tmp). The plug-in packages log the same way
@@ -34,6 +35,13 @@ if [ -z "$U" ] || [ "$U" = root ] || [ "$U" = loginwindow ]; then
 fi
 UID_="$(/usr/bin/id -u "$U" 2>/dev/null)"
 if [ -z "$UID_" ]; then say "cannot resolve user '$U', not opening Beat Key"; exit 0; fi
+# Sparkle (a Beat Key update) runs this package as `installer -pkg <this> -target /` from its own helper, Autoupdate,
+# started with the arguments: <path>/Autoupdate, <host bundle id>, <home>, <user> (Sparkle InstallerLauncher/SUInstallerLauncher.m).
+# Sparkle quits Beat Key first and relaunches it itself when the install is done (InstallerProgressAppController.m
+# relaunchApplication), so this script must not open it too. A download run by hand has no such helper: it opens Beat Key.
+if /bin/ps -axww -o args= 2>/dev/null | /usr/bin/grep -qE 'Autoupdate com\.jshriver\.orion '; then
+  say "Sparkle is running this install (its Autoupdate helper for com.jshriver.orion is alive); Sparkle relaunches Beat Key, not opening it here"; exit 0
+fi
 if /usr/bin/pgrep -x Orion >/dev/null 2>&1; then
   say "Beat Key (Orion) is still running (the person continued with it open); not starting a second copy. The new version loads the next time Beat Key is opened."
   exit 0

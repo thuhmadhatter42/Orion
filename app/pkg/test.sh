@@ -1,5 +1,5 @@
 #!/bin/bash
-# app/pkg/test.sh: the installer's dry run (plan step 16). Builds the plug-in packages and the two installers
+# app/pkg/test.sh: the installer's dry run (plan step 16). Builds the plug-in packages and the one installer
 # from the REAL signed plug-in bundles in plugin/build.noindex (run `sh plugin/build.sh` first), UNSIGNED packages
 # (PKG_SIGN_IDENTITY=-), in a scratch folder; installs nothing, notarizes nothing, opens no host.
 # Checks: pkgbuild --analyze names each bundle; the component packages carry the right id, version and install
@@ -10,7 +10,7 @@ set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 S="$HERE/plugin-pkgs.sh"
-OUTB="$ROOT/plugin/build.noindex"
+OUTB="${BEATKEY_PLUGIN_BUILD:-$ROOT/plugin/build.noindex}"   # BEATKEY_PLUGIN_BUILD: a built plug-in folder elsewhere (a git worktree has none)
 W="$(mktemp -d "${TMPDIR:-/var/tmp}/beatkey-pkgtest.XXXXXX")"
 trap 'rm -rf "$W"' EXIT
 FAILS=0; N=0
@@ -29,13 +29,13 @@ export BEATKEY_VERSION="$VER"
 # AAX is the AAX step's; this only proves the packaging path.
 ditto "$OUTB/Beat Key.vst3" "$W/aax/Beat Key.aaxplugin"
 ditto "$OUTB/Beat Key MIDI.vst3" "$W/aax/Beat Key MIDI.aaxplugin"
+export BEATKEY_AU="$OUTB/Beat Key.component" BEATKEY_VST3="$OUTB/Beat Key.vst3" BEATKEY_AU_MIDI="$OUTB/Beat Key MIDI.component" BEATKEY_VST3_MIDI="$OUTB/Beat Key MIDI.vst3"
 export BEATKEY_AAX="$W/aax/Beat Key.aaxplugin" BEATKEY_AAX_MIDI="$W/aax/Beat Key MIDI.aaxplugin" BEATKEY_AAX_MARKER="$W/AAX-NOT-PACE-SIGNED" BEATKEY_AAX_VERIFY="$W/none.sh"
 
 echo "== full build: AU + VST3 + AAX, and the same three of Beat Key MIDI"
 OUT="$W/out"
 "$S" build "$OUT" >"$W/build.log" 2>&1 && ok "build exits 0" || { bad "build exits 0"; cat "$W/build.log"; }
 for f in AU VST3 AAX AU-MIDI VST3-MIDI AAX-MIDI; do check "Beat-Key-$f.pkg exists" test -f "$OUT/components/Beat-Key-$f.pkg"; done
-check "Beat-Key-Plug-ins.pkg exists" test -f "$OUT/Beat-Key-Plug-ins.pkg"
 for pair in "AU:au:/Library/Audio/Plug-Ins/Components:Beat Key.component" "VST3:vst3:/Library/Audio/Plug-Ins/VST3:Beat Key.vst3" \
             "AAX:aax:/Library/Application Support/Avid/Audio/Plug-Ins:Beat Key.aaxplugin" \
             "AU-MIDI:midi.au:/Library/Audio/Plug-Ins/Components:Beat Key MIDI.component" "VST3-MIDI:midi.vst3:/Library/Audio/Plug-Ins/VST3:Beat Key MIDI.vst3" \
@@ -56,8 +56,11 @@ for pair in "AU:au:/Library/Audio/Plug-Ins/Components:Beat Key.component" "VST3:
   owner="$(lsbom "$X/Bom" 2>/dev/null | awk -F'\t' -v b="./$BUNDLE" '$1==b {print $3}')"
   [ "$owner" = "0/0" ] && ok "$F payload owned root:wheel ($owner)" || bad "$F payload owner is '$owner', want 0/0"
 done
-check "verify: product pkg, every bundle re-verified" "$S" verify "$OUT/Beat-Key-Plug-ins.pkg"
-"$S" verify "$OUT/Beat-Key-Plug-ins.pkg" 2>&1 | grep -c 'verified inside' | grep -qx 6 && ok "verify saw 6 bundles in the product" || bad "verify saw 6 bundles in the product"
+# the six components wrapped as one product (verify is what build.sh runs on the real installer)
+PAS=(); for c in "$OUT/components/"*.pkg; do PAS+=(--package "$c"); done
+productbuild "${PAS[@]}" "$W/six.pkg" >/dev/null 2>&1 || bad "six components wrapped in a product"
+check "verify: product pkg, every bundle re-verified" "$S" verify "$W/six.pkg"
+"$S" verify "$W/six.pkg" 2>&1 | grep -c 'verified inside' | grep -qx 6 && ok "verify saw 6 bundles in the product" || bad "verify saw 6 bundles in the product"
 
 echo "== the main installer's description"
 "$S" distribution "$HERE/distribution.xml" "$W/dist.xml" "$VER" "$OUT" && ok "distribution filled" || bad "distribution filled"
@@ -71,6 +74,44 @@ check "productbuild builds the main installer from distribution.xml" productbuil
 pkgutil --expand "$W/Beat-Key-test.pkg" "$W/main-x" >/dev/null 2>&1
 check "main installer Distribution lists the AAX choice" grep -q 'plugin.aax' "$W/main-x/Distribution"
 check "main installer carries all seven components" test "$(ls -d "$W/main-x/"*.pkg | wc -l | tr -d ' ')" = 7
+
+echo "== which plug-ins start ticked (installer -showChoicesXML evaluates distribution.xml's JavaScript; installs nothing)"
+# The installer's JS looks at /Applications and /Library. The distribution is copied with those paths pointed at a
+# fixture tree, so each case is a Mac we make up: fresh (no app), an update with some plug-ins, an update with none.
+selected() {  # $1 = pkg, $2 = choice id suffix -> 1 or 0 as Installer's own engine evaluates it
+  installer -pkg "$1" -showChoicesXML -target / 2>/dev/null | python3 -I -c '
+import plistlib, sys
+want = "com.jshriver.orion." + sys.argv[1]
+def find(items):
+    for c in items:
+        if c["choiceIdentifier"] == want: return c["choiceIsSelected"]
+        r = find(c.get("childItems", []))
+        if r is not None: return r
+print(find(plistlib.loads(sys.stdin.buffer.read())))' "$2"
+}
+mac() {  # $1 = name, $2 = app folder name or "none", then the plug-in paths that exist on that Mac
+  local n="$1" a="$2" p; shift 2
+  mkdir -p "$W/mac-$n/apps" "$W/mac-$n/Library"
+  [ "$a" = none ] || mkdir -p "$W/mac-$n/apps/$a"
+  for p in "$@"; do mkdir -p "$W/mac-$n$p"; done
+  sed -e "s#/Applications/#$W/mac-$n/apps/#g" -e "s#'/Library/#'$W/mac-$n/Library/#g" "$W/dist.xml" > "$W/dist-$n.xml"
+  productbuild --distribution "$W/dist-$n.xml" --package-path "$W/main-pkgs" "$W/mac-$n.pkg" >/dev/null 2>&1 || bad "mac $n installer builds"
+}
+AU_P=/Library/Audio/Plug-Ins/Components/"Beat Key.component"; V3M_P=/Library/Audio/Plug-Ins/VST3/"Beat Key MIDI.vst3"
+AAX_P=/Library/Application\ Support/Avid/Audio/Plug-Ins/"Beat Key.aaxplugin"
+mac fresh none
+mac update Beat\ Key.app "$AU_P" "$V3M_P"
+mac nopi Beat\ Key.app
+mac orion Orion.app "/Library/Application Support/Avid/Audio/Plug-Ins/Beat Key.aaxplugin"
+for c in au vst3 aax midi.au midi.vst3 midi.aax; do
+  [ "$(selected "$W/mac-fresh.pkg" "plugin.$c")" = 1 ] && ok "fresh install: $c ticked" || bad "fresh install: $c ticked"
+done
+for c in au midi.vst3; do [ "$(selected "$W/mac-update.pkg" "plugin.$c")" = 1 ] && ok "update, $c installed: ticked" || bad "update, $c installed: ticked"; done
+for c in vst3 aax midi.au midi.aax; do [ "$(selected "$W/mac-update.pkg" "plugin.$c")" = 0 ] && ok "update, $c not installed: not forced on" || bad "update, $c not installed: not forced on"; done
+for c in au vst3 aax midi.au midi.vst3 midi.aax; do [ "$(selected "$W/mac-nopi.pkg" "plugin.$c")" = 0 ] && ok "update, no plug-ins at all: $c not forced on" || bad "update, no plug-ins at all: $c not forced on"; done
+[ "$(selected "$W/mac-orion.pkg" "plugin.aax")" = 1 ] && [ "$(selected "$W/mac-orion.pkg" "plugin.au")" = 0 ] \
+  && ok "an old Orion.app counts as installed (aax ticked, au not)" || bad "an old Orion.app counts as installed"
+[ "$(selected "$W/mac-update.pkg" "pkg")" = 1 ] && ok "the app itself is always installed" || bad "the app itself is always installed"
 
 echo "== refusals"
 : > "$W/AAX-NOT-PACE-SIGNED"
@@ -87,34 +128,18 @@ ditto "$OUTB/Beat Key.component" "$W/unsigned/Beat Key.component"; codesign --re
 refuses "an unsigned AU" "not signed or its seal is broken" env BEATKEY_AU="$W/unsigned/Beat Key.component" "$S" build "$W/out6"
 refuses "a version that is not N.N.N" "not major.minor.patch" env BEATKEY_VERSION=abc "$S" build "$W/out7"
 
-echo "== a signing identity with spaces reaches productbuild as ONE argument"
-# Stand-ins on PATH for the three signing tools (security, productbuild, pkgutil): nothing is signed, the
-# argv productbuild got is written one argument per line. 0.1.78's build split the name into words here.
-mkdir -p "$W/fakebin"
-printf '#!/bin/bash\necho "  1) ABC \\"$FAKE_ID\\""\n' > "$W/fakebin/security"
-printf '#!/bin/bash\nprintf "%%s\\n" "$@" > "$FAKE_ARGV"\nfor a; do last="$a"; done\n: > "$last"\n' > "$W/fakebin/productbuild"
-printf '#!/bin/bash\n[ "$1" = --check-signature ] && exit 0\nexec /usr/sbin/pkgutil "$@"\n' > "$W/fakebin/pkgutil"
-chmod +x "$W/fakebin/"*
-ID="Developer ID Installer: Test Name With Spaces (ABCDE12345)"
-env PATH="$W/fakebin:$PATH" FAKE_ID="$ID" FAKE_ARGV="$W/argv.txt" PKG_SIGN_IDENTITY="$ID" "$S" build "$W/spaces" >"$W/spaces.log" 2>&1 \
-  && ok "build with a spaced identity exits 0" || { bad "build with a spaced identity exits 0"; cat "$W/spaces.log"; }
-grep -qxF "$ID" "$W/argv.txt" 2>/dev/null && ok "productbuild got the identity as one argument" || bad "productbuild got the identity as one argument ($(tr '\n' '|' < "$W/argv.txt" 2>/dev/null))"
-[ "$(grep -n -- '--sign' "$W/argv.txt" | cut -d: -f1)" = "$(( $(grep -nxF "$ID" "$W/argv.txt" | cut -d: -f1) - 1 ))" ] \
-  && ok "--sign is followed by the identity" || bad "--sign is followed by the identity"
-grep -qx -- '--timestamp' "$W/argv.txt" && ok "--timestamp is passed" || bad "--timestamp is passed"
-
 echo "== without AAX"
 BEATKEY_SKIP_AAX=1 "$S" build "$W/noaax" >"$W/noaax.log" 2>&1 && ok "BEATKEY_SKIP_AAX=1 builds" || { bad "BEATKEY_SKIP_AAX=1 builds"; cat "$W/noaax.log"; }
 grep -q 'NO AAX' "$W/noaax.log" && ok "it says so loudly" || bad "it says so loudly"
 check "no AAX component" test ! -f "$W/noaax/components/Beat-Key-AAX.pkg"
 check "no AAX MIDI component" test ! -f "$W/noaax/components/Beat-Key-AAX-MIDI.pkg"
 check "the MIDI AU and VST3 still packed" test -f "$W/noaax/components/Beat-Key-AU-MIDI.pkg" -a -f "$W/noaax/components/Beat-Key-VST3-MIDI.pkg"
-check "product has no AAX MIDI choice" test "$(grep -c 'midi.aax' "$W/noaax/plugins-distribution.xml")" = 0
-check "product has no AAX choice" test "$(grep -c 'plugin.aax' "$W/noaax/plugins-distribution.xml")" = 0
 "$S" distribution "$HERE/distribution.xml" "$W/dist-noaax.xml" "$VER" "$W/noaax" && ok "main distribution without AAX is valid XML" || bad "main distribution without AAX"
 check "main distribution has no AAX choice left" test "$(grep -c 'plugin.aax' "$W/dist-noaax.xml")" = 0
 check "main distribution has no AAX MIDI choice left" test "$(grep -c 'midi.aax' "$W/dist-noaax.xml")" = 0
-check "verify: the AAX-less product" "$S" verify "$W/noaax/Beat-Key-Plug-ins.pkg"
+PAS=(); for c in "$W/noaax/components/"*.pkg; do PAS+=(--package "$c"); done
+productbuild "${PAS[@]}" "$W/four.pkg" >/dev/null 2>&1
+check "verify: the AAX-less components" "$S" verify "$W/four.pkg"
 
 echo
 if [ "$FAILS" -eq 0 ]; then echo "app/pkg/test.sh: $N checks, 0 failed"; exit 0; else echo "app/pkg/test.sh: $N checks, $FAILS FAILED"; exit 1; fi

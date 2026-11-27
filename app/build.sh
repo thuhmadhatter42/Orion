@@ -1,9 +1,9 @@
 #!/bin/bash
-# Builds "Beat Key.app", its signed, notarized, stapled DMG (Sparkle updates) and the signed,
-# notarized, stapled .pkg installer (the download for people).
+# Builds "Beat Key.app" and the signed, notarized, stapled .pkg installer: the one installer, the download for
+# people AND the Sparkle update (appcast.xml's enclosure is this pkg, served bare). No DMG.
 # Public name Beat Key; the executable (Orion), bundle ID and code stay Orion.
-#   app/build.sh                  -> app/build/Beat Key.app, Beat-Key-<VERSION>.dmg, Beat-Key-<VERSION>.pkg (notarized)
-#   app/build.sh --no-notarize    same, stops after signing the DMG and the pkg
+#   app/build.sh                  -> app/build/Beat Key.app, Beat-Key-<VERSION>.pkg (notarized), appcast.xml
+#   app/build.sh --no-notarize    same, stops after signing the pkg (no appcast.xml)
 # Signing is inside-out and never --deep: runtime.sh signs every Mach-O of the tool runtime
 # (yt-dlp and deno with their own entitlements), then the app itself is signed. --deep is for verify only.
 # Nothing is written into the bundle after it is signed.
@@ -18,28 +18,25 @@ NOTARIZE=1
 [ "${1:-}" = --no-notarize ] && NOTARIZE=0
 APP_NAME="Beat Key"                     # = Brand.name (FaceplateTests checks it)
 OUTAPP="$B/$APP_NAME.app"
-DMG="$B/Beat-Key-$VER.dmg"
 PKG="$B/Beat-Key-$VER.pkg"
 PKG_IDENTITY="${PKG_SIGN_IDENTITY:-Developer ID Installer: J Shriver (9WTFGV63S2)}"
 BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")"   # com.jshriver.orion
 # Spotlight finds the app by name for "beat" and "key"; this Finder comment + keywords carry
 # "bpm" and "download". They are xattrs on the bundle folder: not sealed by the signature, and
-# Finder / ditto keep them through the DMG and the drag to Applications.
+# the installer (pkgbuild --root, ditto) keeps them.
 FINDER_COMMENT="YouTube downloader, BPM and key finder: download a beat as MP3, get its BPM, tempo and key."
 KEYWORDS="bpm download youtube mp3 key tempo beat music"
-# Finder layout, shared with app/dmg/make_background.swift
-WIN_W=600; WIN_H=380; ICON=112; APP_X=160; LINK_X=440; ICON_Y=190
 
 security find-identity -v -p codesigning | grep -qF "\"$IDENTITY\"" \
   || { echo "no '$IDENTITY' signing identity in the keychain"; exit 1; }
 # Installer certificates are not "codesigning" identities: list them all
 security find-identity -v | grep -qF "\"$PKG_IDENTITY\"" \
   || { echo "no '$PKG_IDENTITY' installer identity in the keychain"; exit 1; }
-for f in "$APP/pkg/distribution.xml" "$APP/pkg/postinstall" "$APP/pkg/plugin-pkgs.sh" "$APP/pkg/plugin-postinstall" "$APP/pkg/plugins-distribution.xml"; do
+for f in "$APP/pkg/distribution.xml" "$APP/pkg/postinstall" "$APP/pkg/plugin-pkgs.sh" "$APP/pkg/plugin-postinstall"; do
   [ -f "$f" ] || { echo "missing $f"; exit 1; }
 done
-for f in "$APP/icon/Orion.icns" "$APP/icon/Assets.xcassets/AppIcon.appiconset/Contents.json" "$APP/dmg/background.png" "$APP/dmg/background@2x.png"; do
-  [ -f "$f" ] || { echo "missing $f (icon: app/icon/Orion.icns from source-golden-key.png; DMG art: app/dmg/make_background.swift)"; exit 1; }
+for f in "$APP/icon/Orion.icns" "$APP/icon/Assets.xcassets/AppIcon.appiconset/Contents.json"; do
+  [ -f "$f" ] || { echo "missing $f (icon: app/icon/Orion.icns from source-golden-key.png)"; exit 1; }
 done
 echo "== $APP_NAME $VER"
 
@@ -68,8 +65,7 @@ fi
 "$APP/runtime.sh" sign
 
 echo "== plug-ins (AU, VST3, AAX: built and signed by plugin/build.sh, packed by app/pkg/plugin-pkgs.sh)"
-# They are choices inside this one installer and ride inside the app as Beat-Key-Plug-ins.pkg (Update Plug-ins…).
-# The packages are made BEFORE the app is assembled: the app's seal covers the package it carries.
+# They are choices inside this one installer (distribution.xml ticks each on an update only when it is already installed).
 # BEATKEY_PLUGINS_PREBUILT=1 skips plugin/build.sh and packs what is already in plugin/build.noindex.
 export PKG_SIGN_IDENTITY="$PKG_IDENTITY" BEATKEY_VERSION="$VER" BEATKEY_PKG_LOG="$B/plugin-pkgs.log"
 mkdir -p "$B"; : > "$BEATKEY_PKG_LOG"
@@ -105,8 +101,6 @@ for f in Manual.html WhatsNew.html; do
 done
 sh "$APP/tools/licenses.sh" "$OUTAPP/Contents/Resources/Licenses.txt" \
   || { echo "could not generate Licenses.txt (THIRD-PARTY-LICENSES.md + LICENSE)"; exit 1; }
-# The plug-ins alone, for Beat Key menu > Update Plug-ins… (opens it in Installer; PluginUpdate.swift)
-cp "$B/plugin-pkgs/Beat-Key-Plug-ins.pkg" "$OUTAPP/Contents/Resources/Beat-Key-Plug-ins.pkg"
 # House kit, Uninstall: App menu > Uninstall Beat Key… runs this script on this manifest (app/uninstall/)
 for f in uninstall.sh uninstall.manifest; do
   [ -f "$APP/uninstall/$f" ] || { echo "missing $APP/uninstall/$f"; exit 1; }
@@ -186,78 +180,11 @@ xattr -wx com.apple.metadata:kMDItemFinderComment "$(bplist_hex "<string>$FINDER
 xattr -wx com.apple.metadata:kMDItemKeywords "$(bplist_hex "<array>$kw</array>")" "$OUTAPP"
 codesign --verify --deep --strict "$OUTAPP" || { echo "metadata xattrs broke the signature"; exit 1; }
 
-echo "== dmg"
-STAGE="$B/dmg-stage"; RW="$B/Beat-Key-rw.dmg"
-rm -rf "$STAGE" "$RW" "$DMG"
-mkdir -p "$STAGE/.background"
-ditto "$OUTAPP" "$STAGE/$APP_NAME.app"
-ln -s /Applications "$STAGE/Applications"
-tiffutil -cathidpicheck "$APP/dmg/background.png" "$APP/dmg/background@2x.png" \
-  -out "$STAGE/.background/background.tiff" >/dev/null
-hdiutil create -volname "$APP_NAME" -srcfolder "$STAGE" -fs HFS+ -format UDRW -ov "$RW" >/dev/null
-# DMG_LAYOUT_FROM=<an earlier Beat Key DMG>: no Finder, nothing on screen. The volumes mount
-# -nobrowse and the earlier DMG's .DS_Store (same volume name, same .background path) is copied
-# in. Only for a build while someone is using the Mac; the Finder layout below stays the default.
-LAYOUT_FROM="${DMG_LAYOUT_FROM:-}"
-NB=(); [ -n "$LAYOUT_FROM" ] && NB=(-nobrowse)
-MNT="$(hdiutil attach -readwrite -noverify -noautoopen ${NB[@]+"${NB[@]}"} "$RW" | awk -F'\t' '/\/Volumes\//{print $NF}' | tail -1)"
-[ -d "$MNT" ] || { echo "could not mount $RW"; exit 1; }
-VOL="$(basename "$MNT")"
-detach() { hdiutil detach "$MNT" -quiet 2>/dev/null || hdiutil detach "$MNT" -force -quiet 2>/dev/null || true; }
-trap detach EXIT
-if [ -n "$LAYOUT_FROM" ]; then
-  OLD="$(mktemp -d)"
-  hdiutil attach -readonly -nobrowse -noverify -noautoopen -mountpoint "$OLD" "$LAYOUT_FROM" >/dev/null
-  cp "$OLD/.DS_Store" "$MNT/.DS_Store"
-  hdiutil detach "$OLD" -quiet || hdiutil detach "$OLD" -force -quiet
-  rmdir "$OLD" 2>/dev/null || true
-fi
-# Finder lays the window out and writes .DS_Store. Bounds are the whole window; macOS adds the
-# title bar (32 pt on current macOS, measured) on top of the content area, so the height gets
-# TITLE extra.
-TITLE=32
-[ -n "$LAYOUT_FROM" ] || osascript <<EOF
-tell application "Finder"
-  tell disk "$VOL"
-    open
-    set w to container window
-    set current view of w to icon view
-    set toolbar visible of w to false
-    set statusbar visible of w to false
-    set pathbar visible of w to false
-    set sidebar width of w to 0
-    set bounds of w to {200, 120, 200 + $WIN_W, 120 + $WIN_H + $TITLE}
-    set o to icon view options of w
-    set arrangement of o to not arranged
-    set icon size of o to $ICON
-    set text size of o to 12
-    set background picture of o to file ".background:background.tiff"
-    set position of item "$APP_NAME.app" of w to {$APP_X, $ICON_Y}
-    set position of item "Applications" of w to {$LINK_X, $ICON_Y}
-    update without registering applications
-    delay 2
-    close
-    open
-    delay 1
-    close
-  end tell
-end tell
-EOF
-[ -f "$MNT/.DS_Store" ] || { echo "Finder wrote no .DS_Store: layout not saved"; exit 1; }
-chmod -Rf go-w "$MNT" 2>/dev/null || true
-sync
-detach; trap - EXIT
-hdiutil convert "$RW" -format UDZO -imagekey zlib-level=9 -o "$DMG" >/dev/null
-rm -f "$RW"; rm -rf "$STAGE"
-codesign --force --timestamp --sign "$IDENTITY" "$DMG"
-codesign --verify --strict --verbose=2 "$DMG"
-echo "dmg: $DMG ($(du -h "$DMG" | cut -f1))"
-
 echo "== pkg"
 # Installs to /Applications/Beat Key.app and nowhere else: BundleIsRelocatable=false, or Installer
 # "upgrades" a copy it finds elsewhere (app/build/Beat Key.app, a DMG volume) instead.
-# distribution.xml's installation-check stops the installer while Beat Key is running;
-# postinstall opens Beat Key for the logged-in user (log lines "Beat Key postinstall:" in /var/log/install.log and
+# distribution.xml's installation-check stops the installer while Beat Key is running (Sparkle quits it first);
+# postinstall opens Beat Key for the logged-in user, except when Sparkle is installing (Sparkle relaunches) (log lines "Beat Key postinstall:" in /var/log/install.log and
 # in ~/Library/Logs/Beat Key/install.log; the plug-in packages log the same way).
 PK="$B/pkg-stage"
 rm -rf "$PK" "$PKG"
@@ -290,7 +217,7 @@ echo "pkg: $PKG ($(du -h "$PKG" | cut -f1))"
 
 [ "$NOTARIZE" = 1 ] || { echo "== skipped notarization (--no-notarize)"; exit 0; }
 
-notarize_and_staple() {   # $1 = the DMG or the pkg: notarize with $PROFILE, then staple
+notarize_and_staple() {   # $1 = the pkg: notarize with $PROFILE, then staple
   local F="$1" OUTJ ID STATUS
   echo "== notarize $(basename "$F") (profile $PROFILE)"
   OUTJ="$B/notary-$(basename "$F").json"
@@ -305,16 +232,14 @@ notarize_and_staple() {   # $1 = the DMG or the pkg: notarize with $PROFILE, the
   xcrun stapler staple "$F"
   xcrun stapler validate "$F"
 }
-notarize_and_staple "$DMG"
-spctl -a -vv -t open --context context:primary-signature "$DMG"
 notarize_and_staple "$PKG"
 spctl -a -vv -t install "$PKG"
 "$APP/pkg/plugin-pkgs.sh" verify "$PKG"      # the stapled package, expanded again: every bundle still verifies
 
-# ---- BEGIN sparkle: appcast.xml for this DMG (attach both to the GitHub release) ----
-# One <item>: the stapled DMG, EdDSA-signed by sign_update with the exported signing file (no
+# ---- BEGIN sparkle: appcast.xml for this pkg (attach both to the GitHub release) ----
+# One <item>: the stapled pkg, EdDSA-signed by sign_update with the exported signing file (no
 # Keychain prompt). Versions = VERSION (CFBundleVersion = CFBundleShortVersionString). The
-# enclosure is the release asset URL; APPCAST_DOWNLOAD_PREFIX overrides it for a local test feed.
+# enclosure is the release asset URL (a bare flat .pkg; Sparkle runs `installer -pkg` on it: SUGuidedPackageInstaller); APPCAST_DOWNLOAD_PREFIX overrides it for a local test feed.
 ED_FILE="${SPARKLE_ED_FILE:-$HOME/.config/beat-key/sparkle_ed25519_private}"
 SPARKLE_BIN="$APP/.build/artifacts/sparkle/Sparkle/bin"
 DL_PREFIX="${APPCAST_DOWNLOAD_PREFIX:-https://github.com/thuhmadhatter42/Orion/releases/download/Beat-Key-$VER/}"
@@ -322,7 +247,7 @@ APPCAST="$B/appcast.xml"
 echo "== appcast ($APPCAST)"
 [ -f "$ED_FILE" ] || { echo "no Sparkle EdDSA signing file (app/RELEASING.md)"; exit 1; }
 [ -x "$SPARKLE_BIN/sign_update" ] || { echo "no sign_update in $SPARKLE_BIN (swift package resolve)"; exit 1; }
-ENC="$("$SPARKLE_BIN/sign_update" --ed-key-file "$ED_FILE" "$DMG")"   # sparkle:edSignature="…" length="…"
+ENC="$("$SPARKLE_BIN/sign_update" --ed-key-file "$ED_FILE" "$PKG")"   # sparkle:edSignature="…" length="…"
 case "$ENC" in *'sparkle:edSignature="'*'length="'*) ;; *) echo "sign_update gave no signature"; exit 1 ;; esac
 cat > "$APPCAST" <<XML
 <?xml version="1.0" encoding="utf-8"?>
@@ -337,14 +262,14 @@ cat > "$APPCAST" <<XML
       <sparkle:version>$VER</sparkle:version>
       <sparkle:shortVersionString>$VER</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>12.0.0</sparkle:minimumSystemVersion>
-      <enclosure url="${DL_PREFIX}Beat-Key-$VER.dmg" $ENC type="application/octet-stream" />
+      <enclosure url="${DL_PREFIX}Beat-Key-$VER.pkg" sparkle:installationType="package" $ENC type="application/octet-stream" />
     </item>
   </channel>
 </rss>
 XML
 xmllint --noout "$APPCAST"
-"$SPARKLE_BIN/sign_update" --verify --ed-key-file "$ED_FILE" "$DMG" \
+"$SPARKLE_BIN/sign_update" --verify --ed-key-file "$ED_FILE" "$PKG" \
   "$(sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p' <<<"$ENC")"
 echo "appcast: $APPCAST"
 # ---- END sparkle ----
-echo "done: $DMG $PKG"
+echo "done: $PKG"

@@ -5,8 +5,9 @@
 <installer-gui-script minSpecVersion="2">
   <title>Beat Key</title>
   <organization>com.jshriver</organization>
-  <!-- customize="allow": the Customize button shows the plug-in choices (AU, VST3, AAX). The app itself is hidden and always installed. -->
-  <options customize="allow" require-scripts="false" hostArchitectures="arm64,x86_64"/>
+  <!-- customize="allow": the Customize button shows the plug-in choices (AU, VST3, AAX). The app itself is hidden and always installed.
+       require-scripts="true": the plug-in choices' start_selected are JavaScript (plugInStartsTicked below). -->
+  <options customize="allow" require-scripts="true" hostArchitectures="arm64,x86_64"/>
   <os-version min="12.0"/>
   <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
   <installation-check script="beatKeyClosedCheck()"/>
@@ -39,6 +40,26 @@ function beatKeyClosedCheck() {
   my.result.type = 'Fatal';
   return false;
 }
+
+// Which plug-in choices start ticked: ONE installer for a download and for a Sparkle update (Sparkle runs
+// `installer -pkg <this> -target /` as root, nobody sees the Customize pane).
+//   Beat Key is not installed (a fresh install): every plug-in starts ticked.
+//   Beat Key IS installed (an update): a plug-in starts ticked only when its bundle is already on disk, so a
+//   Mac that declined a format never gets it forced on, and a Mac that has one gets it updated in the same run.
+// system.files.fileExistsAtPath(path) -> Boolean. Paths are the ones PluginUpdate.formats / the plug-in packages use.
+function beatKeyAlreadyInstalled() {
+  try {
+    return !!(system.files.fileExistsAtPath('/Applications/Beat Key.app') || system.files.fileExistsAtPath('/Applications/Orion.app'));
+  } catch (e) { system.log('Beat Key check: fileExistsAtPath failed: ' + e); return false; }
+}
+function plugInStartsTicked(bundlePath) {
+  var ticked = true;
+  try {
+    if (beatKeyAlreadyInstalled()) { ticked = !!system.files.fileExistsAtPath(bundlePath); }
+  } catch (e) { system.log('Beat Key check: plug-in state failed: ' + e); ticked = true; }
+  system.log('Beat Key check: ' + bundlePath + (ticked ? ' starts ticked' : ' starts unticked'));
+  return ticked;
+}
 ]]></script>
   <!-- Plug-ins are choices in this one download (plan 16, J 2026-11-19: one download, one version). Each is its own component
        package built by app/pkg/plugin-pkgs.sh: a plain payload into the folder the hosts read, the same for every user.
@@ -65,25 +86,25 @@ function beatKeyClosedCheck() {
     <pkg-ref id="com.jshriver.orion.pkg"/>
   </choice>
   <choice id="com.jshriver.orion.plugins" title="Plug-ins" description="Beat Key on a track: key and BPM, with SEND BPM and SEND AUTO-TUNE. Beat Key MIDI also plays the key as MIDI notes. Pick the formats your DAWs use."/>
-  <choice id="com.jshriver.orion.plugin.au" start_selected="true" title="Audio Unit" description="For Audio Unit hosts such as Logic Pro. Installs to /Library/Audio/Plug-Ins/Components.">
+  <choice id="com.jshriver.orion.plugin.au" start_selected="plugInStartsTicked('/Library/Audio/Plug-Ins/Components/Beat Key.component')" title="Audio Unit" description="For Audio Unit hosts such as Logic Pro. Installs to /Library/Audio/Plug-Ins/Components.">
     <pkg-ref id="com.jshriver.orion.plugin.au.pkg"/>
   </choice>
-  <choice id="com.jshriver.orion.plugin.vst3" start_selected="true" title="VST3" description="For VST3 hosts. Installs to /Library/Audio/Plug-Ins/VST3.">
+  <choice id="com.jshriver.orion.plugin.vst3" start_selected="plugInStartsTicked('/Library/Audio/Plug-Ins/VST3/Beat Key.vst3')" title="VST3" description="For VST3 hosts. Installs to /Library/Audio/Plug-Ins/VST3.">
     <pkg-ref id="com.jshriver.orion.plugin.vst3.pkg"/>
   </choice>
   <!-- BEGIN AAX -->
-  <choice id="com.jshriver.orion.plugin.aax" start_selected="true" title="AAX" description="For Pro Tools. Installs to /Library/Application Support/Avid/Audio/Plug-Ins.">
+  <choice id="com.jshriver.orion.plugin.aax" start_selected="plugInStartsTicked('/Library/Application Support/Avid/Audio/Plug-Ins/Beat Key.aaxplugin')" title="AAX" description="For Pro Tools. Installs to /Library/Application Support/Avid/Audio/Plug-Ins.">
     <pkg-ref id="com.jshriver.orion.plugin.aax.pkg"/>
   </choice>
   <!-- END AAX -->
-  <choice id="com.jshriver.orion.plugin.midi.au" start_selected="true" title="Audio Unit: Beat Key MIDI" description="Beat Key MIDI: the key in use as MIDI notes, plus a drag-out MIDI file. Installs to /Library/Audio/Plug-Ins/Components.">
+  <choice id="com.jshriver.orion.plugin.midi.au" start_selected="plugInStartsTicked('/Library/Audio/Plug-Ins/Components/Beat Key MIDI.component')" title="Audio Unit: Beat Key MIDI" description="Beat Key MIDI: the key in use as MIDI notes, plus a drag-out MIDI file. Installs to /Library/Audio/Plug-Ins/Components.">
     <pkg-ref id="com.jshriver.orion.plugin.midi.au.pkg"/>
   </choice>
-  <choice id="com.jshriver.orion.plugin.midi.vst3" start_selected="true" title="VST3: Beat Key MIDI" description="Beat Key MIDI: the key in use as MIDI notes, plus a drag-out MIDI file. Installs to /Library/Audio/Plug-Ins/VST3.">
+  <choice id="com.jshriver.orion.plugin.midi.vst3" start_selected="plugInStartsTicked('/Library/Audio/Plug-Ins/VST3/Beat Key MIDI.vst3')" title="VST3: Beat Key MIDI" description="Beat Key MIDI: the key in use as MIDI notes, plus a drag-out MIDI file. Installs to /Library/Audio/Plug-Ins/VST3.">
     <pkg-ref id="com.jshriver.orion.plugin.midi.vst3.pkg"/>
   </choice>
   <!-- BEGIN AAX -->
-  <choice id="com.jshriver.orion.plugin.midi.aax" start_selected="true" title="AAX: Beat Key MIDI" description="Beat Key MIDI for Pro Tools. Installs to /Library/Application Support/Avid/Audio/Plug-Ins.">
+  <choice id="com.jshriver.orion.plugin.midi.aax" start_selected="plugInStartsTicked('/Library/Application Support/Avid/Audio/Plug-Ins/Beat Key MIDI.aaxplugin')" title="AAX: Beat Key MIDI" description="Beat Key MIDI for Pro Tools. Installs to /Library/Application Support/Avid/Audio/Plug-Ins.">
     <pkg-ref id="com.jshriver.orion.plugin.midi.aax.pkg"/>
   </choice>
   <!-- END AAX -->

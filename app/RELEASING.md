@@ -23,22 +23,21 @@ release must carry an `appcast.xml`, or update checks fail with a 404.
 
 1. Bump `VERSION` (last number +1). The version is both `CFBundleVersion` and
    `CFBundleShortVersionString`, and Sparkle compares it, so it must only go up.
-2. Build: `app/build.sh` (on a Mac someone is using, add
-   `DMG_LAYOUT_FROM=<an earlier Beat Key DMG>` so no Finder window opens). It ends with
-   `app/build/Beat-Key-<ver>.pkg` (the download for people), `app/build/Beat-Key-<ver>.dmg` (for
-   Sparkle updates only), both signed (the pkg with `Developer ID Installer: J Shriver (9WTFGV63S2)`,
-   override `PKG_SIGN_IDENTITY`), notarized and stapled, and `app/build/appcast.xml` (one
-   item for that DMG, EdDSA-signed, enclosure
-   `https://github.com/thuhmadhatter42/Orion/releases/download/Beat-Key-<ver>/Beat-Key-<ver>.dmg`).
+2. Build: `app/build.sh`. It ends with `app/build/Beat-Key-<ver>.pkg`, the ONE installer: the download for
+   people and the Sparkle update. It is signed (`Developer ID Installer: J Shriver (9WTFGV63S2)`, override
+   `PKG_SIGN_IDENTITY`), notarized and stapled. `app/build/appcast.xml` has one item for that pkg, EdDSA-signed
+   (`sign_update` on the pkg), enclosure
+   `https://github.com/thuhmadhatter42/Orion/releases/download/Beat-Key-<ver>/Beat-Key-<ver>.pkg` with
+   `sparkle:installationType="package"`. There is no DMG. `--no-notarize` stops after signing the pkg and writes no appcast.
 3. Commit everything (the script needs HEAD on `main` with tracked files clean), then publish with
    `bash tools/publish.sh`, which reads `VERSION`. Since 0.1.62 it does all of this in three phases
    and logs to `app/build/publish-<ver>.log`:
-   - checks, nothing changed anywhere: DMG and pkg stapled, pkg signed (`pkgutil --check-signature`), `appcast.xml` names `<ver>`, the tag
-     `Beat-Key-<ver>` and the GitHub release do not exist yet, Sofia reachable and not already
-     holding `Beat-Key-<ver>.dmg` or `Beat-Key-<ver>.pkg`;
-   - publish: tag, push `main` and the tag, DMG and pkg to Sofia
+   - checks, nothing changed anywhere: pkg stapled and signed (`pkgutil --check-signature`), `appcast.xml` names `<ver>`
+     with the pkg as its enclosure, the tag `Beat-Key-<ver>` and the GitHub release do not exist yet, Sofia reachable and not
+     already holding `Beat-Key-<ver>.pkg`;
+   - publish: tag, push `main` and the tag, the pkg to Sofia
      `~/fourletterrecords/beat-key-releases/` (never overwrites), `beat-key-latest.json` =
-     `{"version": "<ver>"}`, the friends page, and last the GitHub release with the pkg, the DMG and
+     `{"version": "<ver>"}`, and last the GitHub release with the pkg and
      `appcast.xml` (the step every installed Beat Key sees). No restart of anything;
    - final check: `https://fourletterrecords.com/account/download/beat-key` answers 303 and
      `beat-key-latest.json` on Sofia names `<ver>`. Only then it prints `PUBLISHED <ver>`; any
@@ -56,7 +55,15 @@ plist that sets `BundleIsRelocatable = false`, so it always installs `/Applicati
 for an `Orion.app` / `Beat Key.app` bundle path) shows "Beat Key is open. Quit Beat Key, then click
 Continue." while Beat Key runs. `postinstall` opens Beat Key as the logged-in console user. Both log
 to `/var/log/install.log` (lines `JS: Beat Key check:` and `Beat Key postinstall:`).
-Sparkle keeps using the DMG (it quits Beat Key itself before installing); the pkg is only the download.
+An update is this same pkg, run ONCE, with one administrator password prompt: the appcast enclosure is the bare pkg, and
+Sparkle (2.10.1, `Autoupdate/SUGuidedPackageInstaller.m`) runs `installer -pkg <pkg> -target /` as root after it has quit
+Beat Key (`AppInstaller.m`: the install waits for the app to terminate), so `beatKeyClosedCheck` passes. A bare `.pkg` is
+treated as a package update without the `sparkle:installationType` attribute (`SUAppcastItem.m`); build.sh writes
+`sparkle:installationType="package"` anyway. Package updates need the EdDSA signature on the feed item and do not work in
+unsigned dev builds (Sparkle 2.7.3 and later), so only a signed build counts. One launch: Sparkle relaunches Beat Key when it
+is done, and `postinstall` does not open it when Sparkle's `Autoupdate` helper for `com.jshriver.orion` is running (it
+opens it for a download run by hand). There is no second installer: no launch-time question, no Update Plug-ins menu item,
+no plug-ins package inside the app.
 Every launch, Beat Key also asks Sparkle for one background check (no timer).
 
 ### The plug-ins are choices in the same installer (plan step 16)
@@ -66,24 +73,25 @@ Every launch, Beat Key also asks Sparkle for one background check (no timer).
 `/Library/Audio/Plug-Ins/Components`), `Beat-Key-VST3.pkg` (`/Library/Audio/Plug-Ins/VST3`) and
 `Beat-Key-AAX.pkg` (`/Library/Application Support/Avid/Audio/Plug-Ins`): plain payloads, root-owned, not
 relocatable, one receipt each (`com.jshriver.orion.plugin.{au,vst3,aax}.pkg`). `distribution.xml` makes them
-choices under Customize; all start ticked. Each plug-in package has a postinstall that only reads and logs
+choices under Customize. `start_selected` is Installer JS (`plugInStartsTicked`): with no `/Applications/Beat Key.app` or
+`Orion.app` (a fresh install) every plug-in starts ticked; with the app installed (an update) a plug-in starts ticked only
+when its bundle is already on disk (the six paths in `uninstall.manifest`), so a format a user declined is never forced on
+and a format they have is updated in the same run. `app/pkg/test.sh` evaluates this with `installer -showChoicesXML` on fixture
+Macs. Each plug-in package has a postinstall that only reads and logs
 (`app/pkg/plugin-postinstall`), like the app's: `/var/log/install.log` and `~/Library/Logs/Beat Key/install.log`.
 - Refuses to package when the AAX is missing, its seal is broken, `plugin/build.noindex/AAX-NOT-PACE-SIGNED`
   exists (the file plugin/build.sh leaves when the AAX signing step did not run), or the verify script
   `~/.config/beat-key/aax-verify.sh` (outside the repo, if present) says no. `BEATKEY_SKIP_AAX=1` builds an
   installer with no AAX, and says so.
-- The same plug-in packages also ride inside the app as `Contents/Resources/Beat-Key-Plug-ins.pkg`. Sparkle
-  updates Beat Key (the DMG); at the next launch Beat Key reads the installed plug-ins' versions and, if any
-  is older than the app, asks once and adds Beat Key menu > Update Plug-ins… (opens that package in Installer;
-  one password). `PluginUpdate.swift`.
 - After signing and again after notarizing, build.sh runs `plugin-pkgs.sh verify <pkg>`: the pkg is expanded and
   every bundle inside is re-checked with `codesign --verify --deep --strict`, and each must install where its
   format belongs.
-- Dry run on the real signed bundles, nothing installed or notarized: `sh app/pkg/test.sh`.
+- Dry run on the real signed bundles, nothing installed or notarized: `sh app/pkg/test.sh`
+  (`BEATKEY_PLUGIN_BUILD=<plugin/build.noindex>` points it at built bundles from another checkout).
 
 ## Testing an update without publishing
 
-Build the newer version with `APPCAST_DOWNLOAD_PREFIX=http://127.0.0.1:<port>/`, serve its DMG and
+Build the newer version with `APPCAST_DOWNLOAD_PREFIX=http://127.0.0.1:<port>/`, serve its pkg and
 appcast with `python3 -m http.server <port> --bind 127.0.0.1`, point the installed older Beat Key at
 it with `defaults write com.jshriver.orion SUFeedURL http://127.0.0.1:<port>/appcast.xml`, and
 use Check for Updates…. Afterwards: `defaults delete com.jshriver.orion SUFeedURL`, stop the server.
