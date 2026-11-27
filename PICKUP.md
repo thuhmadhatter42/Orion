@@ -410,3 +410,9 @@ NOT mine: J's hand retests (owed list below), publish.sh [CLOSED: 0.1.57 and 0.1
 **Plan done:** `docs/superpowers/plans/2026-10-06-old-mac-support.md` + `-TOC.md`, all boxes ticked.
 
 **Closed by J 2026-10-06 — never raise again:** Studio-E-2 old `beat` window; the 13:38 "152.0 BPM" file in Studio-E-2 Downloads; the trap 70/140 rule (J halves/doubles by ear); the iMessage watcher (one-off, not doing it).
+
+## 2026-11-26 21:55 — 0.1.84 published (one installer for updates)
+- Sparkle now installs the pkg (app + plug-ins in one run); "Update Plug-ins" step removed; DMG no longer built. E2E Sparkle test passed on MBP (0.1.83 -> 0.1.84, plug-ins updated, MIDI AU stayed absent, one relaunch).
+- GitHub release + appcast live (200, names 0.1.84, .pkg enclosure). pkg + beat-key-latest.json on Sofia (piped over ssh; scp to Sofia hangs).
+- OPEN: fourletterrecords.com answers 502 (whole site), Sofia Tailscale ssh wedged — handoff ~/.claude/handoff/FROM-BEATKEY-2026-11-26-sofia-wedged-flr-502.md. Re-check download page 303 once the site is back.
+- Studio D/E/F/tech shop not updated (need J go).
