@@ -33,6 +33,8 @@ rm -rf "$N"; mkdir -p "$N"; ditto -x -k "$Z" "$N" || { echo "FAIL: unzip"; exit 
 ver() { defaults read "$1/Contents/Info" CFBundleShortVersionString 2>/dev/null || echo "?"; }
 swap() { # $1 new bundle, $2 installed path
   local old; old=$(ver "$2")
+  [ "$old" = "$V" ] && { echo "already $V: $2"; return; }
+  [ -O "$2" ] || { echo "SKIP (owned by $(stat -f %Su "$2"); the pkg installer replaces it): $2"; return; }
   mv "$2" "$HOME/.Trash/$(basename "$2" | sed 's/\.[^.]*$//')-$old-$now.${2##*.}" && echo "trashed $2"
   ditto "$1" "$2" && echo "$2 $old -> $(ver "$2")" || echo "ERROR copying to $2"; }
 if [ -d "/Applications/Beat Key.app" ]; then swap "$N/Beat Key.app" "/Applications/Beat Key.app"
