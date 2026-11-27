@@ -11,7 +11,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 SSH_RC=${SSH_RC:-$HOME/.claude/scripts/ssh-rc}   # the required wrapper: plain ssh to Sofia always exits 0
-HOST=js-mac-pro
+# Sofia: the Thunderbolt link (sofia-tb) when it answers, else Tailscale (js-mac-pro). BEATKEY_SOFIA_HOST overrides.
+if [ -n "${BEATKEY_SOFIA_HOST:-}" ]; then HOST=$BEATKEY_SOFIA_HOST
+elif "$SSH_RC" sofia-tb true >/dev/null 2>&1; then HOST=sofia-tb
+else HOST=js-mac-pro; fi
 V=$(tr -d '[:space:]' < VERSION)
 P=app/build/Beat-Key-$V.pkg
 A=app/build/appcast.xml
